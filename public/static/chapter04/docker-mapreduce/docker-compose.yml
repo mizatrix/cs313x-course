@@ -1,0 +1,115 @@
+# ============================================================
+#  MapReduce Distributed Indexing Demo — docker-compose.yml
+# ============================================================
+#  Architecture:
+#    3 Mappers  → parse documents, emit (term, docID) pairs
+#    1 Coordinator → shuffles pairs by hash(term) % R to reducers
+#    2 Reducers → build final inverted index partitions
+#
+#  Shared volumes connect the containers (simulating network I/O):
+#    - data/        → input documents (read by mappers)
+#    - map_output/  → mapper outputs (read by coordinator)
+#    - shuffled/    → coordinator shuffle output (read by reducers)
+#    - reducer_output/ → reducer index partitions
+#    - final_output/   → merged final index
+#
+#  Run:  docker-compose up --build
+#  View: docker-compose logs -f
+#  Stop: docker-compose down
+# ============================================================
+
+services:
+
+  # ── MAPPER 0 ───────────────────────────────────────────────
+  mapper_0:
+    build: ./mapper
+    container_name: mapper_0
+    environment:
+      - MAPPER_ID=mapper_0
+      - INPUT_DIR=/data
+      - OUTPUT_DIR=/map_output
+      - TOTAL_MAPPERS=3
+    volumes:
+      - ./data:/data:ro
+      - map_output:/map_output
+
+  # ── MAPPER 1 ───────────────────────────────────────────────
+  mapper_1:
+    build: ./mapper
+    container_name: mapper_1
+    environment:
+      - MAPPER_ID=mapper_1
+      - INPUT_DIR=/data
+      - OUTPUT_DIR=/map_output
+      - TOTAL_MAPPERS=3
+    volumes:
+      - ./data:/data:ro
+      - map_output:/map_output
+
+  # ── MAPPER 2 ───────────────────────────────────────────────
+  mapper_2:
+    build: ./mapper
+    container_name: mapper_2
+    environment:
+      - MAPPER_ID=mapper_2
+      - INPUT_DIR=/data
+      - OUTPUT_DIR=/map_output
+      - TOTAL_MAPPERS=3
+    volumes:
+      - ./data:/data:ro
+      - map_output:/map_output
+
+  # ── COORDINATOR (Master Node) ──────────────────────────────
+  coordinator:
+    build: ./coordinator
+    container_name: coordinator
+    depends_on:
+      - mapper_0
+      - mapper_1
+      - mapper_2
+    environment:
+      - MAP_OUTPUT_DIR=/map_output
+      - SHUFFLE_DIR=/shuffled
+      - REDUCER_OUTPUT_DIR=/reducer_output
+      - FINAL_OUTPUT_DIR=/final_output
+      - TOTAL_MAPPERS=3
+      - REDUCER_IDS=reducer_a,reducer_b
+    volumes:
+      - map_output:/map_output:ro
+      - shuffled:/shuffled
+      - reducer_output:/reducer_output:ro
+      - final_output:/final_output
+
+  # ── REDUCER A (Terms with hash % 2 == 0) ───────────────────
+  reducer_a:
+    build: ./reducer
+    container_name: reducer_a
+    depends_on:
+      - coordinator
+    environment:
+      - REDUCER_ID=reducer_a
+      - SHUFFLE_DIR=/shuffled
+      - OUTPUT_DIR=/reducer_output
+    volumes:
+      - shuffled:/shuffled:ro
+      - reducer_output:/reducer_output
+
+  # ── REDUCER B (Terms with hash % 2 == 1) ───────────────────
+  reducer_b:
+    build: ./reducer
+    container_name: reducer_b
+    depends_on:
+      - coordinator
+    environment:
+      - REDUCER_ID=reducer_b
+      - SHUFFLE_DIR=/shuffled
+      - OUTPUT_DIR=/reducer_output
+    volumes:
+      - shuffled:/shuffled:ro
+      - reducer_output:/reducer_output
+
+volumes:
+  map_output:
+  shuffled:
+  reducer_output:
+  final_output:

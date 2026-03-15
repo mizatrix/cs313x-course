@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stemming vs Lemmatization — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242838;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.3);
+            --green: #00e676;
+            --red: #ff5252;
+            --orange: #ffab40;
+            --blue: #40c4ff;
+            --pink: #f06292;
+            --teal: #26c6da;
+            --text: #e8eaf6;
+            --text-dim: #9a9cb8;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--teal), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            max-width: 640px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: 'Inter', monospace;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #5a52e0;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Examples */
+        .examples {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .example-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-chip:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .example-chip.fp {
+            border-color: rgba(255, 82, 82, 0.3);
+        }
+
+        .example-chip.fn {
+            border-color: rgba(255, 171, 64, 0.3);
+        }
+
+        /* Dual pipeline */
+        .dual-pipeline {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .dual-pipeline {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pipeline-col {
+            position: relative;
+            padding: 20px;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .pipeline-col.stemmer {
+            background: linear-gradient(180deg, rgba(38, 198, 218, 0.06), transparent);
+            border-color: rgba(38, 198, 218, 0.2);
+        }
+
+        .pipeline-col.lemmatizer {
+            background: linear-gradient(180deg, rgba(240, 98, 146, 0.06), transparent);
+            border-color: rgba(240, 98, 146, 0.2);
+        }
+
+        .pipeline-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .pipeline-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .stemmer .pipeline-icon {
+            background: rgba(38, 198, 218, 0.15);
+        }
+
+        .lemmatizer .pipeline-icon {
+            background: rgba(240, 98, 146, 0.15);
+        }
+
+        .pipeline-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .stemmer .pipeline-title {
+            color: var(--teal);
+        }
+
+        .lemmatizer .pipeline-title {
+            color: var(--pink);
+        }
+
+        .pipeline-step {
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.4s;
+            opacity: 0.35;
+        }
+
+        .pipeline-step.active {
+            opacity: 1;
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .pipeline-step.done {
+            opacity: 0.85;
+        }
+
+        .pipeline-step .step-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .pipeline-step .step-content {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .pipeline-step .step-rule {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .pipeline-result {
+            margin-top: 12px;
+            padding: 14px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 1.4rem;
+            font-weight: 800;
+            display: none;
+        }
+
+        .stemmer .pipeline-result {
+            background: rgba(38, 198, 218, 0.1);
+            border: 1px solid rgba(38, 198, 218, 0.3);
+            color: var(--teal);
+        }
+
+        .lemmatizer .pipeline-result {
+            background: rgba(240, 98, 146, 0.1);
+            border: 1px solid rgba(240, 98, 146, 0.3);
+            color: var(--pink);
+        }
+
+        .word-transform {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 4px;
+            font-size: 0.85rem;
+        }
+
+        .word-transform .from {
+            color: var(--text-dim);
+            text-decoration: line-through;
+        }
+
+        .word-transform .arrow {
+            color: var(--text-dim);
+        }
+
+        /* Comparison table */
+        .compare-table {
+            margin-top: 24px;
+        }
+
+        .compare-table table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 2px;
+            font-size: 0.85rem;
+        }
+
+        .compare-table th {
+            background: var(--surface2);
+            color: var(--text-dim);
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .compare-table th.stem-col {
+            color: var(--teal);
+        }
+
+        .compare-table th.lemma-col {
+            color: var(--pink);
+        }
+
+        .compare-table td {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .compare-table td.match-cell {
+            color: var(--green);
+        }
+
+        .compare-table td.diff-cell {
+            color: var(--orange);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 6px;
+        }
+
+        .badge-fp {
+            background: rgba(255, 82, 82, 0.15);
+            color: var(--red);
+        }
+
+        .badge-fn {
+            background: rgba(255, 171, 64, 0.15);
+            color: var(--orange);
+        }
+
+        .info-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .info-card p,
+        .info-card li {
+            color: var(--text-dim);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+
+        .info-card ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .info-card code {
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--blue);
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 20px 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>✂️ Stemming vs Lemmatization</h1>
+            <p>Compare how a rule-based stemmer (Porter) and a dictionary-based lemmatizer process the same word — side
+                by side, step by step.</p>
+        </header>
+
+        <div class="card">
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Enter a word</label>
+                    <input type="text" id="word-input" value="running" maxlength="25">
+                </div>
+                <button class="btn btn-primary" onclick="processWord()">🔍 Analyze</button>
+                <button class="btn btn-secondary" id="btn-step" onclick="stepForward()" disabled>▶ Step</button>
+                <button class="btn btn-success" id="btn-auto" onclick="autoPlay()" disabled>⏩ Auto Play</button>
+                <button class="btn btn-secondary" id="btn-reset" onclick="resetViz()" disabled>↩ Reset</button>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom: 8px;">Try these examples:</div>
+            <div class="examples">
+                <div class="example-chip" onclick="tryWord('running')">running</div>
+                <div class="example-chip" onclick="tryWord('studies')">studies</div>
+                <div class="example-chip" onclick="tryWord('better')">better</div>
+                <div class="example-chip" onclick="tryWord('flies')">flies</div>
+                <div class="example-chip" onclick="tryWord('happily')">happily</div>
+                <div class="example-chip" onclick="tryWord('caresses')">caresses</div>
+                <div class="example-chip" onclick="tryWord('ponies')">ponies</div>
+                <div class="example-chip" onclick="tryWord('having')">having</div>
+                <div class="example-chip fp" onclick="tryWord('university')">university <span
+                        class="badge badge-fp">FP</span></div>
+                <div class="example-chip fp" onclick="tryWord('universe')">universe <span
+                        class="badge badge-fp">FP</span></div>
+                <div class="example-chip fn" onclick="tryWord('ran')">ran <span class="badge badge-fn">FN</span></div>
+                <div class="example-chip fn" onclick="tryWord('brought')">brought <span class="badge badge-fn">FN</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="step-text" class="card"
+            style="font-size:0.95rem;line-height:1.7;min-height:50px;color:var(--text);display:none;">Press
+            <strong>Analyze</strong> then <strong>Step</strong> to trace through each algorithm step.
+        </div>
+
+        <div class="dual-pipeline" id="dual-pipeline"></div>
+
+        <div class="card compare-table" id="compare-table-card" style="display:none">
+            <h2>Batch Comparison</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Word</th>
+                        <th class="stem-col">Porter Stem</th>
+                        <th class="lemma-col">Lemma</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="compare-body"></tbody>
+            </table>
+        </div>
+
+        <div class="card info-card">
+            <h2>Key Differences</h2>
+            <ul>
+                <li><strong style="color:var(--teal)">Stemming</strong> chops off word endings using <em>rules</em>
+                    (e.g. remove "-ing", "-ed", "-tion"). Fast but crude — may produce non-words.</li>
+                <li><strong style="color:var(--pink)">Lemmatization</strong> uses a <em>dictionary + morphological
+                        analysis</em> to find the actual root word (lemma). More accurate but slower.</li>
+            </ul>
+            <p style="margin-top:12px"><strong>False Positive (FP):</strong> Stemmer maps unrelated words to the same
+                root (e.g. "university" & "universe" → "univers").</p>
+            <p><strong>False Negative (FN):</strong> Stemmer fails to map related words to the same root (e.g. "ran"
+                stays "ran" instead of "run").</p>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+            <h2 style="color:var(--accent);font-size:1.1rem;margin-bottom:12px;">📜 Algorithm Pseudocode</h2>
+            <pre
+                style="background:var(--bg);border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:16px;font-size:0.82rem;line-height:1.8;overflow-x:auto;color:var(--text);font-family:'Courier New',monospace;"><code><span style="color:var(--teal);font-weight:bold">── STEMMER (Rule-Based) ──</span>
+<span style="color:var(--accent)">PORTER-STEM</span>(word)
+ 1  <span style="color:var(--orange)">for each</span> step s ∈ {1a, 1b, 1c, 2, 3, 4, 5} <span style="color:var(--orange)">do</span>
+ 2    <span style="color:var(--orange)">for each</span> rule (suffix → replacement) <span style="color:var(--orange)">in</span> s <span style="color:var(--orange)">do</span>
+ 3      <span style="color:var(--orange)">if</span> word ends with suffix <span style="color:var(--orange)">then</span>
+ 4        stem ← word - suffix
+ 5        <span style="color:var(--orange)">if</span> CONDITION(stem) <span style="color:var(--orange)">then</span>    <span style="color:var(--text-dim)">// e.g., m > 0</span>
+ 6          word ← stem + replacement
+ 7          <span style="color:var(--orange)">break</span>                  <span style="color:var(--text-dim)">// only first match per step</span>
+ 8  <span style="color:var(--orange)">return</span> word
+
+<span style="color:var(--pink);font-weight:bold">── LEMMATIZER (Dictionary-Based) ──</span>
+<span style="color:var(--accent)">LEMMATIZE</span>(word)
+ 1  pos ← POS-TAG(word)              <span style="color:var(--text-dim)">// Part-of-Speech tagging</span>
+ 2  <span style="color:var(--orange)">if</span> word ∈ IRREGULAR-TABLE[pos] <span style="color:var(--orange)">then</span>
+ 3    <span style="color:var(--orange)">return</span> IRREGULAR-TABLE[pos][word]  <span style="color:var(--text-dim)">// ran→run, better→good</span>
+ 4  suffix ← DETECT-INFLECTION(word, pos)
+ 5  <span style="color:var(--orange)">if</span> suffix found <span style="color:var(--orange)">then</span>
+ 6    base ← REMOVE-INFLECTION(word, suffix)
+ 7    <span style="color:var(--orange)">if</span> base ∈ DICTIONARY <span style="color:var(--orange)">then</span>
+ 8      <span style="color:var(--orange)">return</span> base               <span style="color:var(--text-dim)">// valid word confirmed</span>
+ 9  <span style="color:var(--orange)">return</span> word                     <span style="color:var(--text-dim)">// already in base form</span></code></pre>
+        </div>
+    </div>
+
+    <script>
+        // ─── Simplified Porter Stemmer (educational, shows steps) ───
+        function porterSteps(word) {
+            const steps = [];
+            let w = word.toLowerCase();
+            steps.push({ label: 'Input', value: w, rule: '' });
+
+            // Step 1a: plurals
+            const s1a_rules = [
+                [/sses$/, 'ss', 'sses → ss'],
+                [/ies$/, 'i', 'ies → i'],
+                [/ss$/, 'ss', 'ss → ss (no change)'],
+                [/s$/, '', 's → ∅ (remove trailing s)'],
+            ];
+            let applied = false;
+            for (const [re, rep, desc] of s1a_rules) {
+                if (re.test(w)) {
+                    const prev = w;
+                    w = w.replace(re, rep);
+                    if (prev !== w) {
+                        steps.push({ label: 'Step 1a: Plurals', value: w, rule: desc });
+                        applied = true;
+                    }
+                    break;
+                }
+            }
+            if (!applied) steps.push({ label: 'Step 1a: Plurals', value: w, rule: 'No plural suffix found' });
+
+            // Step 1b: past tense / progressive
+            applied = false;
+            if (/eed$/.test(w)) {
+                if (measureGt0(w.replace(/eed$/, ''))) {
+                    w = w.replace(/eed$/, 'ee');
+                    steps.push({ label: 'Step 1b: Tense', value: w, rule: 'eed → ee' });
+                    applied = true;
+                }
+            } else if (/ed$/.test(w) && hasVowel(w.replace(/ed$/, ''))) {
+                w = w.replace(/ed$/, '');
+                steps.push({ label: 'Step 1b: Tense', value: w, rule: 'ed → ∅ (has vowel in stem)' });
+                applied = true;
+                w = step1bHelper(w, steps);
+            } else if (/ing$/.test(w) && hasVowel(w.replace(/ing$/, ''))) {
+                w = w.replace(/ing$/, '');
+                steps.push({ label: 'Step 1b: Tense', value: w, rule: 'ing → ∅ (has vowel in stem)' });
+                applied = true;
+                w = step1bHelper(w, steps);
+            }
+            if (!applied) steps.push({ label: 'Step 1b: Tense', value: w, rule: 'No tense suffix found' });
+
+            // Step 1c: y → i
+            if (/y$/.test(w) && hasVowel(w.slice(0, -1))) {
+                w = w.replace(/y$/, 'i');
+                steps.push({ label: 'Step 1c: Y → I', value: w, rule: 'y → i (vowel in stem)' });
+            } else {
+                steps.push({ label: 'Step 1c: Y → I', value: w, rule: 'No change' });
+            }
+
+            // Step 2: double suffixes
+            const s2_rules = [
+                [/ational$/, 'ate'], [/tional$/, 'tion'], [/enci$/, 'ence'],
+                [/anci$/, 'ance'], [/izer$/, 'ize'], [/abli$/, 'able'],
+                [/alli$/, 'al'], [/entli$/, 'ent'], [/eli$/, 'e'],
+                [/ousli$/, 'ous'], [/ization$/, 'ize'], [/ation$/, 'ate'],
+                [/ator$/, 'ate'], [/alism$/, 'al'], [/iveness$/, 'ive'],
+                [/fulness$/, 'ful'], [/ousness$/, 'ous'], [/aliti$/, 'al'],
+                [/iviti$/, 'ive'], [/biliti$/, 'ble'],
+            ];
+            applied = false;
+            for (const [re, rep] of s2_rules) {
+                if (re.test(w)) {
+                    const stem = w.replace(re, '');
+                    if (measureGt0(stem)) {
+                        const prev = w;
+                        w = stem + rep;
+                        steps.push({ label: 'Step 2: Suffixes', value: w, rule: `${prev.match(re)[0]} → ${rep}` });
+                        applied = true;
+                    }
+                    break;
+                }
+            }
+            if (!applied) steps.push({ label: 'Step 2: Suffixes', value: w, rule: 'No matching suffix' });
+
+            // Step 3: derivational II
+            const s3_rules = [
+                [/icate$/, 'ic'], [/ative$/, ''], [/alize$/, 'al'],
+                [/iciti$/, 'ic'], [/ical$/, 'ic'], [/ful$/, ''], [/ness$/, ''],
+            ];
+            applied = false;
+            for (const [re, rep] of s3_rules) {
+                if (re.test(w)) {
+                    const stem = w.replace(re, '');
+                    if (measureGt0(stem)) {
+                        const prev = w;
+                        w = stem + rep;
+                        steps.push({ label: 'Step 3: Derivational II', value: w, rule: `${prev.match(re)[0]} → ${rep || '∅'}` });
+                        applied = true;
+                    }
+                    break;
+                }
+            }
+            if (!applied) steps.push({ label: 'Step 3: Derivational II', value: w, rule: 'No matching suffix' });
+
+            // Step 4: clean suffixes (m > 1)
+            const s4_suffixes = [/al$/, /ance$/, /ence$/, /er$/, /ic$/, /able$/, /ible$/, /ant$/, /ement$/, /ment$/, /ent$/, /ion$/, /ou$/, /ism$/, /ate$/, /iti$/, /ous$/, /ive$/, /ize$/];
+            applied = false;
+            for (const re of s4_suffixes) {
+                if (re.test(w)) {
+                    const stem = w.replace(re, '');
+                    if (measureGt1(stem)) {
+                        if (re.source === 'ion$' && !/[st]$/.test(stem)) continue;
+                        const prev = w;
+                        w = stem;
+                        steps.push({ label: 'Step 4: Clean Suffixes', value: w, rule: `${prev.match(re)[0]} → ∅ (m > 1)` });
+                        applied = true;
+                    }
+                    break;
+                }
+            }
+            if (!applied) steps.push({ label: 'Step 4: Clean Suffixes', value: w, rule: 'No matching suffix' });
+
+            // Step 5: final cleanup
+            if (/e$/.test(w)) {
+                const stem = w.slice(0, -1);
+                if (measureGt1(stem) || (measureEq1(stem) && !endsWithCVC(stem))) {
+                    w = stem;
+                    steps.push({ label: 'Step 5: Cleanup', value: w, rule: 'Remove trailing e' });
+                } else {
+                    steps.push({ label: 'Step 5: Cleanup', value: w, rule: 'Keep trailing e (m ≤ 1)' });
+                }
+            } else {
+                steps.push({ label: 'Step 5: Cleanup', value: w, rule: 'No trailing e' });
+            }
+
+            return { result: w, steps };
+        }
+
+        function step1bHelper(w, steps) {
+            if (/at$/.test(w) || /bl$/.test(w) || /iz$/.test(w)) {
+                w += 'e';
+                steps.push({ label: 'Step 1b fix', value: w, rule: 'Add e after at/bl/iz' });
+            } else if (/([^aeiouslz])\1$/.test(w)) {
+                w = w.slice(0, -1);
+                steps.push({ label: 'Step 1b fix', value: w, rule: 'Remove double consonant' });
+            } else if (measureEq1(w) && endsWithCVC(w)) {
+                w += 'e';
+                steps.push({ label: 'Step 1b fix', value: w, rule: 'Short word: add e' });
+            }
+            return w;
+        }
+
+        function isConsonant(w, i) {
+            const c = w[i];
+            if ('aeiou'.includes(c)) return false;
+            if (c === 'y') return i === 0 || !isConsonant(w, i - 1);
+            return true;
+        }
+
+        function measure(w) {
+            let m = 0, i = 0;
+            while (i < w.length && isConsonant(w, i)) i++;
+            while (i < w.length) {
+                while (i < w.length && !isConsonant(w, i)) i++;
+                m++;
+                while (i < w.length && isConsonant(w, i)) i++;
+            }
+            return m;
+        }
+
+        function measureGt0(w) { return measure(w) > 0; }
+        function measureGt1(w) { return measure(w) > 1; }
+        function measureEq1(w) { return measure(w) === 1; }
+        function hasVowel(w) { for (let i = 0; i < w.length; i++) if (!isConsonant(w, i)) return true; return false; }
+        function endsWithCVC(w) {
+            const n = w.length;
+            if (n < 3) return false;
+            return isConsonant(w, n - 1) && !isConsonant(w, n - 2) && isConsonant(w, n - 3) && !'wxy'.includes(w[n - 1]);
+        }
+
+        // ─── Simplified Lemmatizer (dictionary-based) ───
+        const LEMMA_DICT = {
+            'running': { lemma: 'run', steps: [{ label: 'POS Tag', value: 'running', rule: 'Identified as Verb (gerund)' }, { label: 'Morphology', value: 'runn + ing', rule: 'Recognize "-ing" suffix' }, { label: 'Dictionary', value: 'run', rule: 'Lookup: "run" is a valid verb base form' }] },
+            'runs': { lemma: 'run', steps: [{ label: 'POS Tag', value: 'runs', rule: 'Identified as Verb (3rd person singular)' }, { label: 'Morphology', value: 'run + s', rule: 'Remove "-s" inflection' }, { label: 'Dictionary', value: 'run', rule: 'Lookup: "run" ✓' }] },
+            'ran': { lemma: 'run', steps: [{ label: 'POS Tag', value: 'ran', rule: 'Identified as Verb (past tense)' }, { label: 'Morphology', value: 'ran → ?', rule: 'Irregular verb — cannot apply rules' }, { label: 'Dictionary', value: 'run', rule: 'Irregular lookup table: ran → run' }] },
+            'studies': { lemma: 'study', steps: [{ label: 'POS Tag', value: 'studies', rule: 'Identified as Verb/Noun' }, { label: 'Morphology', value: 'stud + ies', rule: 'Recognize "-ies" (y → ies)' }, { label: 'Dictionary', value: 'study', rule: 'Lookup: "study" ✓' }] },
+            'better': { lemma: 'good', steps: [{ label: 'POS Tag', value: 'better', rule: 'Identified as Adjective (comparative)' }, { label: 'Morphology', value: 'better → ?', rule: 'Irregular comparative — no suffix rule' }, { label: 'Dictionary', value: 'good', rule: 'Irregular lookup: better → good' }] },
+            'flies': { lemma: 'fly', steps: [{ label: 'POS Tag', value: 'flies', rule: 'Identified as Verb/Noun' }, { label: 'Morphology', value: 'fl + ies', rule: 'Recognize "-ies" (y → ies)' }, { label: 'Dictionary', value: 'fly', rule: 'Lookup: "fly" ✓' }] },
+            'happily': { lemma: 'happy', steps: [{ label: 'POS Tag', value: 'happily', rule: 'Identified as Adverb' }, { label: 'Morphology', value: 'happi + ly', rule: 'Remove "-ly", restore y' }, { label: 'Dictionary', value: 'happy', rule: 'Lookup: "happy" ✓ (adjective base)' }] },
+            'caresses': { lemma: 'caress', steps: [{ label: 'POS Tag', value: 'caresses', rule: 'Identified as Verb/Noun' }, { label: 'Morphology', value: 'caress + es', rule: 'Remove "-es" plural/conjugation' }, { label: 'Dictionary', value: 'caress', rule: 'Lookup: "caress" ✓' }] },
+            'ponies': { lemma: 'pony', steps: [{ label: 'POS Tag', value: 'ponies', rule: 'Identified as Noun (plural)' }, { label: 'Morphology', value: 'pon + ies', rule: 'Recognize "-ies" (y → ies)' }, { label: 'Dictionary', value: 'pony', rule: 'Lookup: "pony" ✓' }] },
+            'having': { lemma: 'have', steps: [{ label: 'POS Tag', value: 'having', rule: 'Identified as Verb (gerund)' }, { label: 'Morphology', value: 'hav + ing', rule: 'Remove "-ing", note e-deletion' }, { label: 'Dictionary', value: 'have', rule: 'Lookup: "have" ✓' }] },
+            'university': { lemma: 'university', steps: [{ label: 'POS Tag', value: 'university', rule: 'Identified as Noun' }, { label: 'Morphology', value: 'university', rule: 'No inflectional suffix found' }, { label: 'Dictionary', value: 'university', rule: 'Already in base form ✓' }] },
+            'universe': { lemma: 'universe', steps: [{ label: 'POS Tag', value: 'universe', rule: 'Identified as Noun' }, { label: 'Morphology', value: 'universe', rule: 'No inflectional suffix found' }, { label: 'Dictionary', value: 'universe', rule: 'Already in base form ✓' }] },
+            'brought': { lemma: 'bring', steps: [{ label: 'POS Tag', value: 'brought', rule: 'Identified as Verb (past tense)' }, { label: 'Morphology', value: 'brought → ?', rule: 'Irregular verb — no suffix rule' }, { label: 'Dictionary', value: 'bring', rule: 'Irregular lookup: brought → bring' }] },
+        };
+
+        // Fallback lemmatizer
+        function fallbackLemma(word) {
+            let w = word.toLowerCase();
+            const steps = [{ label: 'POS Tag', value: w, rule: 'Auto-detected' }];
+            let result = w;
+            if (w.endsWith('ies') && w.length > 4) { result = w.slice(0, -3) + 'y'; steps.push({ label: 'Morphology', value: result, rule: 'ies → y' }); }
+            else if (w.endsWith('es') && w.length > 3) { result = w.slice(0, -2); steps.push({ label: 'Morphology', value: result, rule: 'Remove -es' }); }
+            else if (w.endsWith('ing') && w.length > 5) { result = w.slice(0, -3); steps.push({ label: 'Morphology', value: result, rule: 'Remove -ing' }); }
+            else if (w.endsWith('ed') && w.length > 4) { result = w.slice(0, -2); steps.push({ label: 'Morphology', value: result, rule: 'Remove -ed' }); }
+            else if (w.endsWith('s') && w.length > 3) { result = w.slice(0, -1); steps.push({ label: 'Morphology', value: result, rule: 'Remove -s' }); }
+            else { steps.push({ label: 'Morphology', value: w, rule: 'No inflection found' }); }
+            steps.push({ label: 'Dictionary', value: result, rule: `Best guess: "${result}"` });
+            return { lemma: result, steps };
+        }
+
+        let history = [];
+
+        function tryWord(word) {
+            document.getElementById('word-input').value = word;
+            processWord();
+        }
+
+        function processWord() {
+            const word = document.getElementById('word-input').value.trim().toLowerCase();
+            if (!word) return;
+
+            const stemResult = porterSteps(word);
+            const lemmaEntry = LEMMA_DICT[word] || fallbackLemma(word);
+
+            renderDualPipeline(word, stemResult, lemmaEntry);
+            addToHistory(word, stemResult.result, lemmaEntry.lemma);
+
+            currentStepIdx = -1;
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('btn-reset').disabled = false;
+            const stepTextEl = document.getElementById('step-text');
+            stepTextEl.style.display = 'block';
+            stepTextEl.innerHTML = `Word analyzed! <strong>${vizSteps.length} steps</strong> across both pipelines. Press <strong>Step</strong> to trace through each one.`;
+        }
+
+        function renderDualPipeline(word, stemResult, lemmaEntry) {
+            const el = document.getElementById('dual-pipeline');
+
+            // Stemmer side
+            let stemHTML = `<div class="pipeline-col stemmer">
+            <div class="pipeline-header">
+                <div class="pipeline-icon">✂️</div>
+                <div class="pipeline-title">Porter Stemmer</div>
+            </div>`;
+            for (const step of stemResult.steps) {
+                stemHTML += `<div class="pipeline-step done">
+                <div class="step-label">${step.label}</div>
+                <div class="step-content">${step.value}</div>
+                <div class="step-rule">${step.rule}</div>
+            </div>`;
+            }
+            stemHTML += `<div class="pipeline-result" style="display:block">
+            <div>${stemResult.result}</div>
+            <div class="word-transform"><span class="from">${word}</span> <span class="arrow">→</span> <span>${stemResult.result}</span></div>
+        </div></div>`;
+
+            // Lemmatizer side
+            let lemmaHTML = `<div class="pipeline-col lemmatizer">
+            <div class="pipeline-header">
+                <div class="pipeline-icon">📖</div>
+                <div class="pipeline-title">Lemmatizer</div>
+            </div>`;
+            for (const step of lemmaEntry.steps) {
+                lemmaHTML += `<div class="pipeline-step done">
+                <div class="step-label">${step.label}</div>
+                <div class="step-content">${step.value}</div>
+                <div class="step-rule">${step.rule}</div>
+            </div>`;
+            }
+            lemmaHTML += `<div class="pipeline-result" style="display:block">
+            <div>${lemmaEntry.lemma}</div>
+            <div class="word-transform"><span class="from">${word}</span> <span class="arrow">→</span> <span>${lemmaEntry.lemma}</span></div>
+        </div></div>`;
+
+            el.innerHTML = stemHTML + lemmaHTML;
+
+            // Hide all steps initially
+            const allPipeSteps = el.querySelectorAll('.pipeline-step');
+            allPipeSteps.forEach(s => {
+                s.style.display = 'none';
+            });
+            const results = el.querySelectorAll('.pipeline-result');
+            results.forEach(r => { r.style.display = 'none'; });
+
+            // Store all step elements for the step-through
+            vizSteps = Array.from(allPipeSteps);
+            vizResults = Array.from(results);
+        }
+
+        let vizSteps = [];
+        let vizResults = [];
+        let currentStepIdx = -1;
+        let autoTimer = null;
+
+        function stepForward() {
+            if (currentStepIdx >= vizSteps.length - 1) {
+                // Show results
+                vizResults.forEach(r => { r.style.display = 'block'; r.style.opacity = '1'; });
+                document.getElementById('step-text').innerHTML = `<strong style="color:var(--green)">🎉 Done!</strong> Both pipelines complete. Compare the Porter Stemmer result vs the Lemmatizer result above.`;
+                stopAuto();
+                document.getElementById('btn-step').disabled = true;
+                document.getElementById('btn-auto').disabled = true;
+                return;
+            }
+            currentStepIdx++;
+            const el = vizSteps[currentStepIdx];
+            if (el) {
+                el.style.display = 'block';
+                el.classList.add('done');
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // Update step text
+            const stepLabel = el ? el.querySelector('.step-label') : null;
+            const stepRule = el ? el.querySelector('.step-rule') : null;
+            const stepContent = el ? el.querySelector('.step-content') : null;
+            const isLeft = currentStepIdx < vizSteps.length / 2;
+            const side = isLeft ? '✂️ Stemmer' : '📖 Lemmatizer';
+            document.getElementById('step-text').innerHTML = `<strong style="color:var(--${isLeft ? 'teal' : 'pink'})">${side} — ${stepLabel ? stepLabel.textContent : ''}:</strong> ` +
+                `<code style="background:var(--surface2);padding:2px 8px;border-radius:4px;color:var(--blue)">${stepContent ? stepContent.textContent : ''}</code><br>` +
+                `<span style="color:var(--text-dim)">${stepRule ? stepRule.textContent : ''}</span>`;
+        }
+
+        function autoPlay() {
+            if (autoTimer) { stopAuto(); return; }
+            document.getElementById('btn-auto').textContent = '⏸ Pause';
+            autoTimer = setInterval(() => {
+                if (currentStepIdx >= vizSteps.length - 1) {
+                    stepForward(); // Show final results
+                    stopAuto();
+                    return;
+                }
+                stepForward();
+            }, 1000);
+        }
+
+        function stopAuto() {
+            clearInterval(autoTimer); autoTimer = null;
+            document.getElementById('btn-auto').textContent = '⏩ Auto Play';
+        }
+
+        function resetViz() {
+            stopAuto();
+            currentStepIdx = -1;
+            vizSteps.forEach(s => { s.style.display = 'none'; s.classList.remove('done'); });
+            vizResults.forEach(r => { r.style.display = 'none'; });
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('step-text').innerHTML = 'Reset. Press <strong>Step</strong> to trace again.';
+        }
+
+        function addToHistory(word, stem, lemma) {
+            // Avoid duplicates
+            if (history.some(h => h.word === word)) return;
+
+            history.push({ word, stem, lemma });
+            const card = document.getElementById('compare-table-card');
+            card.style.display = 'block';
+            const tbody = document.getElementById('compare-body');
+
+            const isSame = stem === lemma;
+            let note = '';
+            // FP check: university/universe
+            if (['university', 'universe'].includes(word)) note = '<span class="badge badge-fp">FP risk</span>';
+            if (['ran', 'brought'].includes(word)) note = '<span class="badge badge-fn">FN (stemmer misses)</span>';
+            if (stem !== lemma) note += ' Different results';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td>${word}</td>
+            <td class="${isSame ? 'match-cell' : 'diff-cell'}">${stem}</td>
+            <td class="${isSame ? 'match-cell' : 'diff-cell'}">${lemma}</td>
+            <td>${note}</td>
+        `;
+            tbody.appendChild(row);
+        }
+    </script>
+</body>
+
+</html>

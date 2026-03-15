@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS313x — Chapter 02: Text Processing & Tokenization</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0c14;
+            --surface: #131620;
+            --surface2: #1c2030;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.25);
+            --green: #00e676;
+            --teal: #26c6da;
+            --orange: #ffab40;
+            --pink: #f06292;
+            --blue: #40c4ff;
+            --red: #ff5252;
+            --yellow: #ffd740;
+            --text: #e8eaf6;
+            --text-dim: #7a7d98;
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 80px 24px 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(108, 99, 255, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: rgba(108, 99, 255, 0.12);
+            border: 1px solid rgba(108, 99, 255, 0.2);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--accent), var(--teal), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            max-width: 560px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* Grid */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius);
+            padding: 32px 28px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(108, 99, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 30px var(--accent-glow);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: var(--radius) var(--radius) 0 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+
+        .card:hover .card-icon {
+            transform: scale(1.1);
+        }
+
+        .card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+
+        .card p {
+            font-size: 0.88rem;
+            color: var(--text-dim);
+            line-height: 1.65;
+            flex: 1;
+        }
+
+        .card-tag {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Card themes */
+        .card.skip::before {
+            background: linear-gradient(90deg, var(--accent), var(--blue));
+        }
+
+        .card.skip .card-icon {
+            background: rgba(108, 99, 255, 0.12);
+        }
+
+        .card.skip .card-tag {
+            background: rgba(108, 99, 255, 0.12);
+            color: var(--accent);
+        }
+
+        .card.edit::before {
+            background: linear-gradient(90deg, var(--green), var(--blue));
+        }
+
+        .card.edit .card-icon {
+            background: rgba(0, 230, 118, 0.1);
+        }
+
+        .card.edit .card-tag {
+            background: rgba(0, 230, 118, 0.1);
+            color: var(--green);
+        }
+
+        .card.soundex::before {
+            background: linear-gradient(90deg, var(--orange), var(--pink));
+        }
+
+        .card.soundex .card-icon {
+            background: rgba(255, 171, 64, 0.1);
+        }
+
+        .card.soundex .card-tag {
+            background: rgba(255, 171, 64, 0.1);
+            color: var(--orange);
+        }
+
+        .card.stem::before {
+            background: linear-gradient(90deg, var(--teal), var(--pink));
+        }
+
+        .card.stem .card-icon {
+            background: rgba(38, 198, 218, 0.1);
+        }
+
+        .card.stem .card-tag {
+            background: rgba(38, 198, 218, 0.1);
+            color: var(--teal);
+        }
+
+        .card.token::before {
+            background: linear-gradient(90deg, var(--yellow), var(--orange));
+        }
+
+        .card.token .card-icon {
+            background: rgba(255, 215, 64, 0.1);
+        }
+
+        .card.token .card-tag {
+            background: rgba(255, 215, 64, 0.1);
+            color: var(--yellow);
+        }
+
+        .card.porter::before {
+            background: linear-gradient(90deg, var(--blue), var(--accent));
+        }
+
+        .card.porter .card-icon {
+            background: rgba(64, 196, 255, 0.1);
+        }
+
+        .card.porter .card-tag {
+            background: rgba(64, 196, 255, 0.1);
+            color: var(--blue);
+        }
+
+        .card.quiz::before {
+            background: linear-gradient(90deg, var(--red), var(--orange));
+        }
+
+        .card.quiz .card-icon {
+            background: rgba(255, 82, 82, 0.1);
+        }
+
+        .card.quiz .card-tag {
+            background: rgba(255, 82, 82, 0.1);
+            color: var(--red);
+        }
+
+        /* Section headers */
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            margin-top: 50px;
+            padding-left: 4px;
+        }
+
+        .section-label:first-of-type {
+            margin-top: 0;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 24px;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero {
+                padding: 50px 16px 40px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <div class="badge">CS313x • Week 2</div>
+        <h1>Text Processing &<br>Tokenization</h1>
+        <p>Interactive visualizations to help you master the core concepts of information retrieval text processing —
+            from tokenization to edit distance.</p>
+    </div>
+
+    <div class="container">
+        <div class="section-label">🔍 Core Concepts</div>
+        <div class="grid">
+            <a class="card skip" href="skip-pointers/index.html">
+                <div class="card-icon">⏩</div>
+                <h3>Skip Pointers</h3>
+                <p>Watch how skip pointers speed up posting list intersection. Step through the algorithm and see when
+                    skips succeed vs fail, with customizable lists.</p>
+                <span class="card-tag">Inverted Index</span>
+            </a>
+
+            <a class="card edit" href="edit-distance/index.html">
+                <div class="card-icon">📐</div>
+                <h3>Edit Distance</h3>
+                <p>Visualize the Levenshtein distance DP matrix filling cell-by-cell with color-coded operations —
+                    match, insert, delete, substitute — and backtracing.</p>
+                <span class="card-tag">String Similarity</span>
+            </a>
+
+            <a class="card soundex" href="soundex/index.html">
+                <div class="card-icon">🔊</div>
+                <h3>Soundex Algorithm</h3>
+                <p>Follow the 5-stage phonetic encoding pipeline step by step. Compare two names to see if they sound
+                    alike — "Smith" and "Smyth" both → S530!</p>
+                <span class="card-tag">Phonetic Matching</span>
+            </a>
+
+            <a class="card stem" href="stemming-vs-lemmatization/index.html">
+                <div class="card-icon">✂️</div>
+                <h3>Stemming vs Lemmatization</h3>
+                <p>Compare Porter Stemmer rules against dictionary-based lemmatization side by side. See false
+                    positives, false negatives, and irregular words in action.</p>
+                <span class="card-tag">Word Normalization</span>
+            </a>
+        </div>
+
+        <div class="section-label">🧪 Deep Dives</div>
+        <div class="grid">
+            <a class="card token" href="tokenization/index.html">
+                <div class="card-icon">🔤</div>
+                <h3>Tokenization Challenges</h3>
+                <p>Tokenize real-world text interactively — handle punctuation, hyphens, numbers, apostrophes, and
+                    clitics. See which rules fire on each token.</p>
+                <span class="card-tag">Text Processing</span>
+            </a>
+
+            <a class="card porter" href="porter-stemmer/index.html">
+                <div class="card-icon">🔬</div>
+                <h3>Porter Stemmer Deep Dive</h3>
+                <p>Explore all 5 steps of the Porter algorithm with vowel/consonant pattern visualization (CVC). See the
+                    measure m(word) and each rule's condition.</p>
+                <span class="card-tag">Stemming Rules</span>
+            </a>
+        </div>
+
+        <div class="section-label">📝 Practice</div>
+        <div class="grid">
+            <a class="card quiz" href="practice-quiz/index.html">
+                <div class="card-icon">🧠</div>
+                <h3>Practice Quiz</h3>
+                <p>Test your understanding with auto-generated questions on edit distance, Soundex, stemming, and
+                    tokenization. Instant feedback and scoring.</p>
+                <span class="card-tag">Self Assessment</span>
+            </a>
+        </div>
+    </div>
+
+    <footer>
+        CS313x — Information Retrieval • Chapter 02 Interactive Materials
+    </footer>
+</body>
+
+</html>

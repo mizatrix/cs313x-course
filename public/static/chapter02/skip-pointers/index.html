@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skip Pointers — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242838;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.3);
+            --green: #00e676;
+            --green-glow: rgba(0, 230, 118, 0.3);
+            --red: #ff5252;
+            --orange: #ffab40;
+            --blue: #40c4ff;
+            --text: #e8eaf6;
+            --text-dim: #9a9cb8;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ─── Controls ─── */
+        .controls-card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .controls-card label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: 'Inter', monospace;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #5a52e0;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: #2e3348;
+        }
+
+        .btn-success {
+            background: var(--green);
+            color: #111;
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 0 20px var(--green-glow);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ─── Canvas area ─── */
+        .viz-card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 32px 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .viz-card h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+        }
+
+        .list-container {
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        .list-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .list-label.b {
+            color: var(--orange);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        /* ─── Explanation panel ─── */
+        .explanation-card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .explanation-card h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        #step-text {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            min-height: 60px;
+            color: var(--text);
+        }
+
+        #step-text .highlight {
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        #step-text .skip-hl {
+            color: var(--blue);
+            font-weight: 700;
+        }
+
+        #step-text .fail-hl {
+            color: var(--red);
+            font-weight: 700;
+        }
+
+        /* ─── Result ─── */
+        .result-card {
+            background: linear-gradient(135deg, rgba(108, 99, 255, 0.1), rgba(0, 230, 118, 0.1));
+            border: 1px solid rgba(0, 230, 118, 0.2);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            display: none;
+        }
+
+        .result-card h3 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--green);
+            margin-bottom: 8px;
+        }
+
+        .result-card .result-values {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 24px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .stat span {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* ─── Info card ─── */
+        .info-card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .info-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+
+        .info-card p,
+        .info-card li {
+            color: var(--text-dim);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+
+        .info-card ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .info-card code {
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--blue);
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.6rem;
+            }
+
+            .container {
+                padding: 20px 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>⏩ Skip Pointers</h1>
+            <p>See how skip pointers speed up posting list intersection in inverted indexes. Watch the algorithm skip
+                over irrelevant entries instead of scanning one by one.</p>
+        </header>
+
+        <div class="controls-card">
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Posting List A (sorted, comma-separated)</label>
+                    <input type="text" id="listA" value="2, 4, 8, 16, 19, 23, 28, 43, 48, 52, 56, 71, 84, 89, 92">
+                </div>
+                <div class="input-group">
+                    <label>Posting List B (sorted, comma-separated)</label>
+                    <input type="text" id="listB" value="3, 5, 28, 52, 71, 89, 105">
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-build" onclick="buildLists()">🔨 Build Lists</button>
+                <button class="btn btn-secondary" id="btn-step" onclick="stepForward()" disabled>▶ Step</button>
+                <button class="btn btn-success" id="btn-auto" onclick="autoPlay()" disabled>⏩ Auto Play</button>
+                <button class="btn btn-secondary" id="btn-reset" onclick="resetViz()" disabled>↩ Reset</button>
+            </div>
+        </div>
+
+        <div class="viz-card">
+            <h2>Visualization</h2>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="explanation-card">
+            <h2>Step-by-Step Explanation</h2>
+            <div id="step-text">Press <strong>Build Lists</strong> to parse your posting lists and generate skip
+                pointers, then use <strong>Step</strong> or <strong>Auto Play</strong> to watch the intersection
+                algorithm.</div>
+        </div>
+
+        <div class="result-card" id="result-card">
+            <h3>✅ Intersection Complete</h3>
+            <div class="result-values" id="result-values"></div>
+            <div class="stats">
+                <div class="stat">Comparisons: <span id="stat-cmp">0</span></div>
+                <div class="stat">Skips used: <span id="stat-skip">0</span></div>
+                <div class="stat">Linear steps: <span id="stat-linear">0</span></div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h2>What are Skip Pointers?</h2>
+            <p>In an inverted index, each term has a <strong>posting list</strong> — a sorted list of document IDs where
+                the term appears. To find documents containing <em>both</em> terms, we <strong>intersect</strong> their
+                posting lists.</p>
+            <ul>
+                <li><strong>Without skip pointers</strong>: we compare element-by-element → O(n+m)</li>
+                <li><strong>With skip pointers</strong>: we place "express lanes" every <code>√n</code> elements. When
+                    the current value in one list is much smaller, we check if the skip target is still ≤ the other
+                    list's current value. If yes, we <strong>jump</strong> — saving many comparisons.</li>
+            </ul>
+            <p style="margin-top: 12px;">The skip interval is typically <code>⌊√len⌋</code>. This balances the trade-off
+                between too many skips (wasted pointer space) and too few (no speedup).</p>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+            <h2 style="color:var(--accent);font-size:1.1rem;margin-bottom:12px;">📜 Algorithm Pseudocode</h2>
+            <pre
+                style="background:var(--bg);border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:16px;font-size:0.82rem;line-height:1.8;overflow-x:auto;color:var(--text);font-family:'Courier New',monospace;"><code><span style="color:var(--accent)">INTERSECT-WITH-SKIPS</span>(p₁, p₂)
+ 1  answer ← ⟨ ⟩
+ 2  <span style="color:var(--orange)">while</span> p₁ ≠ NIL <span style="color:var(--orange)">and</span> p₂ ≠ NIL <span style="color:var(--orange)">do</span>
+ 3    <span style="color:var(--orange)">if</span> docID(p₁) = docID(p₂) <span style="color:var(--orange)">then</span>
+ 4      ADD(answer, docID(p₁))
+ 5      p₁ ← next(p₁)
+ 6      p₂ ← next(p₂)
+ 7    <span style="color:var(--orange)">else if</span> docID(p₁) < docID(p₂) <span style="color:var(--orange)">then</span>
+ 8      <span style="color:var(--orange)">if</span> hasSkip(p₁) <span style="color:var(--orange)">and</span> docID(skip(p₁)) ≤ docID(p₂) <span style="color:var(--orange)">then</span>
+ 9        <span style="color:var(--orange)">while</span> hasSkip(p₁) <span style="color:var(--orange)">and</span> docID(skip(p₁)) ≤ docID(p₂) <span style="color:var(--orange)">do</span>
+10          p₁ ← skip(p₁)       <span style="color:var(--text-dim)">// take the skip</span>
+11      <span style="color:var(--orange)">else</span>
+12        p₁ ← next(p₁)         <span style="color:var(--text-dim)">// advance linearly</span>
+13    <span style="color:var(--orange)">else</span>
+14      <span style="color:var(--text-dim)">// symmetric: try skip on p₂</span>
+15      <span style="color:var(--orange)">if</span> hasSkip(p₂) <span style="color:var(--orange)">and</span> docID(skip(p₂)) ≤ docID(p₁) <span style="color:var(--orange)">then</span>
+16        <span style="color:var(--orange)">while</span> hasSkip(p₂) <span style="color:var(--orange)">and</span> docID(skip(p₂)) ≤ docID(p₁) <span style="color:var(--orange)">do</span>
+17          p₂ ← skip(p₂)
+18      <span style="color:var(--orange)">else</span>
+19        p₂ ← next(p₂)
+20  <span style="color:var(--orange)">return</span> answer
+
+<span style="color:var(--text-dim)">Skip interval: ⌊√n⌋ where n = length of posting list</span></code></pre>
+        </div>
+    </div>
+
+    <script>
+        // ─── State ───
+        let listA = [], listB = [];
+        let skipA = [], skipB = [];  // skip targets: skipA[i] = index to jump to, or -1
+        let ptrA = 0, ptrB = 0;
+        let intersection = [];
+        let steps = [];
+        let currentStep = -1;
+        let autoTimer = null;
+        let comparisons = 0, skipsUsed = 0, linearSteps = 0;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ─── Parse & Build ───
+        function buildLists() {
+            stopAuto();
+            listA = parse(document.getElementById('listA').value);
+            listB = parse(document.getElementById('listB').value);
+            if (listA.length === 0 || listB.length === 0) {
+                document.getElementById('step-text').textContent = '⚠ Please enter at least one number in each list.';
+                return;
+            }
+            skipA = buildSkips(listA);
+            skipB = buildSkips(listB);
+            generateSteps();
+            currentStep = -1;
+            intersection = [];
+            comparisons = 0; skipsUsed = 0; linearSteps = 0;
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('btn-reset').disabled = false;
+            document.getElementById('result-card').style.display = 'none';
+            document.getElementById('step-text').innerHTML = 'Lists built! <strong>Skip interval = ⌊√n⌋</strong>. Press <strong>Step</strong> to begin the intersection algorithm.';
+            drawState(-1, -1, [], [], false, false);
+        }
+
+        function parse(str) {
+            return str.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).sort((a, b) => a - b);
+        }
+
+        function buildSkips(list) {
+            const skip = new Array(list.length).fill(-1);
+            const interval = Math.max(1, Math.floor(Math.sqrt(list.length)));
+            for (let i = 0; i + interval < list.length; i += interval) {
+                skip[i] = i + interval;
+            }
+            return skip;
+        }
+
+        // ─── Generate all algorithm steps ───
+        function generateSteps() {
+            steps = [];
+            let a = 0, b = 0;
+            const result = [];
+
+            while (a < listA.length && b < listB.length) {
+                if (listA[a] === listB[b]) {
+                    steps.push({ type: 'match', a, b, val: listA[a] });
+                    result.push(listA[a]);
+                    a++; b++;
+                } else if (listA[a] < listB[b]) {
+                    // Try skip on A — use while loop for consecutive skips
+                    let skipped = false;
+                    while (skipA[a] !== -1 && listA[skipA[a]] <= listB[b]) {
+                        steps.push({ type: 'skip', list: 'A', from: a, to: skipA[a], target: listB[b] });
+                        a = skipA[a];
+                        skipped = true;
+                    }
+                    if (!skipped) {
+                        if (skipA[a] !== -1 && listA[skipA[a]] > listB[b]) {
+                            steps.push({ type: 'skip-fail', list: 'A', from: a, skipTo: skipA[a], skipVal: listA[skipA[a]], target: listB[b] });
+                        }
+                        steps.push({ type: 'advance', list: 'A', idx: a, next: a + 1 });
+                        a++;
+                    }
+                } else {
+                    // Try skip on B — use while loop for consecutive skips
+                    let skipped = false;
+                    while (skipB[b] !== -1 && listB[skipB[b]] <= listA[a]) {
+                        steps.push({ type: 'skip', list: 'B', from: b, to: skipB[b], target: listA[a] });
+                        b = skipB[b];
+                        skipped = true;
+                    }
+                    if (!skipped) {
+                        if (skipB[b] !== -1 && listB[skipB[b]] > listA[a]) {
+                            steps.push({ type: 'skip-fail', list: 'B', from: b, skipTo: skipB[b], skipVal: listB[skipB[b]], target: listA[a] });
+                        }
+                        steps.push({ type: 'advance', list: 'B', idx: b, next: b + 1 });
+                        b++;
+                    }
+                }
+            }
+            steps.push({ type: 'done', result });
+        }
+
+        // ─── Step forward ───
+        function stepForward() {
+            if (currentStep >= steps.length - 1) return;
+            currentStep++;
+            const s = steps[currentStep];
+            applyStep(s);
+        }
+
+        function applyStep(s) {
+            let pA = -1, pB = -1;
+            let matchedA = [], matchedB = [];
+            let skipFrom = -1, skipTo = -1, skipList = '';
+
+            // Walk back to find current pointers
+            let a = 0, b = 0;
+            const result = [];
+            for (let i = 0; i <= currentStep; i++) {
+                const st = steps[i];
+                if (st.type === 'match') { result.push(st.val); a = st.a + 1; b = st.b + 1; }
+                else if (st.type === 'skip') {
+                    if (st.list === 'A') a = st.to; else b = st.to;
+                }
+                else if (st.type === 'advance') {
+                    if (st.list === 'A') a = st.next; else b = st.next;
+                }
+            }
+            pA = Math.min(a, listA.length - 1);
+            pB = Math.min(b, listB.length - 1);
+            intersection = result;
+
+            // Find matched indices for coloring
+            for (let i = 0; i <= currentStep; i++) {
+                if (steps[i].type === 'match') {
+                    matchedA.push(steps[i].a);
+                    matchedB.push(steps[i].b);
+                }
+            }
+
+            let skipArc = null;
+            if (s.type === 'match') {
+                comparisons++;
+                document.getElementById('step-text').innerHTML =
+                    `<span class="highlight">✓ Match!</span> A[${s.a}] = B[${s.b}] = <strong>${s.val}</strong>. Added to result. Advance both pointers.`;
+            } else if (s.type === 'skip') {
+                skipsUsed++;
+                comparisons++;
+                const fromVal = s.list === 'A' ? listA[s.from] : listB[s.from];
+                const toVal = s.list === 'A' ? listA[s.to] : listB[s.to];
+                skipArc = { list: s.list, from: s.from, to: s.to };
+                document.getElementById('step-text').innerHTML =
+                    `<span class="skip-hl">⏩ Skip on List ${s.list}!</span> From ${fromVal} → jumped to ${toVal} (skip pointer). ${toVal} ≤ ${s.target} ✓ — skip is valid.`;
+            } else if (s.type === 'skip-fail') {
+                comparisons++;
+                const fromVal = s.list === 'A' ? listA[s.from] : listB[s.from];
+                document.getElementById('step-text').innerHTML =
+                    `<span class="fail-hl">✗ Skip check on List ${s.list} failed.</span> Skip target ${s.skipVal} > ${s.target}. Can't skip from ${fromVal}. Will advance linearly instead.`;
+            } else if (s.type === 'advance') {
+                linearSteps++;
+                const list = s.list === 'A' ? listA : listB;
+                const val = list[s.idx];
+                document.getElementById('step-text').innerHTML =
+                    `Advance List ${s.list} linearly: move past ${val} to next element.`;
+            } else if (s.type === 'done') {
+                document.getElementById('step-text').innerHTML =
+                    `<span class="highlight">🎉 Done!</span> One of the lists is exhausted. Intersection complete.`;
+                document.getElementById('result-card').style.display = 'block';
+                document.getElementById('result-values').textContent = s.result.length > 0 ? s.result.join(', ') : '(empty)';
+                document.getElementById('stat-cmp').textContent = comparisons;
+                document.getElementById('stat-skip').textContent = skipsUsed;
+                document.getElementById('stat-linear').textContent = linearSteps;
+                stopAuto();
+                document.getElementById('btn-step').disabled = true;
+                document.getElementById('btn-auto').disabled = true;
+            }
+
+            drawState(pA, pB, matchedA, matchedB, s.type === 'done', false, skipArc);
+        }
+
+        // ─── Auto play ───
+        function autoPlay() {
+            if (autoTimer) { stopAuto(); return; }
+            document.getElementById('btn-auto').textContent = '⏸ Pause';
+            autoTimer = setInterval(() => {
+                if (currentStep >= steps.length - 1) { stopAuto(); return; }
+                stepForward();
+            }, 900);
+        }
+
+        function stopAuto() {
+            clearInterval(autoTimer);
+            autoTimer = null;
+            document.getElementById('btn-auto').textContent = '⏩ Auto Play';
+        }
+
+        function resetViz() {
+            stopAuto();
+            currentStep = -1;
+            intersection = [];
+            comparisons = 0; skipsUsed = 0; linearSteps = 0;
+            document.getElementById('result-card').style.display = 'none';
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('step-text').innerHTML = 'Reset. Press <strong>Step</strong> to begin again.';
+            drawState(-1, -1, [], [], false, false);
+        }
+
+        // ─── Drawing ───
+        function drawState(pA, pB, matchedA, matchedB, done, initial, skipArc) {
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.parentElement.clientWidth - 48;
+            const H = 320;
+            canvas.width = W * dpr;
+            canvas.height = H * dpr;
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+
+            const cellW = 46, cellH = 36, gap = 4;
+            const listAY = 100, listBY = 220;
+            const startX = 60;
+
+            // Draw list label
+            ctx.font = '700 13px Inter';
+            ctx.fillStyle = '#6c63ff';
+            ctx.fillText('List A', 8, listAY + cellH / 2 + 4);
+            ctx.fillStyle = '#ffab40';
+            ctx.fillText('List B', 8, listBY + cellH / 2 + 4);
+
+            // Draw skip arcs for A
+            drawSkipArcs(listA, skipA, startX, listAY, cellW, gap, '#6c63ff', skipArc && skipArc.list === 'A' ? skipArc : null);
+            // Draw skip arcs for B
+            drawSkipArcs(listB, skipB, startX, listBY + cellH, cellW, gap, '#ffab40', skipArc && skipArc.list === 'B' ? skipArc : null, true);
+
+            // Draw cells A
+            drawCells(listA, startX, listAY, cellW, cellH, gap, pA, matchedA, '#6c63ff', '#3d38a0');
+            // Draw cells B
+            drawCells(listB, startX, listBY, cellW, cellH, gap, pB, matchedB, '#ffab40', '#a06d00');
+
+            // Pointer arrows
+            if (pA >= 0 && pA < listA.length) drawPointer(startX + pA * (cellW + gap) + cellW / 2, listAY - 8, '#6c63ff');
+            if (pB >= 0 && pB < listB.length) drawPointer(startX + pB * (cellW + gap) + cellW / 2, listBY - 8, '#ffab40');
+        }
+
+        function drawCells(list, sx, sy, cw, ch, gap, ptr, matched, color, darkColor) {
+            for (let i = 0; i < list.length; i++) {
+                const x = sx + i * (cw + gap);
+                const isMatched = matched.includes(i);
+                const isPtr = (i === ptr);
+
+                // Cell bg
+                if (isMatched) {
+                    ctx.fillStyle = 'rgba(0, 230, 118, 0.2)';
+                    ctx.strokeStyle = '#00e676';
+                } else if (isPtr) {
+                    ctx.fillStyle = 'rgba(108, 99, 255, 0.15)';
+                    ctx.strokeStyle = color;
+                } else {
+                    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+                    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                }
+
+                ctx.lineWidth = isPtr ? 2.5 : 1;
+                roundRect(x, sy, cw, ch, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Glow on pointer
+                if (isPtr) {
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 12;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Value
+                ctx.fillStyle = isMatched ? '#00e676' : (isPtr ? '#fff' : '#c8cad8');
+                ctx.font = `${isPtr ? '700' : '500'} 13px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(list[i], x + cw / 2, sy + ch / 2);
+            }
+            ctx.textAlign = 'start';
+        }
+
+        function drawSkipArcs(list, skips, sx, baseY, cw, gap, color, activeSkip, below) {
+            for (let i = 0; i < skips.length; i++) {
+                if (skips[i] === -1) continue;
+                const x1 = sx + i * (cw + gap) + cw / 2;
+                const x2 = sx + skips[i] * (cw + gap) + cw / 2;
+                const isActive = activeSkip && activeSkip.from === i && activeSkip.to === skips[i];
+
+                ctx.beginPath();
+                const arcH = below ? 25 : -30;
+                const cpY = baseY + arcH;
+                ctx.moveTo(x1, baseY + (below ? 0 : 0));
+                ctx.quadraticCurveTo((x1 + x2) / 2, cpY, x2, baseY + (below ? 0 : 0));
+                ctx.strokeStyle = isActive ? '#40c4ff' : (color + '55');
+                ctx.lineWidth = isActive ? 3 : 1.5;
+                ctx.setLineDash(isActive ? [] : [4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                if (isActive) {
+                    ctx.shadowColor = '#40c4ff';
+                    ctx.shadowBlur = 10;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Arrow head
+                const angle = Math.atan2(0, x2 - x1);
+                const headLen = 6;
+                ctx.beginPath();
+                ctx.moveTo(x2, baseY);
+                ctx.lineTo(x2 - headLen * Math.cos(angle - 0.5), baseY + (below ? headLen : -headLen));
+                ctx.lineTo(x2 - headLen * Math.cos(angle + 0.5), baseY + (below ? -2 : 2));
+                ctx.fillStyle = isActive ? '#40c4ff' : (color + '55');
+                ctx.fill();
+            }
+        }
+
+        function drawPointer(x, y, color) {
+            ctx.beginPath();
+            ctx.moveTo(x, y + 8);
+            ctx.lineTo(x - 6, y - 4);
+            ctx.lineTo(x + 6, y - 4);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function roundRect(x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        // Init
+        window.addEventListener('resize', () => {
+            if (listA.length > 0) drawState(-1, -1, [], [], false, true);
+        });
+        buildLists();
+    </script>
+</body>
+
+</html>

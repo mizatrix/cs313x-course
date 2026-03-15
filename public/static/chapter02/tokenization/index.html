@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenization Challenges — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242838;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.3);
+            --green: #00e676;
+            --red: #ff5252;
+            --orange: #ffab40;
+            --blue: #40c4ff;
+            --pink: #f06292;
+            --teal: #26c6da;
+            --yellow: #ffd740;
+            --text: #e8eaf6;
+            --text-dim: #9a9cb8;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--yellow), var(--orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            max-width: 620px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #5a52e0;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: #2e3348;
+        }
+
+        textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 14px;
+            color: var(--text);
+            font-family: 'Inter', monospace;
+            font-size: 1rem;
+            outline: none;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .examples {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .example-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-chip:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        /* Token display */
+        .tokens-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 50px;
+            padding: 12px 0;
+        }
+
+        .token {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+            cursor: default;
+            position: relative;
+            animation: tokenFadeIn 0.3s ease forwards;
+        }
+
+        @keyframes tokenFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .token .text {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .token .rule-tag {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            padding: 1px 6px;
+            border-radius: 6px;
+        }
+
+        .token.word {
+            border-color: rgba(0, 230, 118, 0.3);
+        }
+
+        .token.word .rule-tag {
+            background: rgba(0, 230, 118, 0.1);
+            color: var(--green);
+        }
+
+        .token.punct {
+            border-color: rgba(255, 82, 82, 0.3);
+        }
+
+        .token.punct .rule-tag {
+            background: rgba(255, 82, 82, 0.1);
+            color: var(--red);
+        }
+
+        .token.number {
+            border-color: rgba(64, 196, 255, 0.3);
+        }
+
+        .token.number .rule-tag {
+            background: rgba(64, 196, 255, 0.1);
+            color: var(--blue);
+        }
+
+        .token.hyphen {
+            border-color: rgba(255, 171, 64, 0.3);
+        }
+
+        .token.hyphen .rule-tag {
+            background: rgba(255, 171, 64, 0.1);
+            color: var(--orange);
+        }
+
+        .token.apos {
+            border-color: rgba(240, 98, 146, 0.3);
+        }
+
+        .token.apos .rule-tag {
+            background: rgba(240, 98, 146, 0.1);
+            color: var(--pink);
+        }
+
+        .token.clitic {
+            border-color: rgba(38, 198, 218, 0.3);
+        }
+
+        .token.clitic .rule-tag {
+            background: rgba(38, 198, 218, 0.1);
+            color: var(--teal);
+        }
+
+        .token.email {
+            border-color: rgba(108, 99, 255, 0.3);
+        }
+
+        .token.email .rule-tag {
+            background: rgba(108, 99, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .token.url {
+            border-color: rgba(255, 215, 64, 0.3);
+        }
+
+        .token.url .rule-tag {
+            background: rgba(255, 215, 64, 0.1);
+            color: var(--yellow);
+        }
+
+        .token.abbrev {
+            border-color: rgba(156, 39, 176, 0.3);
+        }
+
+        .token.abbrev .rule-tag {
+            background: rgba(156, 39, 176, 0.1);
+            color: #ce93d8;
+        }
+
+        /* Strategy picker */
+        .strategy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .strategy-option {
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .strategy-option:hover {
+            border-color: rgba(108, 99, 255, 0.2);
+            background: rgba(108, 99, 255, 0.05);
+        }
+
+        .strategy-option.active {
+            border-color: var(--accent);
+            background: rgba(108, 99, 255, 0.1);
+        }
+
+        .strategy-option .strat-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .strategy-option .strat-desc {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 16px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            margin-top: 16px;
+        }
+
+        .stat-box {
+            padding: 10px 16px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .stat-box .val {
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .stat-box .label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        /* Challenges table */
+        .challenges-table {
+            margin-top: 16px;
+        }
+
+        .challenges-table table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 2px;
+            font-size: 0.85rem;
+        }
+
+        .challenges-table th {
+            background: var(--surface2);
+            color: var(--text-dim);
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .challenges-table td {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .challenges-table td code {
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--blue);
+            font-size: 0.8rem;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        .info-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .info-card p,
+        .info-card li {
+            color: var(--text-dim);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+
+        .info-card ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--accent);
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.6rem;
+            }
+
+            .container {
+                padding: 20px 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← Back to Hub</a>
+        <header>
+            <h1>🔤 Tokenization Challenges</h1>
+            <p>Enter any text and watch how a tokenizer breaks it into tokens — handling punctuation, hyphens,
+                apostrophes, numbers, URLs, emails, and clitics.</p>
+        </header>
+
+        <div class="card">
+            <h2>Input Text</h2>
+            <textarea
+                id="input-text">Mr. O'Brien doesn't live at 123 Main St. — he's at john.doe@email.com (since 01/15/2024). Check https://example.co.uk for state-of-the-art analysis!</textarea>
+            <div style="font-size:0.78rem; color:var(--text-dim); margin-top: 8px;">Try these examples:</div>
+            <div class="examples">
+                <div class="example-chip" onclick="tryExample(0)">Email & URL</div>
+                <div class="example-chip" onclick="tryExample(1)">Contractions</div>
+                <div class="example-chip" onclick="tryExample(2)">Hyphens</div>
+                <div class="example-chip" onclick="tryExample(3)">Numbers & Dates</div>
+                <div class="example-chip" onclick="tryExample(4)">Abbreviations</div>
+                <div class="example-chip" onclick="tryExample(5)">Mixed Challenge</div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="tokenize()">🔍 Tokenize</button>
+                <button class="btn btn-secondary" id="btn-step" onclick="stepToken()" disabled>▶ Step</button>
+                <button class="btn btn-success" id="btn-auto" onclick="autoPlay()" disabled>⏩ Auto Play</button>
+                <button class="btn btn-secondary" id="btn-reset" onclick="resetTokens()" disabled>↩ Reset</button>
+                <button class="btn btn-secondary" onclick="clearAll()">🗑 Clear</button>
+            </div>
+            <div id="step-text"
+                style="font-size:0.9rem;line-height:1.7;margin-top:12px;min-height:40px;color:var(--text);">Press
+                <strong>Tokenize</strong> to parse the text, then <strong>Step</strong> through each token one by one.
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Tokenization Strategy</h2>
+            <div class="strategy-grid">
+                <div class="strategy-option active" id="strat-smart" onclick="setStrategy('smart')">
+                    <div class="strat-title">🧠 Smart (Default)</div>
+                    <div class="strat-desc">Recognizes emails, URLs, contractions, hyphens, abbreviations. Keeps
+                        meaningful units together.</div>
+                </div>
+                <div class="strategy-option" id="strat-whitespace" onclick="setStrategy('whitespace')">
+                    <div class="strat-title">📏 Whitespace Only</div>
+                    <div class="strat-desc">Split only on spaces/tabs/newlines. No special handling of punctuation.
+                    </div>
+                </div>
+                <div class="strategy-option" id="strat-aggressive" onclick="setStrategy('aggressive')">
+                    <div class="strat-title">⚡ Aggressive</div>
+                    <div class="strat-desc">Split on every non-alphanumeric character. Maximum granularity.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Result Tokens</h2>
+            <div class="tokens-area" id="tokens-area">
+                <span style="color: var(--text-dim); font-size: 0.9rem;">Press <strong>Tokenize</strong> to see the
+                    result...</span>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--green)"></div> Word
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--red)"></div> Punctuation
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--blue)"></div> Number
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--orange)"></div> Hyphenated
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--pink)"></div> Possessive/Contraction
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--teal)"></div> Clitic
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--accent)"></div> Email
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--yellow)"></div> URL
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#ce93d8"></div> Abbreviation
+                </div>
+            </div>
+            <div class="stats-row" id="stats-row" style="display:none">
+                <div class="stat-box">
+                    <div class="val" id="stat-total" style="color:var(--accent)">0</div>
+                    <div class="label">Total Tokens</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val" id="stat-words" style="color:var(--green)">0</div>
+                    <div class="label">Words</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val" id="stat-punct" style="color:var(--red)">0</div>
+                    <div class="label">Punctuation</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val" id="stat-numbers" style="color:var(--blue)">0</div>
+                    <div class="label">Numbers</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val" id="stat-special" style="color:var(--orange)">0</div>
+                    <div class="label">Special</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card challenges-table">
+            <h2>Tokenization Challenge Reference</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Challenge</th>
+                        <th>Example</th>
+                        <th>Strategy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Periods in abbreviations</td>
+                        <td><code>U.S.A.</code> <code>Mr.</code> <code>Dr.</code></td>
+                        <td>Keep as single token if known abbreviation</td>
+                    </tr>
+                    <tr>
+                        <td>Apostrophes (possessives)</td>
+                        <td><code>Finland's</code> <code>children's</code></td>
+                        <td>Split into <code>Finland</code> + <code>'s</code> or keep whole</td>
+                    </tr>
+                    <tr>
+                        <td>Contractions</td>
+                        <td><code>don't</code> <code>I'm</code> <code>we'll</code></td>
+                        <td>Expand: <code>do</code> + <code>n't</code>, or keep as one</td>
+                    </tr>
+                    <tr>
+                        <td>Hyphens</td>
+                        <td><code>state-of-the-art</code></td>
+                        <td>Keep compound or split at hyphens</td>
+                    </tr>
+                    <tr>
+                        <td>Numbers & dates</td>
+                        <td><code>3.14</code> <code>01/15/2024</code></td>
+                        <td>Keep as single number token</td>
+                    </tr>
+                    <tr>
+                        <td>Emails</td>
+                        <td><code>user@domain.com</code></td>
+                        <td>Keep as single token</td>
+                    </tr>
+                    <tr>
+                        <td>URLs</td>
+                        <td><code>https://site.com/page</code></td>
+                        <td>Keep as single token</td>
+                    </tr>
+                    <tr>
+                        <td>Clitics</td>
+                        <td><code>je t'aime</code> <code>l'ensemble</code></td>
+                        <td>Split at apostrophe for French/Italian</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card info-card">
+            <h2>Why is Tokenization Hard?</h2>
+            <p>Tokenization seems simple — just split on spaces, right? But natural language is messy:</p>
+            <ul>
+                <li>A period can end a sentence <em>or</em> be part of an abbreviation (<code>Mr.</code>,
+                    <code>U.S.A.</code>)
+                </li>
+                <li>An apostrophe can be possessive (<code>John's</code>), a contraction (<code>don't</code>), or part
+                    of a name (<code>O'Brien</code>)</li>
+                <li>Hyphens can join compound words (<code>state-of-the-art</code>) or be dashes</li>
+                <li>Numbers may contain periods (<code>3.14</code>), commas (<code>1,000</code>), or slashes
+                    (<code>01/15</code>)</li>
+            </ul>
+            <p style="margin-top:12px">Different strategies suit different tasks. A search engine might keep "New York"
+                as one token, while a POS tagger splits it.</p>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+            <h2 style="color:var(--accent);font-size:1.1rem;margin-bottom:12px;">📜 Algorithm Pseudocode</h2>
+            <pre
+                style="background:var(--bg);border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:16px;font-size:0.82rem;line-height:1.8;overflow-x:auto;color:var(--text);font-family:'Courier New',monospace;"><code><span style="color:var(--accent)">SMART-TOKENIZE</span>(text)
+ 1  tokens ← ⟨ ⟩
+ 2  consumed[1..n] ← FALSE            <span style="color:var(--text-dim)">// track which chars are used</span>
+ 3
+ 4  <span style="color:var(--text-dim)">// Priority-ordered pattern list:</span>
+ 5  patterns ← [
+ 6    URL       : /https?:\/\/[^\s]+/   <span style="color:var(--text-dim)">// highest priority</span>
+ 7    Email     : /\w+@\w+\.\w+/
+ 8    Abbrev    : /Mr\.|Dr\.|U\.S\.A\./
+ 9    Date      : /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/
+10    Number    : /\$?\d[\d,]*\.?\d*%?/
+11    Compound  : /\w+(-\w+){2,}/
+12    Hyphen    : /\w+-\w+/
+13    Contraction: /\w+n't|\w+'[msdrv]e?/
+14    Word      : /[A-Za-z]+/
+15    Punct     : /[^\s\w]/             <span style="color:var(--text-dim)">// lowest priority</span>
+16  ]
+17
+18  <span style="color:var(--orange)">for each</span> pattern p <span style="color:var(--orange)">in</span> patterns <span style="color:var(--orange)">do</span>
+19    <span style="color:var(--orange)">for each</span> match m of p <span style="color:var(--orange)">in</span> text <span style="color:var(--orange)">do</span>
+20      <span style="color:var(--orange)">if</span> no character in m is consumed <span style="color:var(--orange)">then</span>
+21        ADD(tokens, m)
+22        mark m's characters as consumed
+23
+24  SORT tokens by position
+25  <span style="color:var(--orange)">return</span> tokens
+
+<span style="color:var(--text-dim)">Key: Higher-priority patterns are matched first.
+If a character is already consumed, later patterns skip it.
+This prevents URLs from being split into words + punctuation.</span></code></pre>
+        </div>
+    </div>
+
+    <script>
+        const EXAMPLES = [
+            "Send an email to john.doe@company.org or visit https://www.example.com/docs?page=2&lang=en for more info.",
+            "I'm sure he doesn't know we've been there. She'd have told us, wouldn't she? They're not coming.",
+            "It's a well-known state-of-the-art co-operation between long-standing cross-platform systems.",
+            "The temperature was 98.6°F on 12/25/2024. The price dropped from $1,299.99 to $999.00 — a 23.1% decrease!",
+            "Dr. Smith from the U.S.A. met Prof. Johnson at St. Mary's Hospital in Washington D.C. at 3 p.m.",
+            "Mr. O'Brien doesn't live at 123 Main St. — he's at john.doe@email.com (since 01/15/2024). Check https://example.co.uk for state-of-the-art analysis!"
+        ];
+
+        let strategy = 'smart';
+
+        function tryExample(idx) {
+            document.getElementById('input-text').value = EXAMPLES[idx];
+            tokenize();
+        }
+
+        function setStrategy(s) {
+            strategy = s;
+            document.querySelectorAll('.strategy-option').forEach(el => el.classList.remove('active'));
+            document.getElementById('strat-' + s).classList.add('active');
+            tokenize();
+        }
+
+        function clearAll() {
+            document.getElementById('input-text').value = '';
+            document.getElementById('tokens-area').innerHTML = '<span style="color: var(--text-dim); font-size: 0.9rem;">Press <strong>Tokenize</strong> to see the result...</span>';
+            document.getElementById('stats-row').style.display = 'none';
+        }
+
+        function tokenize() {
+            const text = document.getElementById('input-text').value.trim();
+            if (!text) { clearAll(); return; }
+
+            let tokens;
+            switch (strategy) {
+                case 'whitespace': tokens = tokenizeWhitespace(text); break;
+                case 'aggressive': tokens = tokenizeAggressive(text); break;
+                default: tokens = tokenizeSmart(text);
+            }
+
+            allTokens = tokens;
+            renderTokens(tokens);
+            currentTokenIdx = -1;
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('btn-reset').disabled = false;
+            document.getElementById('step-text').innerHTML = `Text parsed! <strong>${tokens.length} tokens</strong> found. Press <strong>Step</strong> to reveal each token with its reasoning.`;
+        }
+
+        // ─── Smart tokenizer ───
+        function tokenizeSmart(text) {
+            const tokens = [];
+            // Regex patterns in order of priority
+            const patterns = [
+                { re: /https?:\/\/[^\s)]+/g, type: 'url', rule: 'URL' },
+                { re: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, type: 'email', rule: 'Email' },
+                { re: /(?:Mr|Mrs|Ms|Dr|Prof|St|Jr|Sr|Inc|Ltd|Corp|etc|vs|approx|dept|govt|U\.S\.A|D\.C|p\.m|a\.m|i\.e|e\.g)\./gi, type: 'abbrev', rule: 'Abbreviation' },
+                { re: /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, type: 'number', rule: 'Date' },
+                { re: /\$?\d[\d,]*\.?\d*%?°?[A-Z]?/g, type: 'number', rule: 'Number' },
+                { re: /\b\w+(?:-\w+){2,}\b/g, type: 'hyphen', rule: 'Compound' },
+                { re: /\b\w+-\w+\b/g, type: 'hyphen', rule: 'Hyphenated' },
+                { re: /\b(?:can|won|don|doesn|didn|isn|aren|wasn|weren|hasn|haven|hadn|wouldn|couldn|shouldn|mustn|needn)'t\b/gi, type: 'apos', rule: 'Contraction' },
+                { re: /\b(?:i|you|he|she|it|we|they|who|that|there|here|what)'(?:m|re|s|d|ll|ve)\b/gi, type: 'apos', rule: 'Contraction' },
+                { re: /\b\w+'s\b/g, type: 'apos', rule: 'Possessive' },
+                { re: /\b[A-Za-z]+\b/g, type: 'word', rule: 'Word' },
+                { re: /[^\s\w]/g, type: 'punct', rule: 'Punctuation' },
+            ];
+
+            let remaining = text;
+            let positions = []; // track which chars are consumed
+
+            const consumed = new Array(text.length).fill(false);
+
+            for (const pat of patterns) {
+                let match;
+                const re = new RegExp(pat.re.source, pat.re.flags);
+                while ((match = re.exec(text)) !== null) {
+                    const start = match.index;
+                    const end = start + match[0].length;
+                    // Check if any char already consumed
+                    let conflict = false;
+                    for (let i = start; i < end; i++) {
+                        if (consumed[i]) { conflict = true; break; }
+                    }
+                    if (conflict) continue;
+                    // Mark consumed
+                    for (let i = start; i < end; i++) consumed[i] = true;
+                    tokens.push({ text: match[0], type: pat.type, rule: pat.rule, pos: start });
+                }
+            }
+
+            // Sort by position
+            tokens.sort((a, b) => a.pos - b.pos);
+            return tokens;
+        }
+
+        // ─── Whitespace tokenizer ───
+        function tokenizeWhitespace(text) {
+            return text.split(/\s+/).filter(t => t.length > 0).map((t, i) => ({
+                text: t, type: classifySimple(t), rule: 'Whitespace split', pos: i
+            }));
+        }
+
+        // ─── Aggressive tokenizer ───
+        function tokenizeAggressive(text) {
+            return text.split(/([^a-zA-Z0-9])/).filter(t => t.trim().length > 0).map((t, i) => ({
+                text: t, type: classifySimple(t), rule: 'Split non-alnum', pos: i
+            }));
+        }
+
+        function classifySimple(t) {
+            if (/^\d+\.?\d*$/.test(t)) return 'number';
+            if (/^[a-zA-Z]+$/.test(t)) return 'word';
+            if (/^[^\w\s]$/.test(t)) return 'punct';
+            return 'word';
+        }
+
+        let allTokens = [];
+        let currentTokenIdx = -1;
+        let autoTimer = null;
+
+        function renderTokens(tokens) {
+            const area = document.getElementById('tokens-area');
+            area.innerHTML = '';
+
+            tokens.forEach((tok, i) => {
+                const el = document.createElement('div');
+                el.className = `token ${tok.type}`;
+                el.id = 'tok-' + i;
+                el.style.display = 'none';
+                el.innerHTML = `
+                <span class="text">${escHtml(tok.text)}</span>
+                <span class="rule-tag">${tok.rule}</span>
+            `;
+                area.appendChild(el);
+            });
+
+            document.getElementById('stats-row').style.display = 'flex';
+            document.getElementById('stat-total').textContent = '0';
+            document.getElementById('stat-words').textContent = '0';
+            document.getElementById('stat-punct').textContent = '0';
+            document.getElementById('stat-numbers').textContent = '0';
+            document.getElementById('stat-special').textContent = '0';
+        }
+
+        function stepToken() {
+            if (currentTokenIdx >= allTokens.length - 1) return;
+            currentTokenIdx++;
+            const tok = allTokens[currentTokenIdx];
+            const el = document.getElementById('tok-' + currentTokenIdx);
+            if (el) {
+                el.style.display = 'inline-flex';
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // Update counts
+            const counts = { word: 0, punct: 0, number: 0, special: 0 };
+            for (let i = 0; i <= currentTokenIdx; i++) {
+                const t = allTokens[i];
+                if (t.type === 'word') counts.word++;
+                else if (t.type === 'punct') counts.punct++;
+                else if (t.type === 'number') counts.number++;
+                else counts.special++;
+            }
+            document.getElementById('stat-total').textContent = currentTokenIdx + 1;
+            document.getElementById('stat-words').textContent = counts.word;
+            document.getElementById('stat-punct').textContent = counts.punct;
+            document.getElementById('stat-numbers').textContent = counts.number;
+            document.getElementById('stat-special').textContent = counts.special;
+
+            // Reasoning
+            const typeNames = { word: 'Word', punct: 'Punctuation', number: 'Number', url: 'URL', email: 'Email', abbrev: 'Abbreviation', hyphen: 'Compound/Hyphenated', apos: 'Contraction/Possessive' };
+            const typeReasons = {
+                word: 'Standard alphabetic word — matches /[A-Za-z]+/ after special patterns are consumed.',
+                punct: 'Non-alphanumeric punctuation character — typically a separator or delimiter.',
+                number: 'Numeric literal — may include decimals, currency, percentages, or dates.',
+                url: 'URL pattern matched — the entire URL is kept as a single token to preserve the reference.',
+                email: 'Email address detected — kept as single token because splitting at @ or . would lose meaning.',
+                abbrev: 'Known abbreviation — the period is part of the abbreviation, not a sentence boundary.',
+                hyphen: 'Hyphenated compound word — kept together because splitting changes the meaning.',
+                apos: 'Contraction or possessive — split at the linguistic boundary (e.g., do + n\'t).'
+            };
+            const stepText = document.getElementById('step-text');
+            stepText.innerHTML = `<strong style="color:var(--${tok.type === 'word' ? 'green' : tok.type === 'punct' ? 'red' : tok.type === 'number' ? 'blue' : 'orange'})">[${currentTokenIdx + 1}/${allTokens.length}] ${typeNames[tok.type] || tok.type}:</strong> <code style="background:var(--surface2);padding:2px 8px;border-radius:4px;color:var(--blue)">${escHtml(tok.text)}</code><br>` +
+                `<span style="color:var(--text-dim)">Rule: ${tok.rule}. ${typeReasons[tok.type] || ''}</span>`;
+
+            if (currentTokenIdx >= allTokens.length - 1) {
+                stepText.innerHTML += `<br><strong style="color:var(--green)">🎉 Done!</strong> All ${allTokens.length} tokens identified.`;
+                stopAuto();
+                document.getElementById('btn-step').disabled = true;
+                document.getElementById('btn-auto').disabled = true;
+            }
+        }
+
+        function autoPlay() {
+            if (autoTimer) { stopAuto(); return; }
+            document.getElementById('btn-auto').textContent = '⏸ Pause';
+            autoTimer = setInterval(() => {
+                if (currentTokenIdx >= allTokens.length - 1) { stopAuto(); return; }
+                stepToken();
+            }, 600);
+        }
+
+        function stopAuto() {
+            clearInterval(autoTimer); autoTimer = null;
+            document.getElementById('btn-auto').textContent = '⏩ Auto Play';
+        }
+
+        function resetTokens() {
+            stopAuto();
+            currentTokenIdx = -1;
+            for (let i = 0; i < allTokens.length; i++) {
+                const el = document.getElementById('tok-' + i);
+                if (el) el.style.display = 'none';
+            }
+            document.getElementById('stat-total').textContent = '0';
+            document.getElementById('stat-words').textContent = '0';
+            document.getElementById('stat-punct').textContent = '0';
+            document.getElementById('stat-numbers').textContent = '0';
+            document.getElementById('stat-special').textContent = '0';
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-auto').disabled = false;
+            document.getElementById('step-text').innerHTML = 'Reset. Press <strong>Step</strong> to trace through each token.';
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Auto tokenize on load
+        tokenize();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS313x — Chapter 4: Index Construction &amp; Compression</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- ═══ NAVIGATION ═══ -->
+<nav id="navbar">
+  <div class="nav-brand">CS313x · Chapter 4</div>
+  <div class="nav-links">
+    <a href="#hero">Home</a>
+    <a href="#hardware">Hardware</a>
+    <a href="#bsbi">BSBI</a>
+    <a href="#spimi">SPIMI</a>
+    <a href="#mapreduce">MapReduce</a>
+    <a href="#compression">Compression</a>
+    <a href="#queries">Queries</a>
+    <a href="#quiz">Quiz</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section id="hero" class="hero-section">
+  <div class="hero-content">
+    <div class="hero-badge">Week 4 · Information Retrieval</div>
+    <h1>Index Construction<br><span class="gradient-text">&amp; Compression</span></h1>
+    <p class="hero-sub">Building Scalable Search Engines — From Hardware Basics to Distributed Indexing</p>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-num">5</span><span class="stat-label">Core Topics</span></div>
+      <div class="stat"><span class="stat-num">8</span><span class="stat-label">Interactive Demos</span></div>
+      <div class="stat"><span class="stat-num">15</span><span class="stat-label">Quiz Questions</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTION 1: HARDWARE BASICS ═══ -->
+<section id="hardware" class="content-section">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>Hardware Basics: The I/O Bottleneck</h2>
+    <p class="section-desc">Information Retrieval is I/O Bound — speed is limited by disk, not CPU.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Before we build any index, we need to understand WHY all these algorithms exist. It all comes down to one problem: disk is SLOW. Everything we learn today is about working around that bottleneck."</p>
+    <h4>🎯 Analogy</h4>
+    <p class="analogy">Think of seek time like physically driving to a library in another city (slow!), and transfer time like reading a book once you're there (fast). Our goal is to minimize the number of trips.</p>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"Why not just use SSDs for everything?"</p><p class="qa-a">Great question! SSDs are 100x faster than HDDs, but for petabyte-scale indexes (Google), even SSD seek time adds up. Plus, RAM is still 100x faster than SSD. The real goal is to fit the index in RAM.</p></div>
+    <div class="qa"><p class="qa-q">"Is this still relevant with modern hardware?"</p><p class="qa-a">Absolutely. The speed gaps between memory levels haven't changed much. L1 cache is still ~10,000x faster than SSD. The principles are timeless.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>Every IR system — Google, Elasticsearch, Solr — is fundamentally limited by I/O. The entire chapter exists because of this bottleneck. BSBI, SPIMI, compression, distributed indexing — they're all strategies to work around slow disk. Students who understand this will understand WHY all the other algorithms were invented, not just HOW they work.</p>
+    <h4>💡 Transition</h4>
+    <p class="say">"Now that we know disk is the bottleneck, let's see how BSBI solves the problem of building an index when data doesn't fit in RAM..."</p>
+  </div>
+  <div class="card-grid">
+    <div class="card glass">
+      <h3>⚡ Latency Comparison</h3>
+      <div class="latency-bars">
+        <div class="lat-row"><span class="lat-label">L1 Cache</span><div class="lat-bar" style="width:1%"></div><span class="lat-val">0.5 ns</span></div>
+        <div class="lat-row"><span class="lat-label">RAM</span><div class="lat-bar lat-ram" style="width:8%"></div><span class="lat-val">100 ns</span></div>
+        <div class="lat-row"><span class="lat-label">SSD</span><div class="lat-bar lat-ssd" style="width:35%"></div><span class="lat-val">16,000 ns</span></div>
+        <div class="lat-row"><span class="lat-label">HDD</span><div class="lat-bar lat-hdd" style="width:100%"></div><span class="lat-val">4,000,000 ns</span></div>
+      </div>
+    </div>
+    <div class="card glass">
+      <h3>🔍 Seek vs Transfer</h3>
+      <table class="info-table">
+        <tr><th>Seek Time</th><td>~5 ms (Mechanical — moving disk head)</td></tr>
+        <tr><th>Transfer Time</th><td>~0.02 ms/KB (Electronic — fast!)</td></tr>
+      </table>
+      <div class="callout strategy">
+        <strong>Optimization:</strong> Minimize Seeks → Batch Operations, Large Buffers, Compress Data
+      </div>
+    </div>
+  </div>
+  <div class="diagram-card">
+    <h3>📋 The Indexing Pipeline</h3>
+    <div class="mermaid">
+graph LR
+    A["📄 Collection<br/>Raw HTML/PDF"] -->|Crawl| B["✂️ Tokenization<br/>Stream of Tokens"]
+    B -->|Split| C["🔤 Normalization<br/>Case fold, Stem"]
+    C -->|Build| D["📚 Inverted Index<br/>Dictionary + Postings"]
+    style A fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    style B fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style C fill:#1e293b,stroke:#f472b6,color:#e2e8f0
+    style D fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTION 2: BSBI ═══ -->
+<section id="bsbi" class="content-section alt-bg">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2>BSBI: Block Sort-Based Indexing</h2>
+    <p class="section-desc">External sorting when data doesn't fit in RAM.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Imagine you have 100GB of text but only 16GB of RAM. You can't sort everything at once. BSBI's idea is simple: break it into chunks that fit in memory, sort each chunk, save to disk, then merge them all at the end."</p>
+    <h4>🎯 Analogy</h4>
+    <p class="analogy">It's like sorting 1000 playing cards when your table only fits 100. You sort 100 at a time, put each sorted pile aside, then merge all piles by taking the smallest card from each pile's top.</p>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"What is an inverted index exactly?"</p><p class="qa-a">It's like the index at the back of a textbook. Instead of 'page → words', it's 'word → list of documents containing it'. That's the postings list.</p></div>
+    <div class="qa"><p class="qa-q">"Why do we sort by TermID?"</p><p class="qa-a">So that when we merge, all occurrences of the same term end up together. This is what makes the merge step work — it's like merge sort.</p></div>
+    <div class="qa"><p class="qa-q">"What's a file handle?"</p><p class="qa-a">Each open file uses a 'file handle' — an OS resource. If you have 10,000 segments, you need 10,000 file handles open simultaneously during merge. Operating systems have limits on this.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>BSBI introduces the fundamental concept of <strong>external sorting</strong> — how to process data that doesn't fit in memory. This is the foundation of all large-scale indexing. Without understanding BSBI, students can't appreciate why SPIMI is an improvement, or why distributed systems like MapReduce are needed. It also introduces the inverted index structure that is the backbone of ALL search engines.</p>
+    <h4>💡 Transition</h4>
+    <p class="say">"BSBI works, but it wastes memory by storing every (term, docID) pair separately. What if the term 'the' appears 1 million times? That's 1 million copies of the same TermID. SPIMI fixes this..."</p>
+  </div>
+  <div class="diagram-card">
+    <h3>🔄 BSBI Algorithm Flow</h3>
+    <div class="mermaid">
+graph TD
+    A["📄 Read Documents Stream"] --> B["📝 Extract termID, docID pairs"]
+    B --> C{"Block Full?"}
+    C -->|No| B
+    C -->|Yes| D["⬆️ Sort pairs by TermID"]
+    D --> E["💾 Write sorted block to Disk"]
+    E --> F{"More docs?"}
+    F -->|Yes| B
+    F -->|No| G["🔀 Multi-way Merge all segments"]
+    G --> H["✅ Final Inverted Index"]
+    style A fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    style D fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style G fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style H fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+  <div class="card glass">
+    <h3>🎯 Step-by-Step Example</h3>
+    <div class="example-flow">
+      <div class="step-box">
+        <h4>1. Input Docs</h4>
+        <div class="code-block">Doc 1: "Gladiator movie"<br>Doc 2: "Gladiator general"</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="step-box">
+        <h4>2. Pairs (in memory)</h4>
+        <div class="code-block">(gladiator, 1)<br>(movie, 1)<br>(gladiator, 2)<br>(general, 2)</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="step-box">
+        <h4>3. Sort by Term</h4>
+        <div class="code-block">(general, 2)<br>(gladiator, 1)<br>(gladiator, 2)<br>(movie, 1)</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="step-box highlight-box">
+        <h4>4. Segment on Disk</h4>
+        <div class="code-block">general: [2]<br>gladiator: [1, 2]<br>movie: [1]</div>
+      </div>
+    </div>
+  </div>
+  <div class="card glass complexity-card">
+    <h3>📊 Complexity</h3>
+    <div class="complexity-grid">
+      <div><strong>Time:</strong> O(T log T) — sorting is dominant</div>
+      <div><strong>I/O:</strong> O(T) — ~4 passes (read, write segs, read segs, write final)</div>
+      <div class="warn">⚠️ Limitation: Must keep N file handles open during merge</div>
+    </div>
+  </div>
+  <div class="sim-card">
+    <h3>🎮 BSBI Simulator — Step by Step</h3>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem">Click "Next Step" to watch BSBI process documents, sort blocks, write segments to disk, and merge into the final index.</p>
+    <div id="bsbiSim"></div>
+  </div>
+</section>
+<section id="spimi" class="content-section">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <h2>SPIMI: Single-Pass In-Memory Indexing</h2>
+    <p class="section-desc">Builds postings lists directly — no pairs, no sorting!</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"SPIMI is the smarter cousin of BSBI. Instead of storing 'the, doc1', 'the, doc2', 'the, doc3' as separate pairs, SPIMI maintains a dictionary in RAM and just appends doc IDs directly: 'the → [1, 2, 3]'. No sorting needed!"</p>
+    <h4>🎯 Key Point to Emphasize</h4>
+    <p class="analogy">The key insight is that SPIMI uses a hash map (Python dictionary), so lookup is O(1). BSBI had to sort because it couldn't look up terms quickly in an unsorted list of pairs.</p>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"Why is SPIMI faster?"</p><p class="qa-a">Two reasons: (1) No O(N log N) sorting step — just O(N) appends, and (2) uses less memory because each term is stored only once in the hash map, not repeated in every pair.</p></div>
+    <div class="qa"><p class="qa-q">"Which one do real systems use?"</p><p class="qa-a">SPIMI! Lucene (the engine behind Elasticsearch) uses a SPIMI-like approach. BSBI is mainly taught for historical context and to understand why SPIMI is better.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>SPIMI is not just history — it's <strong>how Lucene actually works today</strong>. When Elasticsearch indexes a document, it uses SPIMI-like in-memory buffering, then flushes immutable segments to disk. Understanding SPIMI means understanding the core of every modern search engine. It also introduces the concept of dynamic dictionaries, which connects to how real-time indexing handles new terms.</p>
+    <h4>💡 Transition</h4>
+    <p class="say">"Both BSBI and SPIMI work on a single machine. But what if you need to index the entire web — petabytes of data? You need distributed processing. Enter MapReduce..."</p>
+  </div>
+  <div class="diagram-card">
+    <h3>🔄 SPIMI Algorithm Flow</h3>
+    <div class="mermaid">
+graph TD
+    A["📄 Tokenize Document Stream"] --> B["🔍 Lookup term in Hash Map"]
+    B --> C{"Term exists?"}
+    C -->|No| D["➕ Add term to dictionary"]
+    D --> E["📎 Append docID to list"]
+    C -->|Yes| E
+    E --> F{"RAM Full?"}
+    F -->|No| A
+    F -->|Yes| G["⬆️ Sort terms alphabetically"]
+    G --> H["💾 Write block to disk & clear RAM"]
+    H --> I{"More docs?"}
+    I -->|Yes| A
+    I -->|No| J["🔀 Merge all blocks"]
+    J --> K["✅ Final Inverted Index"]
+    style D fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style E fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style K fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+  <div class="card glass">
+    <h3>⚔️ BSBI vs SPIMI Comparison</h3>
+    <table class="compare-table">
+      <thead>
+        <tr><th>Feature</th><th>BSBI (Block Sort)</th><th>SPIMI (Single Pass) ✅</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Data Structure</td><td class="bad">(TermID, DocID) pairs — wasteful</td><td class="good">Postings lists directly — compact</td></tr>
+        <tr><td>Sorting</td><td class="bad">O(N log N) sort of pairs</td><td class="good">No sorting! Just append O(N)</td></tr>
+        <tr><td>Dictionary</td><td class="bad">Needs global TermID mapping</td><td class="good">Builds dictionary dynamically</td></tr>
+        <tr><td>Memory</td><td class="bad">High overhead for pair objects</td><td class="good">Efficient — larger blocks</td></tr>
+        <tr><td>Compression</td><td class="bad">Hard to compress pairs</td><td class="good">Can compress immediately</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="sim-card">
+    <h3>🎮 SPIMI Simulator — Step by Step</h3>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem">Watch SPIMI build postings lists in a hash map. Notice the RAM bar — when it fills up, the block is flushed to disk!</p>
+    <div id="spimiSim"></div>
+  </div>
+</section>
+
+<!-- ═══ SECTION 4: DISTRIBUTED INDEXING (MapReduce) ═══ -->
+<section id="mapreduce" class="content-section alt-bg">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <h2>Distributed Indexing: MapReduce</h2>
+    <p class="section-desc">Scaling from one machine to thousands — the Google way.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Google published the MapReduce paper in 2004 and it revolutionized data processing. The idea is beautifully simple: split the work into two phases — Map (parse and extract) and Reduce (aggregate and build). Anyone can understand it."</p>
+    <h4>🎯 Analogy</h4>
+    <p class="analogy">Imagine counting word frequencies in 1000 books. Map phase: give each student 10 books and ask them to list every word. Shuffle: collect all lists and group by word. Reduce: one student per letter counts the totals for their words.</p>
+    <h4>🐳 Docker Demo Instructions</h4>
+    <p>When you reach this section, open a terminal and run:</p>
+    <ul>
+      <li>Make sure Docker Desktop is running first!</li>
+      <li><code>cd docker-mapreduce && docker compose up --build</code></li>
+      <li>Watch the colored logs — mappers tokenize → coordinator shuffles → reducers build index</li>
+      <li>When done: <code>docker compose down</code></li>
+    </ul>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"Why is Shuffle the most expensive phase?"</p><p class="qa-a">Because it requires moving ALL the mapper outputs across the network to the right reducer. If you have 1000 mappers, each producing 1GB of output, that's 1TB of data being transferred over the network.</p></div>
+    <div class="qa"><p class="qa-q">"Is MapReduce still used today?"</p><p class="qa-a">The original Hadoop MapReduce is less common now. Modern systems use Spark or Flink which keep data in memory. But the MAP → SHUFFLE → REDUCE pattern is fundamental and appears everywhere.</p></div>
+    <div class="qa"><p class="qa-q">"What's the difference between Term and Document partitioning?"</p><p class="qa-a">Term partitioning: split the dictionary (A-M on server 1, N-Z on server 2). Document partitioning: split the documents (docs 1-1M on server 1, 1M-2M on server 2). Document partitioning is the industry standard because it balances load better.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>MapReduce is the bridge from <strong>single-machine IR to web-scale IR</strong>. Without distributed indexing, Google couldn't index 100 billion web pages. This concept also connects to how Elasticsearch distributes shards across nodes — same principle, modern implementation. Understanding partitioning strategies (term vs document) is critical because it determines query latency, load balance, and fault tolerance in production search systems.</p>
+    <h4>💡 Transition</h4>
+    <p class="say">"Now we have our index, but it might be 10x larger than necessary. Compression is not just about saving disk — it's about making search FASTER. Let me show you why..."</p>
+  </div>
+  <div class="card-grid">
+    <div class="card glass">
+      <h3>🖥️ Single Machine Limits</h3>
+      <ul class="icon-list">
+        <li>❌ Storage Cap: Can't fit PB of data</li>
+        <li>❌ Slow Indexing: Weeks to index the web</li>
+        <li>❌ Single Point of Failure</li>
+      </ul>
+    </div>
+    <div class="card glass card-highlight">
+      <h3>☁️ Distributed Cluster</h3>
+      <ul class="icon-list">
+        <li>✅ Scalability: Add cheap nodes</li>
+        <li>✅ Parallelism: Index in hours</li>
+        <li>✅ Fault Tolerance: Survives failures</li>
+      </ul>
+    </div>
+  </div>
+  <div class="diagram-card">
+    <h3>🗺️ MapReduce Data Flow</h3>
+    <div class="mermaid">
+graph LR
+    subgraph Input
+        S1["Split 1<br/>16-64MB"]
+        S2["Split 2"]
+        S3["Split 3"]
+    end
+    subgraph MAP["Map Phase"]
+        M1["Mapper 1<br/>parse + emit"]
+        M2["Mapper 2"]
+        M3["Mapper 3"]
+    end
+    subgraph SHUFFLE["Shuffle Phase ⚡"]
+        SH["Group by Key<br/>hash-term mod R"]
+    end
+    subgraph REDUCE["Reduce Phase"]
+        R1["Reducer A<br/>terms A-M"]
+        R2["Reducer B<br/>terms N-Z"]
+    end
+    S1 --> M1
+    S2 --> M2
+    S3 --> M3
+    M1 --> SH
+    M2 --> SH
+    M3 --> SH
+    SH --> R1
+    SH --> R2
+    style SH fill:#7c2d12,stroke:#f59e0b,color:#fef3c7
+    style R1 fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style R2 fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    </div>
+    <div class="callout warning">⚡ The Shuffle phase is the most expensive — massive network bandwidth usage!</div>
+  </div>
+  <div class="diagram-card">
+    <h3>🐳 Docker Demo Architecture</h3>
+    <div class="mermaid">
+graph TB
+    subgraph DC["docker-compose.yml"]
+        direction TB
+        subgraph Mappers["Mapper Containers"]
+            M0["mapper_0<br/>Python"]
+            M1["mapper_1<br/>Python"]
+            M2["mapper_2<br/>Python"]
+        end
+        subgraph Coord["Coordinator"]
+            CO["coordinator<br/>Master Node<br/>hash-term mod 2"]
+        end
+        subgraph Reducers["Reducer Containers"]
+            RA["reducer_a<br/>hash mod 2 = 0"]
+            RB["reducer_b<br/>hash mod 2 = 1"]
+        end
+        DATA[("📁 data/<br/>doc1-3.txt")] --> M0 & M1 & M2
+        M0 & M1 & M2 -->|"map_output/"| CO
+        CO -->|"shuffled/"| RA & RB
+        RA & RB -->|"final_output/"| FI[("📚 inverted_index.json")]
+    end
+    style CO fill:#7c2d12,stroke:#f59e0b,color:#fef3c7
+    style FI fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+  <div class="card glass">
+    <h3>🏗️ Partitioning Strategies</h3>
+    <div class="partition-compare">
+      <div class="partition-box">
+        <h4>Term Partitioning</h4>
+        <p>Terms A-M on Node 1, N-Z on Node 2</p>
+        <p class="good">✅ Good for multi-word queries</p>
+        <p class="bad">❌ Hot Spot: common terms overload nodes</p>
+      </div>
+      <div class="partition-box highlight-box">
+        <h4>Document Partitioning ⭐</h4>
+        <p>Docs 1-1000 on Node 1, 1001-2000 on Node 2</p>
+        <p class="good">✅ Scalable &amp; even load</p>
+        <p class="warn">⚠️ Scatter-Gather: query goes to ALL nodes</p>
+        <p><strong>Industry Standard</strong> (Google, Elasticsearch, Solr)</p>
+      </div>
+    </div>
+  </div>
+  <div class="diagram-card">
+    <h3>🔄 Dynamic Indexing &amp; LSM Trees</h3>
+    <div class="mermaid">
+graph TD
+    Q["🔍 Query"] --> AUX & MAIN
+    NEW["📄 New Docs"] --> AUX["Auxiliary Index<br/>In-Memory RAM<br/>Fast O-1 insert"]
+    AUX -->|"Periodic Merge"| MAIN["Main Index<br/>On-Disk<br/>Immutable Segments"]
+    DEL["🗑️ Deletions"] --> BV["Bit Vector<br/>.liv bitset"]
+    BV --> MAIN
+    style AUX fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style MAIN fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    </div>
+  </div>
+  <div class="sim-card">
+    <h3>🎮 MapReduce Simulator — Step by Step</h3>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem">Watch data flow: splits → mappers → shuffle (hash partitioning) → reducers. Each step shows exactly what happens in a distributed indexing pipeline.</p>
+    <div id="mrSim"></div>
+  </div>
+</section>
+<section id="compression" class="content-section">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <h2>Index Compression</h2>
+    <p class="section-desc">Smaller index = faster search. The big win: fitting the index in RAM.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Most students think compression is about saving disk. Wrong! The REAL benefit is speed. A compressed index that fits in RAM avoids disk seeks entirely. Remember slide 1 — disk seeks are 10,000x slower than RAM access."</p>
+    <h4>🎯 VB Encoding — How to Explain</h4>
+    <p class="analogy">Think of each byte as a letter in an envelope. 7 bits carry your actual message, and 1 bit (the stamp) tells you if there are more envelopes coming (0) or if this is the last one (1). That's Variable Byte encoding.</p>
+    <h4>🎯 Gap Encoding — How to Explain</h4>
+    <p class="analogy">Instead of storing 'I live at house 33, 45, 52, 90, 120', store 'I start at 33, then go +12, +7, +38, +30'. Gaps are much smaller numbers and need fewer bits.</p>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"Why not always use Gamma (better compression)?"</p><p class="qa-a">Because modern CPUs are so fast that the bottleneck shifts to DECODING speed. VB is byte-aligned so the CPU can process it naturally. Gamma requires bit-level manipulation which is much slower. In practice, decoding speed wins.</p></div>
+    <div class="qa"><p class="qa-q">"What do real systems actually use?"</p><p class="qa-a">Lucene/Elasticsearch use a technique called PForDelta — it processes 128 integers at once using SIMD CPU instructions. It's 5x faster than VB! But for exams, you need to know VB and Gamma.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>Compression is arguably the <strong>highest-impact optimization</strong> in IR. A 4x compression ratio means the index fits in RAM instead of disk — that's a 10,000x speedup for random access! Gap encoding + VB encoding is the standard approach used in Lucene, Elasticsearch, and Solr. Without compression, modern search engines would need 4x more servers — billions of dollars in infrastructure costs at Google's scale.</p>
+    <h4>⚠️ Exam Tips</h4>
+    <p class="warn-note">VB encoding of specific numbers is a common exam question. Make sure students can encode 824 and decode [0x06, 0xB8] by hand. Use the interactive demo to let them practice!</p>
+  </div>
+  <div class="card-grid three-col">
+    <div class="card glass"><h3>💾 Disk Space</h3><p>Reduces physical footprint, lowers storage costs.</p></div>
+    <div class="card glass"><h3>⚡ I/O Speed</h3><p>Reading compressed data from disk is faster even with decompression.</p></div>
+    <div class="card glass card-highlight"><h3>🧠 Caching (RAM)</h3><p><strong>The Big Win:</strong> Compressed index fits in memory → avoids slow disk seeks!</p></div>
+  </div>
+
+  <!-- Gap Encoding Interactive -->
+  <div class="card glass interactive-card">
+    <h3>📊 Gap Encoding — Interactive Demo</h3>
+    <p>Enter comma-separated sorted DocIDs:</p>
+    <div class="demo-input-row">
+      <input type="text" id="gapInput" value="33, 45, 52, 90, 120" class="demo-input">
+      <button onclick="runGapDemo()" class="btn">Compute Gaps</button>
+    </div>
+    <div id="gapOutput" class="demo-output"></div>
+  </div>
+
+  <!-- VB Encoding Interactive -->
+  <div class="card glass interactive-card">
+    <h3>🔢 Variable Byte Encoding — Interactive Demo</h3>
+    <p>Enter an integer to encode:</p>
+    <div class="demo-input-row">
+      <input type="number" id="vbInput" value="824" class="demo-input" min="1">
+      <button onclick="runVBDemo()" class="btn">Encode</button>
+    </div>
+    <div id="vbOutput" class="demo-output"></div>
+  </div>
+
+  <!-- Gamma Encoding Interactive -->
+  <div class="card glass interactive-card">
+    <h3>🎯 Gamma Encoding — Interactive Demo</h3>
+    <p>Enter a positive integer:</p>
+    <div class="demo-input-row">
+      <input type="number" id="gammaInput" value="13" class="demo-input" min="1">
+      <button onclick="runGammaDemo()" class="btn">Encode</button>
+    </div>
+    <div id="gammaOutput" class="demo-output"></div>
+  </div>
+
+  <div class="card glass">
+    <h3>⚖️ VB vs Gamma Trade-offs</h3>
+    <table class="compare-table">
+      <thead><tr><th>Metric</th><th>Variable Byte</th><th>Gamma</th></tr></thead>
+      <tbody>
+        <tr><td>Alignment</td><td>Byte-aligned (simple)</td><td>Bit-aligned (complex)</td></tr>
+        <tr><td>Compression</td><td>Good (~50%)</td><td class="good">Excellent (~30-40%)</td></tr>
+        <tr><td>Decoding Speed</td><td class="good">Very Fast</td><td class="bad">Slow (bit manipulation)</td></tr>
+        <tr><td>Implementation</td><td class="good">Simple</td><td class="bad">Complex</td></tr>
+      </tbody>
+    </table>
+    <div class="callout info">Modern engines (Lucene/ES) prefer <strong>Variable Byte</strong> — decoding speed matters more than space.</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>📖 Dictionary Compression Methods</h3>
+    <div class="mermaid">
+graph LR
+    subgraph FW["Fixed Width ❌"]
+        F1["c a t _ _ _ _ _<br/>20 bytes per term<br/>60% wasted"]
+    end
+    subgraph SA["String Array ✅"]
+        F2["catautomation...<br/>ptr:0  ptr:3  ptr:13<br/>Compact!"]
+    end
+    subgraph FC["Front Coding ✅✅"]
+        F3["8automata<br/>7e  7ic  7ion<br/>Prefix shared!"]
+    end
+    FW --> SA --> FC
+    style FW fill:#7f1d1d,stroke:#f87171,color:#fecaca
+    style SA fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    style FC fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTION 6: QUERY PROCESSING ═══ -->
+<section id="queries" class="content-section alt-bg">
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <h2>Query Processing</h2>
+    <p class="section-desc">Phrase queries, wildcards, skip pointers and spelling correction.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Now we have a compressed, distributed index. The last piece of the puzzle is: how do we actually ANSWER queries? We need to intersect postings lists efficiently, handle phrase queries where word ORDER matters, and deal with user typos."</p>
+    <h4>🎯 Skip Pointers — How to Explain</h4>
+    <p class="analogy">Imagine looking for common friends between two sorted friend lists. Without skips, you compare name by name. With skip pointers, when you see 'Alice' in list A and 'Zara' in list B, you can jump ahead in list A past all names before Z. Saves tons of comparisons.</p>
+    <h4>🎯 Permuterm — How to Explain</h4>
+    <p class="analogy">The trick is: to search for 'h*o', we rotate the pattern so the wildcard is at the end: 'o$h*'. Now it's just a prefix search! We pre-compute all rotations of every term so any wildcard can become a prefix query.</p>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"Why √L for skip pointer spacing?"</p><p class="qa-a">It's a mathematical optimization. Too few skips = no benefit. Too many skips = you check a skip at every element. √L minimizes the total expected comparison cost. It's similar to the optimal number of floors to test with 2 eggs.</p></div>
+    <div class="qa"><p class="qa-q">"Why not just use positional indexes everywhere?"</p><p class="qa-a">Because storing positions makes the index 2-4x larger. For a term like 'the' that appears billions of times, storing every position is extremely expensive. Many systems use a hybrid: positional for important terms, bi-word for common phrases.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>Query processing connects ALL previous concepts: the index we built (BSBI/SPIMI), compressed (VB/Gamma), and distributed (MapReduce) now needs to answer user queries efficiently. Skip pointers directly reduce query latency. Phrase queries enable exact-match search ("to be or not to be"). Wildcards enable exploratory search. Spelling correction improves recall. Every concept here directly impacts the <strong>user experience</strong> of a search engine.</p>
+  </div>
+  <div class="diagram-card">
+    <h3>🔍 Query Processing Pipeline</h3>
+    <div class="mermaid">
+graph LR
+    A["👤 User Query<br/>'caesar AND brutus'"] --> B["✂️ Parser<br/>Tokenize, Stem"]
+    B --> C["📖 Lookup<br/>Fetch Postings"]
+    C --> D["⚙️ Engine<br/>Intersection + Scoring"]
+    D --> E["📋 Results<br/>Ranked Documents"]
+    style A fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style D fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style E fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+
+  <div class="card glass">
+    <h3>⏭️ Skip Pointers</h3>
+    <p>Standard intersection: O(M+N). Skip pointers jump over non-matching blocks.</p>
+    <p><strong>Heuristic:</strong> Place skip pointers every √L items.</p>
+    <div class="skip-visual">
+      <div class="skip-list">
+        <span class="skip-node skip-head">2</span>
+        <span class="skip-node">4</span>
+        <span class="skip-node skip-head">8</span>
+        <span class="skip-node">16</span>
+        <span class="skip-node skip-head">19</span>
+        <span class="skip-node">23</span>
+        <span class="skip-node skip-head">28</span>
+        <span class="skip-node">43</span>
+        <span class="skip-node">45</span>
+      </div>
+      <div class="skip-arrows">Nodes with borders have skip pointers → jump every √9 ≈ 3 items</div>
+    </div>
+  </div>
+
+  <div class="card glass">
+    <h3>📝 Phrase Queries</h3>
+    <div class="partition-compare">
+      <div class="partition-box">
+        <h4>Bi-word Indexes</h4>
+        <p>"New York University" → index: "new york", "york university"</p>
+        <p class="good">✅ Fast retrieval</p>
+        <p class="bad">❌ Index blowup, false positives</p>
+      </div>
+      <div class="partition-box highlight-box">
+        <h4>Positional Indexes ⭐</h4>
+        <p>to: Doc1:[1,5], be: Doc1:[2,6]</p>
+        <p class="good">✅ Exact phrase + proximity</p>
+        <p class="warn">⚠️ 2-4x larger index</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card glass">
+    <h3>🃏 Wildcard Queries</h3>
+    <table class="info-table">
+      <tr><th>Trailing: comput*</th><td>B-tree range lookup</td></tr>
+      <tr><th>Leading: *mon</th><td>Reverse B-tree (index "noml")</td></tr>
+      <tr><th>General: pro*cent</th><td>Permuterm Index or k-gram Index</td></tr>
+    </table>
+  </div>
+
+  <div class="diagram-card">
+    <h3>🔄 Permuterm Index</h3>
+    <div class="mermaid">
+graph TD
+    T["hello$"] --> R1["hello$ → hello"]
+    T --> R2["ello$h → hello"]
+    T --> R3["llo$he → hello"]
+    T --> R4["lo$hel → hello"]
+    T --> R5["o$hell → hello"]
+    T --> R6["$hello → hello"]
+    Q["Query: h*o"] --> ROT["Rotate: o$h*"]
+    ROT --> BT["B-tree prefix lookup: o$h"]
+    BT --> RES["Match: o$hell → hello ✅"]
+    style Q fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style RES fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+  </div>
+
+  <!-- Edit Distance Interactive -->
+  <div class="card glass interactive-card">
+    <h3>✏️ Edit Distance — Interactive Demo</h3>
+    <div class="demo-input-row">
+      <input type="text" id="ed1" value="fast" class="demo-input" placeholder="Word 1">
+      <input type="text" id="ed2" value="cats" class="demo-input" placeholder="Word 2">
+      <button onclick="runEditDistance()" class="btn">Compute</button>
+    </div>
+    <div id="edOutput" class="demo-output"></div>
+  </div>
+  <div class="sim-card">
+    <h3>🎮 Skip Pointers Intersection — Step by Step</h3>
+    <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem">Watch two postings lists being intersected with skip pointers. Gold-bordered nodes have skips. The algorithm uses them to jump over non-matching blocks!</p>
+    <div id="skipSim"></div>
+  </div>
+</section>
+<section id="realworld" class="content-section">
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <h2>Real-World Systems</h2>
+    <p class="section-desc">Lucene, Elasticsearch, and Twitter Earlybird.</p>
+  </div>
+  <div class="prof-toggle" onclick="toggleNotes(this)"><span class="toggle-icon">▶</span> Professor Notes</div>
+  <div class="prof-notes">
+    <h4>🎤 What to Say</h4>
+    <p class="say">"Everything we learned today — SPIMI, compression, segments, merging — this is EXACTLY how Lucene works. Elasticsearch is just Lucene + distribution + REST API. If you understand this chapter, you understand the core of every major search engine."</p>
+    <h4>🎯 Key Points</h4>
+    <p class="analogy">Lucene = engine (core indexing library). Elasticsearch = car (makes it distributed, adds REST API, clustering). Think of it like SQLite (library) vs PostgreSQL (server).</p>
+    <ul>
+      <li><strong>Segments are immutable</strong> — once written, never changed. This eliminates lock contention and makes search fast.</li>
+      <li><strong>Deletes use tombstones</strong> — a .liv bitset marks deleted docs. Physical deletion only happens during a merge.</li>
+      <li><strong>Twitter's Earlybird</strong> — keeps the active segment in RAM for real-time search. Tweets are searchable within seconds because they never wait for disk.</li>
+    </ul>
+    <h4>🙋 Expected Student Questions</h4>
+    <div class="qa"><p class="qa-q">"What's a shard in Elasticsearch?"</p><p class="qa-a">A shard is a single Lucene instance. An index (e.g., 'products') is split into N shards distributed across nodes. Each shard is a complete, self-contained inverted index.</p></div>
+    <div class="qa"><p class="qa-q">"How does Elasticsearch handle node failures?"</p><p class="qa-a">Each shard has replicas on other nodes. If Node 1 dies, the replica on Node 3 is promoted to primary. Zero downtime. This is why the diagram shows P1/R1 on different nodes.</p></div>
+    <h4>🔗 Why This Matters in IR</h4>
+    <p>This section ties EVERYTHING together. Lucene uses SPIMI + immutable segments + VB compression. Elasticsearch adds MapReduce-style distribution + document partitioning. Twitter's Earlybird shows real-time indexing with auxiliary indexes. Students should leave understanding that every concept we taught is used in <strong>production systems processing billions of queries daily</strong>. This isn't theory — this is how the internet works.</p>
+  </div>
+  <div class="diagram-card">
+    <h3>📦 Lucene Segment Architecture</h3>
+    <div class="mermaid">
+graph TD
+    IW["IndexWriter<br/>Ingests docs, buffers in RAM"] --> RAM["RAM Buffer<br/>Mutable"]
+    RAM -->|Flush| S1["Segment 1<br/>Immutable"]
+    RAM -->|Flush| S2["Segment 2<br/>Immutable"]
+    RAM -->|Flush| S3["Segment 3<br/>Immutable"]
+    S1 & S2 -->|Background Merge| SM["Merged Segment<br/>Larger, immutable"]
+    IR["IndexReader<br/>Opens view of all segs"] --> S1 & S2 & S3
+    DEL["Deletes → .liv bitset<br/>Tombstones, removed on merge"]
+    style RAM fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style SM fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    style S1 fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    style S2 fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    style S3 fill:#1e293b,stroke:#60a5fa,color:#e2e8f0
+    </div>
+  </div>
+  <div class="diagram-card">
+    <h3>🌐 Elasticsearch Cluster</h3>
+    <div class="mermaid">
+graph TB
+    subgraph Cluster["MY_CLUSTER"]
+        MASTER["🧠 Master Node<br/>Manages Cluster State"]
+        COORD["🔀 Coordinating Node<br/>Routes requests, Scatter/Gather"]
+        D1["💾 Data Node 1<br/>P1, R2"]
+        D2["💾 Data Node 2<br/>P2, R3"]
+        D3["💾 Data Node 3<br/>P3, R1"]
+        MASTER --> D1 & D2 & D3
+        COORD --> D1 & D2 & D3
+    end
+    CLIENT["👤 Client<br/>REST API / JSON"] --> COORD
+    style MASTER fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style COORD fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style CLIENT fill:#0f766e,stroke:#34d399,color:#e2e8f0
+    </div>
+    <div class="callout info">Lucene is the <strong>engine</strong>. Elasticsearch is the <strong>car</strong>.</div>
+  </div>
+</section>
+
+<!-- ═══ SECTION 8: QUIZ ═══ -->
+<section id="quiz" class="content-section alt-bg">
+  <div class="section-header">
+    <span class="section-num">08</span>
+    <h2>Chapter 4 Quiz</h2>
+    <p class="section-desc">15 questions to test your understanding. Select your answers and check at the end!</p>
+  </div>
+  <div id="quizContainer"></div>
+  <div class="quiz-actions">
+    <button onclick="checkQuiz()" class="btn btn-lg">Check Answers</button>
+    <button onclick="resetQuiz()" class="btn btn-secondary">Reset</button>
+  </div>
+  <div id="quizResult" class="quiz-result"></div>
+</section>
+
+<!-- Professor Notes Master Toggle -->
+<button class="prof-master-toggle" onclick="toggleAllNotes()" id="masterToggle">🎓 Show All Prof Notes</button>
+
+<footer>
+  <p>CS313x — Information Retrieval · Week 4: Index Construction &amp; Compression</p>
+</footer>
+
+<script src="script.js"></script>
+<script src="simulators.js"></script>
+</body>
+</html>

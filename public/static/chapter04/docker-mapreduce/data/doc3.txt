@@ -1,0 +1,1 @@
+Information retrieval systems process queries from users and return relevant documents. The system must handle millions of queries per second with low latency. Distributed indexing using MapReduce allows the system to scale horizontally across hundreds of nodes. Each node processes a subset of the document collection independently.

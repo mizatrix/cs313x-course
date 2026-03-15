@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document & Query Vectors</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff9a56, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .input-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .input-section h2 {
+            color: #ff9a56;
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+        }
+
+        .doc-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .doc-input {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .doc-input label {
+            font-size: 0.85rem;
+            color: #aaa;
+            font-weight: 500;
+        }
+
+        .doc-input textarea {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 12px;
+            color: #e0e0f0;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            resize: none;
+            height: 70px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .doc-input textarea:focus {
+            border-color: rgba(255, 154, 86, 0.5);
+        }
+
+        .query-input {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .query-input input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #e0e0f0;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .query-input input:focus {
+            border-color: rgba(255, 107, 107, 0.5);
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff9a56, #ff6b6b);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .matrix-section,
+        .vector-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .matrix-section h3,
+        .vector-section h3 {
+            color: #a0a0ff;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            text-align: center;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #aaa;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        td {
+            color: #ddd;
+        }
+
+        .cell-highlight {
+            transition: all 0.5s;
+        }
+
+        .cell-zero {
+            color: #555;
+        }
+
+        .vector-display {
+            margin-bottom: 16px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            transition: all 0.5s;
+            border-left: 3px solid transparent;
+        }
+
+        .vector-display.doc {
+            border-left-color: #51cf66;
+        }
+
+        .vector-display.query {
+            border-left-color: #ff6b6b;
+        }
+
+        .vector-label {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .vector-label.doc-label {
+            color: #51cf66;
+        }
+
+        .vector-label.query-label {
+            color: #ff6b6b;
+        }
+
+        .dim-label {
+            color: #888;
+            font-size: 0.75rem;
+        }
+
+        .explain-section {
+            margin-top: 30px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+        }
+
+        .explain-section h3 {
+            color: #ffd43b;
+            margin-bottom: 12px;
+        }
+
+        .step {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.4s;
+        }
+
+        .step.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .step-num {
+            background: rgba(255, 212, 59, 0.2);
+            color: #ffd43b;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📊 Document & Query Vectors</h1>
+        <p>See how text becomes numbers in high-dimensional space</p>
+    </div>
+    <div class="container">
+        <div class="input-section">
+            <h2>✏️ Enter Documents & Query</h2>
+            <div class="doc-inputs">
+                <div class="doc-input">
+                    <label>Document 1</label>
+                    <textarea id="doc1">information retrieval is the study of searching</textarea>
+                </div>
+                <div class="doc-input">
+                    <label>Document 2</label>
+                    <textarea id="doc2">machine learning helps information extraction</textarea>
+                </div>
+                <div class="doc-input">
+                    <label>Document 3</label>
+                    <textarea id="doc3">retrieval systems use indexing and searching</textarea>
+                </div>
+                <div class="doc-input">
+                    <label>Document 4</label>
+                    <textarea id="doc4">deep learning models for natural language</textarea>
+                </div>
+            </div>
+            <div class="query-input">
+                <input type="text" id="queryInput" value="information retrieval searching"
+                    placeholder="Enter your query...">
+                <button onclick="buildVectors()">⚡ Build Vectors</button>
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <div class="matrix-section">
+                <h3>📋 Term-Document Matrix</h3>
+                <div id="matrixContainer" style="overflow-x:auto;"></div>
+            </div>
+            <div class="vector-section">
+                <h3>📐 Vector Representations</h3>
+                <div id="vectorContainer"></div>
+            </div>
+        </div>
+
+        <div class="explain-section">
+            <h3>💡 How It Works — Step by Step</h3>
+            <div id="stepsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        function tokenize(text) {
+            return text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+        }
+
+        function buildVectors() {
+            const docs = [
+                document.getElementById('doc1').value,
+                document.getElementById('doc2').value,
+                document.getElementById('doc3').value,
+                document.getElementById('doc4').value
+            ];
+            const query = document.getElementById('queryInput').value;
+
+            const allTokens = [];
+            const docTokens = docs.map(d => tokenize(d));
+            const queryTokens = tokenize(query);
+
+            // Build vocabulary
+            const vocabSet = new Set();
+            docTokens.forEach(dt => dt.forEach(t => vocabSet.add(t)));
+            queryTokens.forEach(t => vocabSet.add(t));
+            const vocab = [...vocabSet].sort();
+
+            // Term frequency vectors
+            function tfVector(tokens) {
+                return vocab.map(term => tokens.filter(t => t === term).length);
+            }
+
+            const docVectors = docTokens.map(dt => tfVector(dt));
+            const queryVector = tfVector(queryTokens);
+
+            // Build matrix table
+            const matrixContainer = document.getElementById('matrixContainer');
+            let html = '<table><thead><tr><th>Term</th>';
+            docs.forEach((_, i) => html += `<th>D${i + 1}</th>`);
+            html += '<th style="color:#ff6b6b;">Query</th></tr></thead><tbody>';
+
+            vocab.forEach((term, ti) => {
+                html += `<tr><td style="text-align:left; color:#aaa; font-weight:500;">${term}</td>`;
+                docVectors.forEach(dv => {
+                    const val = dv[ti];
+                    const intensity = val > 0 ? Math.min(val * 0.3, 1) : 0;
+                    html += `<td class="cell-highlight" style="background:rgba(81,207,102,${intensity}); ${val === 0 ? 'color:#555;' : ''}">${val}</td>`;
+                });
+                const qval = queryVector[ti];
+                const qint = qval > 0 ? Math.min(qval * 0.3, 1) : 0;
+                html += `<td class="cell-highlight" style="background:rgba(255,107,107,${qint}); ${qval === 0 ? 'color:#555;' : ''}">${qval}</td>`;
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            matrixContainer.innerHTML = html;
+
+            // Build vector display
+            const vectorContainer = document.getElementById('vectorContainer');
+            let vhtml = '';
+            docVectors.forEach((dv, i) => {
+                vhtml += `<div class="vector-display doc">
+                    <div class="vector-label doc-label">D${i + 1}</div>
+                    <div>[ ${dv.join(', ')} ]</div>
+                    <div class="dim-label">${vocab.length} dimensions</div>
+                </div>`;
+            });
+            vhtml += `<div class="vector-display query">
+                <div class="vector-label query-label">Query</div>
+                <div>[ ${queryVector.join(', ')} ]</div>
+                <div class="dim-label">${vocab.length} dimensions</div>
+            </div>`;
+            vectorContainer.innerHTML = vhtml;
+
+            // Steps
+            const steps = [
+                `<strong>Tokenize:</strong> Break each document and query into individual words (terms).`,
+                `<strong>Build Vocabulary:</strong> Collect all unique terms → <em>${vocab.length} unique terms found</em>.`,
+                `<strong>Count Frequencies:</strong> For each document, count how many times each term appears.`,
+                `<strong>Create Vectors:</strong> Each document becomes a ${vocab.length}-dimensional vector.`,
+                `<strong>Query Vector:</strong> The query "${query}" is also converted into the same vector space.`,
+                `<strong>Result:</strong> Documents and query now live in the same ${vocab.length}-dimensional space — ready for similarity computation!`
+            ];
+
+            const stepsContainer = document.getElementById('stepsContainer');
+            stepsContainer.innerHTML = '';
+            steps.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = 'step';
+                div.innerHTML = `<span class="step-num">${i + 1}</span><span>${s}</span>`;
+                stepsContainer.appendChild(div);
+                setTimeout(() => div.classList.add('visible'), i * 300 + 200);
+            });
+        }
+
+        // Auto-run on load
+        setTimeout(buildVectors, 300);
+    </script>
+</body>
+
+</html>

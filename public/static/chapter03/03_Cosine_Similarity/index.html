@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosine Similarity — Interactive</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #7c7cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .canvas-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .canvas-panel h3 {
+            color: #00d4ff;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+
+        canvas {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            cursor: crosshair;
+            display: block;
+            width: 100%;
+        }
+
+        .instructions {
+            margin-top: 12px;
+            color: #888;
+            font-size: 0.82rem;
+            text-align: center;
+        }
+
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 22px;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            border-color: rgba(100, 100, 255, 0.2);
+        }
+
+        .card h3 {
+            font-size: 1rem;
+            margin-bottom: 14px;
+        }
+
+        .card h3.blue {
+            color: #00d4ff;
+        }
+
+        .card h3.green {
+            color: #51cf66;
+        }
+
+        .card h3.yellow {
+            color: #ffd43b;
+        }
+
+        .card h3.red {
+            color: #ff6b6b;
+        }
+
+        .score-display {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .score-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+            transition: all 0.3s;
+        }
+
+        .score-label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .score-bar {
+            margin-top: 16px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease, background 0.5s;
+        }
+
+        .angle-display {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #ffd43b;
+        }
+
+        .angle-label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        .formula-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #aaa;
+            line-height: 1.8;
+        }
+
+        .formula-box .val {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        .formula-box .op {
+            color: #ffd43b;
+        }
+
+        .comparison-section {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .comparison-section .card {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            color: #888;
+            font-size: 0.82rem;
+        }
+
+        .bad {
+            color: #ff6b6b;
+        }
+
+        .good {
+            color: #51cf66;
+        }
+
+        .slider-group {
+            margin-bottom: 12px;
+        }
+
+        .slider-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00d4ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📐 Cosine Similarity — Interactive Lab</h1>
+        <p>Drag vectors to see similarity change in real-time</p>
+    </div>
+    <div class="container">
+        <div class="main-grid">
+            <div>
+                <div class="canvas-panel">
+                    <h3>🎯 2D Vector Space — Drag the Vectors!</h3>
+                    <canvas id="cosineCanvas" width="600" height="500"></canvas>
+                    <p class="instructions">🖱️ Click and drag the arrow tips to move vectors</p>
+                </div>
+
+                <div class="comparison-section">
+                    <div class="card">
+                        <h3 class="red">❌ Euclidean Distance</h3>
+                        <div class="metric-value bad" id="euclideanValue">—</div>
+                        <div class="metric-label">Penalizes different lengths!</div>
+                    </div>
+                    <div class="card">
+                        <h3 class="green">✅ Cosine Similarity</h3>
+                        <div class="metric-value good" id="cosineMetric">—</div>
+                        <div class="metric-label">Only cares about direction!</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="card">
+                    <h3 class="blue">Similarity Score</h3>
+                    <div class="score-display">
+                        <div class="score-value" id="scoreValue">0.00</div>
+                        <div class="score-label">cosine similarity</div>
+                        <div class="score-bar">
+                            <div class="score-bar-fill" id="scoreBar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="yellow">Angle Between Vectors</h3>
+                    <div class="angle-display" id="angleValue">0°</div>
+                    <div class="angle-label">θ (theta)</div>
+                </div>
+
+                <div class="card">
+                    <h3 class="green">📝 Live Calculation</h3>
+                    <div class="formula-box" id="formulaBox">
+                        Click and drag vectors to see the math!
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="blue">Quick Presets</h3>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button onclick="setPreset(0)"
+                            style="background:linear-gradient(135deg,#51cf66,#2ecc71);">Identical (θ=0°)</button>
+                        <button onclick="setPreset(45)"
+                            style="background:linear-gradient(135deg,#ffd43b,#f0a500);">Moderate (θ=45°)</button>
+                        <button onclick="setPreset(90)"
+                            style="background:linear-gradient(135deg,#ff6b6b,#e74c3c);">Orthogonal (θ=90°)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('cosineCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        const ox = 60, oy = H - 50;
+        const maxLen = Math.min(W - 100, H - 100);
+
+        let vecA = { x: 200, y: -150 }; // relative to origin
+        let vecB = { x: 250, y: -200 };
+        let dragging = null;
+
+        function drawArrow(fromX, fromY, toX, toY, color, label) {
+            const headLen = 14;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+
+            // Arrow line
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLen * Math.cos(angle - 0.4), toY - headLen * Math.sin(angle - 0.4));
+            ctx.lineTo(toX - headLen * Math.cos(angle + 0.4), toY - headLen * Math.sin(angle + 0.4));
+            ctx.closePath();
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px Inter';
+            ctx.fillText(label, toX + 10, toY - 10);
+
+            // Handle dot
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(toX, toY, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0a0a1a';
+            ctx.beginPath();
+            ctx.arc(toX, toY, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 12; i++) {
+                const gx = ox + (i / 12) * (W - 100);
+                ctx.beginPath(); ctx.moveTo(gx, 30); ctx.lineTo(gx, oy); ctx.stroke();
+                const gy = oy - (i / 12) * (H - 80);
+                ctx.beginPath(); ctx.moveTo(ox, gy); ctx.lineTo(W - 40, gy); ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(W - 30, oy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, 20); ctx.stroke();
+
+            // Angle arc
+            const angA = Math.atan2(vecA.y, vecA.x);
+            const angB = Math.atan2(vecB.y, vecB.x);
+            const arcR = 50;
+            ctx.strokeStyle = 'rgba(255,212,59,0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ox, oy, arcR, Math.min(angA, angB), Math.max(angA, angB));
+            ctx.stroke();
+
+            // Theta label
+            const midAngle = (angA + angB) / 2;
+            ctx.fillStyle = '#ffd43b';
+            ctx.font = 'bold 14px Inter';
+            ctx.fillText('θ', ox + (arcR + 12) * Math.cos(midAngle), oy + (arcR + 12) * Math.sin(midAngle));
+
+            // Vectors
+            drawArrow(ox, oy, ox + vecA.x, oy + vecA.y, '#ff6b6b', 'Document');
+            drawArrow(ox, oy, ox + vecB.x, oy + vecB.y, '#00d4ff', 'Query');
+
+            // Calculate cosine similarity
+            const dotProd = vecA.x * vecB.x + vecA.y * vecB.y;
+            const magA = Math.sqrt(vecA.x * vecA.x + vecA.y * vecA.y);
+            const magB = Math.sqrt(vecB.x * vecB.x + vecB.y * vecB.y);
+            const cosine = (magA > 0 && magB > 0) ? dotProd / (magA * magB) : 0;
+            const angleDeg = Math.acos(Math.max(-1, Math.min(1, cosine))) * 180 / Math.PI;
+
+            // Euclidean
+            const euclidean = Math.sqrt((vecA.x - vecB.x) ** 2 + (vecA.y - vecB.y) ** 2);
+
+            // Update UI
+            const scoreEl = document.getElementById('scoreValue');
+            scoreEl.textContent = cosine.toFixed(3);
+            const hue = cosine > 0 ? 120 * cosine : 0;
+            scoreEl.style.color = `hsl(${hue}, 70%, 60%)`;
+
+            const bar = document.getElementById('scoreBar');
+            bar.style.width = `${Math.max(0, cosine) * 100}%`;
+            bar.style.background = `hsl(${hue}, 70%, 50%)`;
+
+            document.getElementById('angleValue').textContent = `${angleDeg.toFixed(1)}°`;
+            document.getElementById('euclideanValue').textContent = euclidean.toFixed(1);
+            document.getElementById('cosineMetric').textContent = cosine.toFixed(3);
+
+            // Formula
+            document.getElementById('formulaBox').innerHTML = `
+                <span class="op">d · q</span> = (${vecA.x.toFixed(0)} × ${vecB.x.toFixed(0)}) + (${vecA.y.toFixed(0)} × ${vecB.y.toFixed(0)})<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span class="val">${dotProd.toFixed(1)}</span><br><br>
+                <span class="op">||d||</span> = √(${vecA.x.toFixed(0)}² + ${vecA.y.toFixed(0)}²) = <span class="val">${magA.toFixed(1)}</span><br>
+                <span class="op">||q||</span> = √(${vecB.x.toFixed(0)}² + ${vecB.y.toFixed(0)}²) = <span class="val">${magB.toFixed(1)}</span><br><br>
+                <span class="op">cos(θ)</span> = ${dotProd.toFixed(1)} / (${magA.toFixed(1)} × ${magB.toFixed(1)})<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span class="val" style="font-size:1.1em;">${cosine.toFixed(4)}</span>
+            `;
+        }
+
+        // Drag handling
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (W / rect.width);
+            const my = (e.clientY - rect.top) * (H / rect.height);
+
+            const dA = Math.hypot(mx - (ox + vecA.x), my - (oy + vecA.y));
+            const dB = Math.hypot(mx - (ox + vecB.x), my - (oy + vecB.y));
+
+            if (dA < 20) dragging = 'A';
+            else if (dB < 20) dragging = 'B';
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (W / rect.width);
+            const my = (e.clientY - rect.top) * (H / rect.height);
+
+            if (dragging === 'A') {
+                vecA.x = mx - ox;
+                vecA.y = my - oy;
+            } else {
+                vecB.x = mx - ox;
+                vecB.y = my - oy;
+            }
+            draw();
+        });
+
+        canvas.addEventListener('mouseup', () => { dragging = null; });
+        canvas.addEventListener('mouseleave', () => { dragging = null; });
+
+        function setPreset(angle) {
+            const len = 200;
+            const rad = angle * Math.PI / 180;
+            vecA = { x: len, y: -len * 0.6 };
+            const baseAngle = Math.atan2(vecA.y, vecA.x);
+            vecB = { x: len * Math.cos(baseAngle + rad), y: len * Math.sin(baseAngle + rad) };
+            draw();
+        }
+
+        draw();
+    </script>
+</body>
+
+</html>

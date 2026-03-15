@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Space Model — Introduction</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c7cff, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p { color: #888; margin-top: 8px; font-size: 1rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        .panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+        .panel:hover { border-color: rgba(100,100,255,0.3); transform: translateY(-2px); }
+        .panel h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel.boolean h2 { color: #ff6b6b; }
+        .panel.vsm h2 { color: #51cf66; }
+        .arrow-center {
+            text-align: center;
+            font-size: 2rem;
+            color: #7c7cff;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        .search-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .search-box input {
+            background: none;
+            border: none;
+            color: #e0e0f0;
+            font-size: 0.95rem;
+            width: 100%;
+            outline: none;
+        }
+        .search-icon { color: #666; font-size: 1.1rem; }
+
+        .result-item {
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: default;
+        }
+        .result-item.relevant { background: rgba(81, 207, 102, 0.1); border-left: 3px solid #51cf66; }
+        .result-item.irrelevant { background: rgba(255, 107, 107, 0.1); border-left: 3px solid #ff6b6b; }
+        .result-item.ranked {
+            border-left: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .result-item.ranked::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, rgba(124,124,255,0.3), transparent);
+            transition: width 0.8s ease;
+        }
+        .score-badge {
+            background: rgba(124,124,255,0.2);
+            color: #a0a0ff;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .tag {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .tag.match { background: rgba(81,207,102,0.2); color: #51cf66; }
+        .tag.no-match { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+
+        .vsm-canvas-section {
+            margin-top: 40px;
+            text-align: center;
+        }
+        .vsm-canvas-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #a0a0ff;
+        }
+        canvas {
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            display: block;
+            margin: 0 auto;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .key-ideas {
+            margin-top: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .idea-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .idea-card:hover { border-color: rgba(100,100,255,0.3); }
+        .idea-card h3 { color: #7c7cff; font-size: 1rem; margin-bottom: 8px; }
+        .idea-card p { color: #999; font-size: 0.88rem; line-height: 1.5; }
+
+        .btn-row {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #5c5cff, #3a3aff);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(92,92,255,0.4); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📐 Vector Space Model — Introduction</h1>
+        <p>From Boolean Retrieval to Ranked Retrieval</p>
+    </div>
+    <div class="container">
+        <!-- Boolean vs VSM comparison -->
+        <div class="comparison">
+            <div class="panel boolean">
+                <h2>❌ Boolean Retrieval</h2>
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" value='information AND retrieval' readonly>
+                </div>
+                <div id="boolean-results"></div>
+                <p style="color:#888; font-size:0.8rem; margin-top:12px;">
+                    No ranking — results are either IN or OUT. "Feast or famine" problem.
+                </p>
+            </div>
+            <div class="arrow-center">→</div>
+            <div class="panel vsm">
+                <h2>✅ Vector Space Model</h2>
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" value='information retrieval' readonly>
+                </div>
+                <div id="vsm-results"></div>
+                <p style="color:#888; font-size:0.8rem; margin-top:12px;">
+                    Ranked by relevance score — best results appear first!
+                </p>
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button onclick="runDemo()">▶ Run Demo Search</button>
+        </div>
+
+        <!-- 2D Vector Space Canvas -->
+        <div class="vsm-canvas-section">
+            <h2>Documents & Query in 2D Vector Space</h2>
+            <canvas id="vsmCanvas" width="700" height="500"></canvas>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b;"></div> Query</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#51cf66;"></div> Relevant Doc</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ffd43b;"></div> Partially Relevant</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#666;"></div> Irrelevant Doc</div>
+            </div>
+        </div>
+
+        <!-- Key Ideas -->
+        <div class="key-ideas">
+            <div class="idea-card">
+                <h3>🎯 Why Ranking Matters</h3>
+                <p>Users want the BEST results first, not just all matches. Boolean gives no order — VSM ranks by similarity.</p>
+            </div>
+            <div class="idea-card">
+                <h3>📊 Terms as Dimensions</h3>
+                <p>Each unique word in the vocabulary becomes an axis. Documents are points in this high-dimensional space.</p>
+            </div>
+            <div class="idea-card">
+                <h3>🔄 Feast or Famine</h3>
+                <p>Boolean: either millions of results or zero. No middle ground. VSM solves this with continuous similarity scores.</p>
+            </div>
+            <div class="idea-card">
+                <h3>📐 Geometric Intuition</h3>
+                <p>Similar documents are CLOSE to each other in vector space. The query is also a vector — find the nearest documents!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const booleanDocs = [
+            { name: "Doc 1: Intro to Information Retrieval", match: true },
+            { name: "Doc 4: Information Retrieval Systems", match: true },
+            { name: "Doc 7: Advanced Retrieval Methods", match: false },
+            { name: "Doc 2: Database Information Storage", match: false },
+            { name: "Doc 9: Web Information Retrieval", match: true },
+        ];
+
+        const vsmDocs = [
+            { name: "Doc 1: Intro to Information Retrieval", score: 0.95 },
+            { name: "Doc 4: Information Retrieval Systems", score: 0.87 },
+            { name: "Doc 9: Web Information Retrieval", score: 0.72 },
+            { name: "Doc 7: Advanced Retrieval Methods", score: 0.41 },
+            { name: "Doc 2: Database Information Storage", score: 0.18 },
+        ];
+
+        function runDemo() {
+            const boolContainer = document.getElementById('boolean-results');
+            const vsmContainer = document.getElementById('vsm-results');
+            boolContainer.innerHTML = '';
+            vsmContainer.innerHTML = '';
+
+            booleanDocs.forEach((doc, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = `result-item ${doc.match ? 'relevant' : 'irrelevant'}`;
+                    div.innerHTML = `<span>${doc.name}</span><span class="tag ${doc.match ? 'match' : 'no-match'}">${doc.match ? 'MATCH' : 'NO MATCH'}</span>`;
+                    div.style.opacity = '0';
+                    div.style.transform = 'translateX(-20px)';
+                    boolContainer.appendChild(div);
+                    requestAnimationFrame(() => {
+                        div.style.transition = 'all 0.4s ease';
+                        div.style.opacity = '1';
+                        div.style.transform = 'translateX(0)';
+                    });
+                }, i * 200);
+            });
+
+            vsmDocs.forEach((doc, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item ranked';
+                    div.style.background = `rgba(124,124,255,${doc.score * 0.15})`;
+                    div.innerHTML = `<span style="position:relative;z-index:1;">${doc.name}</span><span class="score-badge" style="position:relative;z-index:1;">${doc.score.toFixed(2)}</span>`;
+                    div.style.opacity = '0';
+                    div.style.transform = 'translateX(20px)';
+                    vsmContainer.appendChild(div);
+                    requestAnimationFrame(() => {
+                        div.style.transition = 'all 0.4s ease';
+                        div.style.opacity = '1';
+                        div.style.transform = 'translateX(0)';
+                        div.querySelector('::before');
+                        div.style.setProperty('--bar-width', `${doc.score * 100}%`);
+                    });
+                }, i * 200 + 100);
+            });
+        }
+
+        // 2D Vector Space Visualization
+        const canvas = document.getElementById('vsmCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const points = [
+            { x: 0.8, y: 0.9, label: 'Query', color: '#ff6b6b', radius: 8 },
+            { x: 0.75, y: 0.85, label: 'D1', color: '#51cf66', radius: 6 },
+            { x: 0.7, y: 0.78, label: 'D4', color: '#51cf66', radius: 6 },
+            { x: 0.55, y: 0.6, label: 'D9', color: '#ffd43b', radius: 6 },
+            { x: 0.3, y: 0.5, label: 'D7', color: '#ffd43b', radius: 5 },
+            { x: 0.15, y: 0.8, label: 'D2', color: '#666', radius: 5 },
+            { x: 0.9, y: 0.2, label: 'D5', color: '#666', radius: 5 },
+            { x: 0.4, y: 0.15, label: 'D3', color: '#666', radius: 5 },
+        ];
+
+        let animProgress = 0;
+        function drawVSM() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const ox = 60, oy = canvas.height - 50;
+            const w = canvas.width - 100, h = canvas.height - 100;
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(ox + (w / 10) * i, oy);
+                ctx.lineTo(ox + (w / 10) * i, oy - h);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(ox, oy - (h / 10) * i);
+                ctx.lineTo(ox + w, oy - (h / 10) * i);
+                ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy - h); ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = '#888';
+            ctx.font = '13px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('Term: "information"', ox + w / 2, oy + 35);
+            ctx.save();
+            ctx.translate(20, oy - h / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Term: "retrieval"', 0, 0);
+            ctx.restore();
+
+            // Draw dashed lines from query to nearby docs
+            const query = points[0];
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = 'rgba(255,107,107,0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const p = points[i];
+                const px = ox + p.x * w * Math.min(animProgress, 1);
+                const py = oy - p.y * h * Math.min(animProgress, 1);
+                const qx = ox + query.x * w * Math.min(animProgress, 1);
+                const qy = oy - query.y * h * Math.min(animProgress, 1);
+                ctx.beginPath();
+                ctx.moveTo(qx, qy);
+                ctx.lineTo(px, py);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // Points
+            points.forEach((p, i) => {
+                const progress = Math.min(animProgress - i * 0.08, 1);
+                if (progress <= 0) return;
+
+                const px = ox + p.x * w * progress;
+                const py = oy - p.y * h * progress;
+
+                // Glow
+                const glow = ctx.createRadialGradient(px, py, 0, px, py, p.radius * 3);
+                glow.addColorStop(0, p.color + '40');
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(px, py, p.radius * 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Dot
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(px, py, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = '#ddd';
+                ctx.font = `${i === 0 ? 'bold ' : ''}12px Inter`;
+                ctx.textAlign = 'left';
+                ctx.fillText(p.label, px + p.radius + 6, py + 4);
+            });
+
+            if (animProgress < 2) {
+                animProgress += 0.015;
+                requestAnimationFrame(drawVSM);
+            }
+        }
+
+        animProgress = 0;
+        drawVSM();
+        setTimeout(runDemo, 500);
+    </script>
+</body>
+</html>

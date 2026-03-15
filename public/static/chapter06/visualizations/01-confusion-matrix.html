@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Confusion Matrix — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .matrix-wrapper { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+    .matrix-labels-top { display: grid; grid-template-columns: 100px 1fr 1fr; gap: 4px; width: 100%; max-width: 420px; }
+    .matrix-labels-top .col-label { text-align: center; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); padding-bottom: 0.5rem; }
+    .matrix-body { display: grid; grid-template-columns: 100px 1fr 1fr; gap: 4px; width: 100%; max-width: 420px; }
+    .row-label { display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+    .matrix-cell {
+      aspect-ratio: 1.4; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); position: relative; min-height: 100px;
+    }
+    .matrix-cell .cell-count { font-size: 2.5rem; font-weight: 800; transition: transform 0.2s ease; }
+    .matrix-cell .cell-count.bump { transform: scale(1.3); }
+    .matrix-cell .cell-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; margin-top: 0.25rem; opacity: 0.8; }
+    .matrix-cell .cell-actions { position: absolute; bottom: 6px; display: flex; gap: 4px; }
+    .matrix-cell .cell-actions button {
+      width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+      font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+    }
+    .cell-tp { background: rgba(0, 184, 148, 0.12); border: 1px solid rgba(0, 184, 148, 0.3); }
+    .cell-tp .cell-count { color: var(--success); }
+    .cell-tp .cell-actions button { background: rgba(0, 184, 148, 0.2); color: var(--success); }
+    .cell-fp { background: rgba(253, 121, 168, 0.1); border: 1px solid rgba(253, 121, 168, 0.25); }
+    .cell-fp .cell-count { color: var(--accent-pink); }
+    .cell-fp .cell-actions button { background: rgba(253, 121, 168, 0.2); color: var(--accent-pink); }
+    .cell-fn { background: rgba(214, 48, 49, 0.1); border: 1px solid rgba(214, 48, 49, 0.25); }
+    .cell-fn .cell-count { color: var(--error); }
+    .cell-fn .cell-actions button { background: rgba(214, 48, 49, 0.2); color: var(--error); }
+    .cell-tn { background: rgba(108, 92, 231, 0.08); border: 1px solid rgba(108, 92, 231, 0.2); }
+    .cell-tn .cell-count { color: var(--accent-violet); }
+    .cell-tn .cell-actions button { background: rgba(108, 92, 231, 0.2); color: var(--accent-violet); }
+    .matrix-cell:hover { transform: scale(1.03); }
+    .cell-actions button:hover { transform: scale(1.2); }
+    .super-label { text-align: center; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .scenario-btn {
+      padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass);
+      background: var(--bg-card); color: var(--text-secondary); font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; transition: var(--transition); font-family: var(--font-main);
+    }
+    .scenario-btn:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+    .scenario-btn.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 6</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Confusion Matrix</h1>
+      <p>The confusion matrix is the foundation of all IR evaluation. Use the + and − buttons to change each cell and see how different metrics respond.</p>
+    </header>
+
+    <!-- Challenge Banner -->
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Set TP=0 and FP=0 (retrieve nothing), then check Accuracy. Why is it still high? This is the <strong>Accuracy Paradox</strong>!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Confusion Matrix</div>
+
+        <!-- Scenario Presets -->
+        <div class="control-row" style="margin-bottom: 1rem;">
+          <span style="font-size: 0.78rem; color: var(--text-muted);">Scenarios:</span>
+          <button class="scenario-btn active" onclick="loadScenario('default')">Default</button>
+          <button class="scenario-btn" onclick="loadScenario('perfect')">Perfect System</button>
+          <button class="scenario-btn" onclick="loadScenario('lazy')">Lazy System</button>
+          <button class="scenario-btn" onclick="loadScenario('aggressive')">Aggressive</button>
+        </div>
+
+        <div class="matrix-wrapper">
+          <div class="super-label">Actual Class</div>
+          <div class="matrix-labels-top">
+            <div></div>
+            <div class="col-label">Relevant</div>
+            <div class="col-label">Not Relevant</div>
+          </div>
+          <div class="matrix-body">
+            <div class="row-label">Retrieved</div>
+            <div class="matrix-cell cell-tp"><div class="cell-count" id="tp-count">5</div><div class="cell-label">True Positive</div><div class="cell-actions"><button onclick="adjust('tp',-1)">−</button><button onclick="adjust('tp',1)">+</button></div></div>
+            <div class="matrix-cell cell-fp"><div class="cell-count" id="fp-count">3</div><div class="cell-label">False Positive</div><div class="cell-actions"><button onclick="adjust('fp',-1)">−</button><button onclick="adjust('fp',1)">+</button></div></div>
+            <div class="row-label">Not Retrieved</div>
+            <div class="matrix-cell cell-fn"><div class="cell-count" id="fn-count">2</div><div class="cell-label">False Negative</div><div class="cell-actions"><button onclick="adjust('fn',-1)">−</button><button onclick="adjust('fn',1)">+</button></div></div>
+            <div class="matrix-cell cell-tn"><div class="cell-count" id="tn-count">90</div><div class="cell-label">True Negative</div><div class="cell-actions"><button onclick="adjust('tn',-1)">−</button><button onclick="adjust('tn',1)">+</button></div></div>
+          </div>
+        </div>
+        <div class="formula-box" style="margin-top: 1.5rem;">Total Documents: <strong id="total-docs">100</strong></div>
+
+        <!-- Hint -->
+        <button class="hint-btn" onclick="toggleHint('hint1')" style="margin-top: 1rem;">💡 What do these cells mean?</button>
+        <div class="hint-box" id="hint1">
+          <strong>TP</strong> = Correctly retrieved relevant docs.<br>
+          <strong>FP</strong> = Retrieved but NOT relevant (false alarm).<br>
+          <strong>FN</strong> = Relevant but NOT retrieved (missed).<br>
+          <strong>TN</strong> = Correctly NOT retrieved, NOT relevant.
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Evaluation Metrics</div>
+        <div class="metric-grid" style="margin-bottom: 1.5rem;">
+          <div class="metric-box"><div class="metric-value" id="m-precision">0.6250</div><div class="metric-label">Precision</div></div>
+          <div class="metric-box"><div class="metric-value" id="m-recall">0.7143</div><div class="metric-label">Recall</div></div>
+          <div class="metric-box"><div class="metric-value" id="m-f1">0.6667</div><div class="metric-label">F₁ Score</div></div>
+          <div class="metric-box"><div class="metric-value" id="m-accuracy">0.9500</div><div class="metric-label">Accuracy</div></div>
+        </div>
+
+        <div class="viz-section-title">Formulas</div>
+        <div class="formula-box">Precision = TP / (TP + FP) — "Of what I retrieved, how much was relevant?"</div>
+        <div class="formula-box">Recall = TP / (TP + FN) — "Of all relevant docs, how many did I find?"</div>
+        <div class="formula-box">F₁ = 2·P·R / (P + R) — "Harmonic mean balancing both"</div>
+
+        <button class="hint-btn" onclick="toggleHint('hint2')" style="margin-top: 1rem;">💡 Why not just use Accuracy?</button>
+        <div class="hint-box" id="hint2">
+          In IR, there are usually <strong>millions</strong> of non-relevant documents (TN is huge). A system that retrieves <em>nothing</em> still gets 99%+ accuracy! That's why IR uses Precision & Recall instead.
+        </div>
+
+        <!-- Quiz -->
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    let vals = { tp: 5, fp: 3, fn: 2, tn: 90 };
+
+    const scenarios = {
+      default: { tp: 5, fp: 3, fn: 2, tn: 90 },
+      perfect: { tp: 7, fp: 0, fn: 0, tn: 93 },
+      lazy: { tp: 0, fp: 0, fn: 7, tn: 93 },
+      aggressive: { tp: 7, fp: 20, fn: 0, tn: 73 }
+    };
+
+    function loadScenario(name) {
+      vals = { ...scenarios[name] };
+      document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      update();
+    }
+
+    function adjust(key, delta) {
+      vals[key] = Math.max(0, vals[key] + delta);
+      const el = document.getElementById(key + '-count');
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 200);
+      update();
+    }
+
+    function update() {
+      const { tp, fp, fn, tn } = vals;
+      document.getElementById('tp-count').textContent = tp;
+      document.getElementById('fp-count').textContent = fp;
+      document.getElementById('fn-count').textContent = fn;
+      document.getElementById('tn-count').textContent = tn;
+      document.getElementById('total-docs').textContent = tp + fp + fn + tn;
+      const precision = (tp+fp)===0?0:tp/(tp+fp);
+      const recall = (tp+fn)===0?0:tp/(tp+fn);
+      const f1 = (precision+recall)===0?0:2*precision*recall/(precision+recall);
+      const accuracy = (tp+fp+fn+tn)===0?0:(tp+tn)/(tp+fp+fn+tn);
+      document.getElementById('m-precision').textContent = precision.toFixed(4);
+      document.getElementById('m-recall').textContent = recall.toFixed(4);
+      document.getElementById('m-f1').textContent = f1.toFixed(4);
+      document.getElementById('m-accuracy').textContent = accuracy.toFixed(4);
+    }
+    update();
+
+    // Tutorial
+    showTutorial({
+      id: 'confusion-matrix',
+      icon: '📊',
+      title: 'Welcome to the Confusion Matrix!',
+      subtitle: 'The foundation of all IR evaluation metrics.',
+      steps: [
+        'Use the <strong>+ and −</strong> buttons to add/remove documents from each cell',
+        'Watch how <strong>Precision, Recall, F₁, and Accuracy</strong> change in real time',
+        'Try the <strong>scenario presets</strong> to see extreme cases (perfect system, lazy system)',
+        'Take the <strong>quiz</strong> at the bottom to test your understanding!'
+      ]
+    });
+
+    // Quiz
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'A search engine retrieves 10 documents, 6 are relevant. There are 8 relevant docs total. What is <strong>Precision</strong>?',
+        options: ['0.60', '0.75', '0.80', '0.50'],
+        correct: 0,
+        explanation: 'Precision = TP/(TP+FP) = 6/10 = 0.60. Out of 10 retrieved, 6 were relevant.'
+      },
+      {
+        question: 'Same scenario: 6 relevant retrieved out of 8 total relevant. What is <strong>Recall</strong>?',
+        options: ['0.60', '0.80', '0.75', '0.50'],
+        correct: 2,
+        explanation: 'Recall = TP/(TP+FN) = 6/8 = 0.75. We found 6 out of the 8 relevant docs.'
+      },
+      {
+        question: 'Why is <strong>Accuracy</strong> a poor metric for IR?',
+        options: [
+          'It ignores precision',
+          'It is too complex to compute',
+          'True Negatives (non-relevant docs) dominate and inflate it',
+          'It only works for ranked lists'
+        ],
+        correct: 2,
+        explanation: 'Correct! In a collection of 1 million docs with only 10 relevant ones, a system that retrieves nothing gets 99.999% accuracy. TN inflates the score.'
+      }
+    ]);
+  </script>
+</body>
+</html>

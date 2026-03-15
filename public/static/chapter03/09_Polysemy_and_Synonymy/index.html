@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polysemy & Synonymy</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e, #0d0d2b);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2)
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff6b6b, #ffd43b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 30px;
+            position: relative;
+            overflow: hidden
+        }
+
+        .card h2 {
+            font-size: 1.4rem;
+            margin-bottom: 6px
+        }
+
+        .card .sub {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 20px
+        }
+
+        .card.poly::before,
+        .card.syn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px
+        }
+
+        .card.poly::before {
+            background: linear-gradient(90deg, #ff6b6b, #ff9a56)
+        }
+
+        .card.syn::before {
+            background: linear-gradient(90deg, #00d4ff, #51cf66)
+        }
+
+        .chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px
+        }
+
+        .chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500
+        }
+
+        .chip:hover {
+            transform: translateY(-2px)
+        }
+
+        .chip.active {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            transform: scale(1.05)
+        }
+
+        .diagram {
+            text-align: center;
+            padding: 20px 0;
+            min-height: 180px
+        }
+
+        .word-node {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 8px
+        }
+
+        .meaning {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin: 6px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: all 0.4s
+        }
+
+        .meaning.show {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        .arrows {
+            display: block;
+            text-align: center;
+            font-size: 1.5rem;
+            margin: 8px 0;
+            opacity: 0;
+            transition: all 0.4s
+        }
+
+        .arrows.show {
+            opacity: 1
+        }
+
+        .kp {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            line-height: 1.5
+        }
+
+        .kp.w {
+            background: rgba(255, 107, 107, 0.08);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            color: #ffaaaa
+        }
+
+        .kp.i {
+            background: rgba(0, 212, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #aaddff
+        }
+
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0f0;
+            font-size: 1rem;
+            outline: none
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff6b6b, #ff9a56);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s
+        }
+
+        button:hover {
+            transform: translateY(-1px)
+        }
+
+        .res {
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            font-size: 0.88rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s
+        }
+
+        .res.show {
+            opacity: 1;
+            transform: translateX(0)
+        }
+
+        .tag {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600
+        }
+
+        .tag.g {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66
+        }
+
+        .tag.b {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b
+        }
+
+        .tag.m {
+            background: rgba(255, 212, 59, 0.2);
+            color: #ffd43b
+        }
+
+        .res-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px
+        }
+
+        .res-grid h4 {
+            font-size: 0.9rem;
+            margin-bottom: 8px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🔤 Polysemy & Synonymy</h1>
+        <p>The semantic limitations of exact term matching</p>
+    </div>
+    <div class="container">
+        <div class="two-col">
+            <div class="card poly">
+                <h2 style="color:#ff6b6b">Polysemy</h2>
+                <div class="sub">One word → Multiple meanings</div>
+                <div class="chips" id="polyChips"></div>
+                <div class="diagram" id="polyDiag"></div>
+                <div class="kp w"><strong>⚠️ Problem:</strong> Returns results about ALL meanings → <strong>False
+                        Positives</strong></div>
+            </div>
+            <div class="card syn">
+                <h2 style="color:#00d4ff">Synonymy</h2>
+                <div class="sub">Multiple words → Same meaning</div>
+                <div class="chips" id="synChips"></div>
+                <div class="diagram" id="synDiag"></div>
+                <div class="kp i"><strong>ℹ️ Problem:</strong> Misses documents using different words → <strong>False
+                        Negatives</strong></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2 style="color:#ffd43b;margin-bottom:16px">🔍 Search Failure Demo</h2>
+            <div class="search-box"><input id="sInput" value="jaguar speed"><button onclick="search()">Search</button>
+            </div>
+            <div class="res-grid">
+                <div>
+                    <h4 style="color:#51cf66">✅ Results Found</h4>
+                    <div id="found"></div>
+                </div>
+                <div>
+                    <h4 style="color:#ff6b6b">Problems</h4>
+                    <div id="probs"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const PD = [
+            { w: 'Jaguar', m: ['🐆 Big cat', '🏎️ Car brand', '💻 macOS version'], c: '#ff6b6b' },
+            { w: 'Python', m: ['🐍 The snake', '💻 Programming lang', '🎬 Monty Python'], c: '#ff9a56' },
+            { w: 'Apple', m: ['🍎 The fruit', '📱 Tech company', '🎵 Apple Records'], c: '#ffd43b' },
+            { w: 'Bank', m: ['🏦 Financial inst.', '🌊 River bank', '🎱 Pool shot'], c: '#a855f7' }
+        ];
+        const SD = [
+            { concept: '🎬 Moving Pictures', words: ['Movie', 'Film', 'Motion Picture', 'Cinema'], c: '#00d4ff' },
+            { concept: '🚗 Personal Vehicle', words: ['Car', 'Automobile', 'Vehicle', 'Auto'], c: '#51cf66' },
+            { concept: '😊 Positive Emotion', words: ['Happy', 'Glad', 'Joyful', 'Pleased'], c: '#7c7cff' },
+            { concept: '🏠 Dwelling', words: ['House', 'Home', 'Residence', 'Dwelling'], c: '#ffd43b' }
+        ];
+        let pi = 0, si = 0;
+        function showP(i) {
+            pi = i;
+            document.querySelectorAll('#polyChips .chip').forEach((c, j) => c.classList.toggle('active', j === i));
+            const d = PD[i], dg = document.getElementById('polyDiag');
+            dg.innerHTML = `<div class="word-node" style="background:${d.c}20;color:${d.c};border:2px solid ${d.c}">"${d.w}"</div><div class="arrows" id="pa">↓ ↓ ↓</div><div id="pm"></div>`;
+            setTimeout(() => document.getElementById('pa').classList.add('show'), 200);
+            const pm = document.getElementById('pm');
+            d.m.forEach((m, j) => { const n = document.createElement('div'); n.className = 'meaning'; n.style.cssText = `background:${d.c}15;color:${d.c};border:1px solid ${d.c}30`; n.textContent = m; pm.appendChild(n); setTimeout(() => n.classList.add('show'), 300 + j * 150) });
+        }
+        function showS(i) {
+            si = i;
+            document.querySelectorAll('#synChips .chip').forEach((c, j) => c.classList.toggle('active', j === i));
+            const d = SD[i], dg = document.getElementById('synDiag');
+            let wh = ''; d.words.forEach(w => wh += `<div class="word-node" style="background:${d.c}15;color:${d.c};border:1px solid ${d.c}30">"${w}"</div>`);
+            dg.innerHTML = `<div id="sw">${wh}</div><div class="arrows" id="sa">↓ ↓ ↓ ↓</div><div class="word-node" style="background:${d.c}20;color:${d.c};border:2px solid ${d.c}">${d.concept}</div>`;
+            const ws = dg.querySelectorAll('#sw .word-node');
+            ws.forEach((w, j) => { w.style.opacity = '0'; w.style.transform = 'translateY(-10px)'; setTimeout(() => { w.style.transition = 'all 0.4s'; w.style.opacity = '1'; w.style.transform = 'translateY(0)' }, j * 150) });
+            setTimeout(() => document.getElementById('sa').classList.add('show'), 400);
+        }
+        const pc = document.getElementById('polyChips'), sc = document.getElementById('synChips');
+        PD.forEach((d, i) => { const c = document.createElement('span'); c.className = `chip ${i === 0 ? 'active' : ''}`; c.style.cssText = `background:${d.c}15;color:${d.c}`; c.textContent = d.w; c.onclick = () => showP(i); pc.appendChild(c) });
+        SD.forEach((d, i) => { const c = document.createElement('span'); c.className = `chip ${i === 0 ? 'active' : ''}`; c.style.cssText = `background:${d.c}15;color:${d.c}`; c.textContent = d.concept; c.onclick = () => showS(i); sc.appendChild(c) });
+        showP(0); showS(0);
+
+        const db = [
+            { t: 'Jaguar XF 2024 Review — Luxury Performance', tags: ['jaguar', 'car', 'speed'] },
+            { t: 'Jaguar Habitat and Conservation', tags: ['jaguar', 'animal'] },
+            { t: 'How Fast Can a Jaguar Run?', tags: ['jaguar', 'animal', 'speed'] },
+            { t: 'Top Speed of the Jaguar F-Type', tags: ['jaguar', 'car', 'speed'] },
+            { t: 'Best Python Libraries for Data Science', tags: ['python', 'programming'] },
+            { t: 'Python Snake Facts', tags: ['python', 'animal'] },
+            { t: 'Top 10 Movies of 2024', tags: ['movie'] },
+            { t: 'Best Films at Cannes Festival', tags: ['film', 'cinema'] },
+            { t: 'Greatest Motion Pictures of All Time', tags: ['motion picture', 'cinema'] },
+            { t: 'Automobile Industry Trends', tags: ['automobile', 'vehicle'] },
+        ];
+        function search() {
+            const q = document.getElementById('sInput').value.toLowerCase().trim(), tokens = q.split(/\s+/);
+            const matched = db.filter(d => tokens.some(t => d.tags.includes(t)));
+            const fp = matched.filter(d => {
+                if (tokens.includes('jaguar') && d.tags.includes('car') && !tokens.includes('car')) return true;
+                if (tokens.includes('python') && d.tags.includes('animal') && !tokens.includes('snake')) return true;
+                return false;
+            });
+            const missed = db.filter(d => {
+                if (tokens.includes('movie') && d.tags.includes('film') && !d.tags.includes('movie')) return true;
+                if (tokens.includes('car') && d.tags.includes('automobile') && !d.tags.includes('car')) return true;
+                return false;
+            });
+            const fd = document.getElementById('found'), pd = document.getElementById('probs');
+            fd.innerHTML = ''; pd.innerHTML = '';
+            if (!matched.length) fd.innerHTML = '<div style="color:#888;padding:10px">No results.</div>';
+            matched.forEach((d, i) => { const isFP = fp.includes(d); const el = document.createElement('div'); el.className = 'res'; el.innerHTML = `<span>${d.t}</span><span class="tag ${isFP ? 'b' : 'g'}">${isFP ? '❌ Wrong meaning' : '✅ Relevant'}</span>`; fd.appendChild(el); setTimeout(() => el.classList.add('show'), i * 100) });
+            if (fp.length) { const el = document.createElement('div'); el.className = 'res'; el.style.borderLeft = '3px solid #ff6b6b'; el.innerHTML = `<span style="color:#ff6b6b">⚠️ <strong>Polysemy:</strong> ${fp.length} result(s) with wrong meaning</span>`; pd.appendChild(el); setTimeout(() => el.classList.add('show'), 200) }
+            missed.forEach((d, i) => { const el = document.createElement('div'); el.className = 'res'; el.style.borderLeft = '3px solid #ffd43b'; el.innerHTML = `<span style="color:#ffd43b">🔍 <strong>Missed:</strong> ${d.t}</span><span class="tag m">Synonym</span>`; pd.appendChild(el); setTimeout(() => el.classList.add('show'), 300 + i * 100) });
+            if (!fp.length && !missed.length) { const el = document.createElement('div'); el.className = 'res'; el.innerHTML = '<span style="color:#51cf66">✅ No problems for this query!</span>'; pd.appendChild(el); setTimeout(() => el.classList.add('show'), 200) }
+        }
+        setTimeout(search, 500);
+    </script>
+</body>
+
+</html>

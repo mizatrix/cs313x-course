@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive visualizations for every concept in Evaluation in Information Retrieval — CS313x Chapter 6">
+  <title>Chapter 6 · Evaluation in IR — Interactive Visualizations</title>
+  <link rel="stylesheet" href="styles/shared.css">
+  <link rel="stylesheet" href="styles/student.css">
+  <style>
+    .welcome-bar {
+      display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.05));
+      border: 1px solid rgba(108,92,231,0.15); border-radius: var(--radius-lg);
+      margin-bottom: 2rem;
+    }
+    .welcome-bar .welcome-icon { font-size: 2rem; }
+    .welcome-bar .welcome-text { flex: 1; }
+    .welcome-bar .welcome-text h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .welcome-bar .welcome-text p { font-size: 0.82rem; color: var(--text-secondary); }
+    .welcome-bar .progress-info { text-align: right; }
+    .welcome-bar .progress-info .progress-count { font-size: 1.5rem; font-weight: 800; color: var(--accent-violet); }
+    .welcome-bar .progress-info .progress-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .overall-progress { height: 6px; border-radius: 3px; background: rgba(108,92,231,0.1); margin-top: 0.75rem; overflow: hidden; }
+    .overall-progress .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.6s ease; }
+    .learning-path { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .path-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .path-tag {
+      padding: 0.3rem 0.7rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600;
+      border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer;
+      transition: var(--transition);
+    }
+    .path-tag:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+    .path-tag.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+    .difficulty-badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 100px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+      margin-top: 0.5rem;
+    }
+    .diff-beginner { background: rgba(0,184,148,0.12); color: var(--success); }
+    .diff-intermediate { background: rgba(253,203,110,0.12); color: var(--warning); }
+    .diff-advanced { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+    .hub-card .card-check {
+      position: absolute; top: 12px; right: 12px;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; transition: var(--transition);
+    }
+    .hub-card { position: relative; }
+    .hub-card .card-check.done { background: rgba(0,184,148,0.2); color: var(--success); }
+    .hub-card .card-check.pending { background: rgba(108,92,231,0.08); color: var(--text-muted); }
+    .card-aim {
+      font-size: 0.78rem; color: var(--accent-teal); line-height: 1.5;
+      padding: 0.5rem 0.65rem; margin: 0.5rem 0 0.25rem;
+      background: rgba(0,206,201,0.06); border-left: 2px solid var(--accent-teal);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .card-use {
+      font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+      padding: 0.4rem 0.65rem; margin: 0.25rem 0 0.25rem;
+      background: rgba(108,92,231,0.05); border-left: 2px solid var(--accent-violet);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .card-use strong { color: var(--accent-violet); }
+    .recommended-tag {
+      position: absolute; top: -8px; left: 16px;
+      padding: 0.2rem 0.6rem; border-radius: 100px;
+      background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+      color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em;
+      box-shadow: 0 2px 10px rgba(108,92,231,0.3);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 6</span></div>
+    </a>
+    <button class="btn btn-sm" onclick="resetProgress()" style="font-size: 0.72rem;">Reset Progress</button>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Week 6 — Interactive Lab</div>
+      <h1>Evaluation in Information Retrieval</h1>
+      <p>Master every evaluation metric through hands-on interactive visualizations, quizzes, and challenges.</p>
+    </header>
+
+    <!-- Welcome & Progress -->
+    <div class="welcome-bar" id="welcome-bar">
+      <div class="welcome-icon">🎓</div>
+      <div class="welcome-text">
+        <h3>Your Learning Journey</h3>
+        <p>Work through each visualization in order, or jump to any topic. Each includes a guided tutorial and practice quiz!</p>
+        <div class="overall-progress"><div class="fill" id="progress-fill" style="width: 0%"></div></div>
+      </div>
+      <div class="progress-info">
+        <div class="progress-count" id="progress-count">0/12</div>
+        <div class="progress-label">Explored</div>
+      </div>
+    </div>
+
+    <!-- Learning Path Filter -->
+    <div class="learning-path">
+      <span class="path-label">Filter:</span>
+      <span class="path-tag active" onclick="filterCards('all')">All Topics</span>
+      <span class="path-tag" onclick="filterCards('binary')">Binary Metrics</span>
+      <span class="path-tag" onclick="filterCards('ranked')">Ranked Metrics</span>
+      <span class="path-tag" onclick="filterCards('graded')">Graded Metrics</span>
+      <span class="path-tag" onclick="filterCards('online')">Online Evaluation</span>
+    </div>
+
+    <div class="hub-grid" id="hub-grid"></div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script src="js/student.js"></script>
+  <script>
+    const cards = [
+      { id: 1, title: 'Confusion Matrix', aim: 'Understand the four outcomes of binary classification (TP, FP, FN, TN) and how they drive Precision, Recall, and Accuracy.', use: 'When you need to evaluate a binary classifier — any system that decides "relevant or not."', desc: 'Classify documents and watch evaluation metrics update in real time.', href: 'visualizations/01-confusion-matrix.html', diff: 'beginner', cat: 'binary', hasQuiz: true },
+      { id: 2, title: 'Precision, Recall & F₁', aim: 'Learn the tradeoff between Precision and Recall, and how the harmonic mean (F₁) balances them.', use: 'When you need a single score that balances finding all relevant docs vs. avoiding junk results.', desc: 'Adjust sliders, explore Venn diagrams, and visualize F₁ iso-curves.', href: 'visualizations/02-precision-recall-f1.html', diff: 'beginner', cat: 'binary', hasQuiz: true },
+      { id: 3, title: 'Precision@k', aim: 'Learn how Precision changes at different rank cutoffs and why the choice of k matters.', use: 'When users only look at the first page of results (e.g. top 10) and you want to measure quality there.', desc: 'Set cutoff k and toggle document relevance to see P@k change.', href: 'visualizations/03-precision-at-k.html', diff: 'beginner', cat: 'ranked', hasQuiz: true },
+      { id: 4, title: 'Average Precision & MAP', aim: 'Understand how AP summarizes precision at all relevant positions, and how MAP averages over queries.', use: 'When you want a single number summarizing ranked retrieval quality across an entire test collection.', desc: 'Step through AP rank-by-rank, then compute MAP across queries.', href: 'visualizations/04-average-precision-map.html', diff: 'intermediate', cat: 'ranked', hasQuiz: true },
+      { id: 5, title: 'Mean Reciprocal Rank', aim: 'Learn how MRR evaluates systems by focusing on the rank of the first relevant result.', use: 'When only the first correct answer matters — question answering, voice search, navigational queries.', desc: 'Toggle relevance chips and watch MRR update across 5 queries.', href: 'visualizations/05-mrr.html', diff: 'beginner', cat: 'ranked', hasQuiz: true },
+      { id: 6, title: 'DCG & NDCG', aim: 'Understand graded relevance, the logarithmic discount, and how NDCG normalizes ranking quality.', use: 'When relevance is not binary but graded (e.g. highly relevant, somewhat relevant, not relevant).', desc: 'Adjust relevance grades (0–3) and compare DCG vs IDCG bars.', href: 'visualizations/06-dcg-ndcg.html', diff: 'intermediate', cat: 'graded', hasQuiz: true },
+      { id: 7, title: 'R-Precision', aim: 'Learn how R-Precision automatically adjusts the cutoff to the number of known relevant documents.', use: 'When you want a cutoff-free metric that adapts to each query\'s number of relevant documents.', desc: 'Toggle relevance and watch the top-R window adapt automatically.', href: 'visualizations/07-r-precision.html', diff: 'beginner', cat: 'ranked', hasQuiz: true },
+      { id: 8, title: 'Pooling Method', aim: 'Understand how test collections are built by pooling top results from multiple retrieval systems.', use: 'When building a reusable test collection (like TREC) — you cannot judge every document manually.', desc: 'Merge, deduplicate, and act as the human relevance assessor.', href: 'visualizations/08-pooling-method.html', diff: 'intermediate', cat: 'online', hasQuiz: true },
+      { id: 9, title: 'Interleaving (Team Draft)', aim: 'Learn how interleaving compares two systems using a single merged list and real user clicks.', use: 'When A/B testing search systems online with real users — more sensitive than side-by-side comparison.', desc: 'Watch the coin-flip draft and simulate clicks to pick a winner.', href: 'visualizations/09-interleaving.html', diff: 'intermediate', cat: 'online', hasQuiz: true },
+      { id: 10, title: 'Click Models (Cascade)', aim: 'Understand how the Cascade Model predicts user clicks using examination and relevance probabilities.', use: 'When analyzing click logs to infer relevance — users don\'t click every result they see.', desc: 'Adjust per-rank probabilities and simulate user scanning.', href: 'visualizations/10-click-models.html', diff: 'advanced', cat: 'online', hasQuiz: true },
+      { id: 11, title: 'Eye-Tracking Patterns', aim: 'Learn how users visually scan search results and why position bias affects evaluation.', use: 'When designing SERPs or correcting for position bias — understanding where users actually look.', desc: 'Explore F-shaped reading, the Golden Triangle, and gaze paths.', href: 'visualizations/11-eye-tracking.html', diff: 'beginner', cat: 'online', hasQuiz: true },
+      { id: 12, title: 'Significance Testing', aim: 'Learn how to tell whether the difference between two systems is statistically significant.', use: 'When publishing results or making deployment decisions — ensuring improvements are not due to chance.', desc: 'Enter per-query scores and run a paired t-test with visual results.', href: 'visualizations/12-significance-testing.html', diff: 'advanced', cat: 'online', hasQuiz: true },
+    ];
+
+    let activeFilter = 'all';
+
+    function filterCards(cat) {
+      activeFilter = cat;
+      document.querySelectorAll('.path-tag').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderCards();
+    }
+
+    function renderCards() {
+      const visited = getVisited();
+      const grid = document.getElementById('hub-grid');
+      const filtered = activeFilter === 'all' ? cards : cards.filter(c => c.cat === activeFilter);
+
+      grid.innerHTML = filtered.map((c, idx) => {
+        const done = visited.includes(c.id);
+        const isNext = !done && (idx === 0 || visited.includes(filtered[Math.max(0, idx - 1)].id));
+        return `
+          <a href="${c.href}" class="glass-card hub-card ${done ? 'visited' : ''}" id="card-${c.id}">
+            ${isNext && !done ? '<div class="recommended-tag">START HERE</div>' : ''}
+            <div class="card-check ${done ? 'done' : 'pending'}">${done ? '✓' : ''}</div>
+            <div class="card-number">${String(c.id).padStart(2, '0')}</div>
+            <h3>${c.title}</h3>
+            <div class="card-aim">🎯 ${c.aim}</div>
+            <div class="card-use">🔧 <strong>When to use:</strong> ${c.use}</div>
+            <p>${c.desc}</p>
+            <div class="difficulty-badge diff-${c.diff}">${c.diff}</div>
+            <div class="card-arrow">${done ? 'Review →' : 'Explore →'}</div>
+          </a>
+        `;
+      }).join('');
+
+      // Update progress
+      document.getElementById('progress-count').textContent = `${visited.length}/12`;
+      document.getElementById('progress-fill').style.width = `${(visited.length / 12) * 100}%`;
+    }
+
+    function resetProgress() {
+      localStorage.clear();
+      renderCards();
+    }
+
+    renderCards();
+  </script>
+</body>
+</html>

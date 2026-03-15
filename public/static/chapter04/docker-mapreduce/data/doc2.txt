@@ -1,0 +1,1 @@
+The search engine indexes millions of documents every day. Each document is parsed into tokens and stored in an inverted index. The index maps each term to a list of document identifiers. Search engines use compression to reduce the size of the index and speed up query processing.

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS313x — Chapter 03: Vector Space Model & TF-IDF</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #07071a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        /* Background effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(124, 124, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(81, 207, 102, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 60px 20px 40px;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            background: rgba(124, 124, 255, 0.15);
+            color: #a0a0ff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1.15;
+            background: linear-gradient(135deg, #7c7cff 0%, #00d4ff 40%, #51cf66 70%, #ffd43b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero p {
+            color: #888;
+            font-size: 1.1rem;
+            margin-top: 12px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 24px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat .num {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #7c7cff;
+        }
+
+        .stat .lab {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 20px 60px;
+        }
+
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .concept-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 28px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .concept-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .concept-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .concept-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-num {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .card-content {
+            flex: 1;
+        }
+
+        .card-content h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-content p {
+            color: #888;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .card-content .features {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .feature {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.04);
+            color: #aaa;
+        }
+
+        .arrow-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #555;
+            transition: all 0.3s;
+        }
+
+        .concept-card:hover .arrow-icon {
+            color: #aaa;
+            transform: translateY(-50%) translateX(4px);
+        }
+
+        /* Color themes per card */
+        .c1::before {
+            background: linear-gradient(90deg, #7c7cff, #00d4ff);
+        }
+
+        .c1 .card-num {
+            background: rgba(124, 124, 255, 0.15);
+            color: #7c7cff;
+        }
+
+        .c2::before {
+            background: linear-gradient(90deg, #ff9a56, #ff6b6b);
+        }
+
+        .c2 .card-num {
+            background: rgba(255, 154, 86, 0.15);
+            color: #ff9a56;
+        }
+
+        .c3::before {
+            background: linear-gradient(90deg, #00d4ff, #7c7cff);
+        }
+
+        .c3 .card-num {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+        }
+
+        .c4::before {
+            background: linear-gradient(90deg, #51cf66, #00d4ff);
+        }
+
+        .c4 .card-num {
+            background: rgba(81, 207, 102, 0.15);
+            color: #51cf66;
+        }
+
+        .c5::before {
+            background: linear-gradient(90deg, #ffd43b, #ff9a56);
+        }
+
+        .c5 .card-num {
+            background: rgba(255, 212, 59, 0.15);
+            color: #ffd43b;
+        }
+
+        .c6::before {
+            background: linear-gradient(90deg, #7c7cff, #00d4ff, #51cf66);
+        }
+
+        .c6 .card-num {
+            background: rgba(124, 124, 255, 0.15);
+            color: #a0a0ff;
+        }
+
+        .c7::before {
+            background: linear-gradient(90deg, #a855f7, #7c7cff);
+        }
+
+        .c7 .card-num {
+            background: rgba(168, 85, 247, 0.15);
+            color: #a855f7;
+        }
+
+        .c8::before {
+            background: linear-gradient(90deg, #00d4ff, #51cf66);
+        }
+
+        .c8 .card-num {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+        }
+
+        .c9::before {
+            background: linear-gradient(90deg, #ff6b6b, #ffd43b);
+        }
+
+        .c9 .card-num {
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+        }
+
+        .c10::before {
+            background: linear-gradient(90deg, #ff6b6b, #ffd43b, #51cf66);
+        }
+
+        .c10 .card-num {
+            background: rgba(255, 212, 59, 0.15);
+            color: #ffd43b;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: #555;
+            font-size: 0.8rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (max-width: 768px) {
+            .concepts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <div class="badge">CS313x — Information Retrieval</div>
+        <h1>Chapter 03: Vector Space Model & TF-IDF Scoring</h1>
+        <p>Interactive visual explorations of every concept — click any card to launch</p>
+        <div class="stats">
+            <div class="stat">
+                <div class="num">10</div>
+                <div class="lab">Concepts</div>
+            </div>
+            <div class="stat">
+                <div class="num">10</div>
+                <div class="lab">Interactive Demos</div>
+            </div>
+            <div class="stat">
+                <div class="num">45+</div>
+                <div class="lab">Quiz Questions</div>
+            </div>
+            <div class="stat">
+                <div class="num">58</div>
+                <div class="lab">PDF Pages Covered</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="concepts-grid">
+            <a class="concept-card c1" href="01_Vector_Space_Model_Introduction/index.html">
+                <div class="card-num">01</div>
+                <div class="card-content">
+                    <h3>📐 Vector Space Model — Intro</h3>
+                    <p>From Boolean Retrieval to Ranked Retrieval. See why ranking matters and how documents live in
+                        vector space.</p>
+                    <div class="features"><span class="feature">Boolean vs VSM</span><span class="feature">2D
+                            Plot</span><span class="feature">Animated</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c2" href="02_Document_and_Query_Vectors/index.html">
+                <div class="card-num">02</div>
+                <div class="card-content">
+                    <h3>📊 Document & Query Vectors</h3>
+                    <p>See how text becomes numbers. Build term-document matrices interactively from your own input.</p>
+                    <div class="features"><span class="feature">Custom Input</span><span class="feature">Matrix
+                            Heatmap</span><span class="feature">Step-by-Step</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c3" href="03_Cosine_Similarity/index.html">
+                <div class="card-num">03</div>
+                <div class="card-content">
+                    <h3>📐 Cosine Similarity</h3>
+                    <p>Drag vectors to see the angle and cosine score change in real-time. Compare with Euclidean
+                        distance.</p>
+                    <div class="features"><span class="feature">Draggable Vectors</span><span class="feature">Live
+                            Formula</span><span class="feature">Presets</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c4" href="04_Term_Frequency_TF_Weighting/index.html">
+                <div class="card-num">04</div>
+                <div class="card-content">
+                    <h3>📈 Term Frequency (TF)</h3>
+                    <p>Slide raw frequency to see log-weighted TF. Understand diminishing returns visually.</p>
+                    <div class="features"><span class="feature">Interactive Slider</span><span class="feature">Raw vs
+                            Log</span><span class="feature">Marginal Gain</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c5" href="05_Inverse_Document_Frequency_IDF/index.html">
+                <div class="card-num">05</div>
+                <div class="card-content">
+                    <h3>🌍 Inverse Document Frequency (IDF)</h3>
+                    <p>Explore term rarity. Click terms to see how IDF rewards rare, discriminating words.</p>
+                    <div class="features"><span class="feature">IDF Curve</span><span class="feature">Rarity
+                            Meter</span><span class="feature">Doc Grid</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c6" href="06_TF-IDF_Weighting_Scheme/index.html">
+                <div class="card-num">06</div>
+                <div class="card-content">
+                    <h3>⚡ TF-IDF Weighting</h3>
+                    <p>The Gold Standard! Full scoring pipeline with heatmap, walkthrough, and final rankings.</p>
+                    <div class="features"><span class="feature">Full Pipeline</span><span
+                            class="feature">Heatmap</span><span class="feature">Rankings</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c7" href="07_Vector_Normalization_L2_Norm/index.html">
+                <div class="card-num">07</div>
+                <div class="card-content">
+                    <h3>⭕ Vector Normalization (L2)</h3>
+                    <p>Watch vectors project onto the unit circle. Understand why length bias is a problem.</p>
+                    <div class="features"><span class="feature">Unit Circle</span><span
+                            class="feature">Animation</span><span class="feature">Bias Demo</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c8" href="08_Vector_Space_Retrieval_Algorithm/index.html">
+                <div class="card-num">08</div>
+                <div class="card-content">
+                    <h3>⚙️ CosineScore Algorithm</h3>
+                    <p>Step through the retrieval algorithm with code highlighting and live accumulator scoreboard.</p>
+                    <div class="features"><span class="feature">Step-by-Step</span><span class="feature">Code
+                            Highlight</span><span class="feature">Auto Play</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c9" href="09_Polysemy_and_Synonymy/index.html">
+                <div class="card-num">09</div>
+                <div class="card-content">
+                    <h3>🔤 Polysemy & Synonymy</h3>
+                    <p>See how one word → many meanings and many words → one meaning break exact matching.</p>
+                    <div class="features"><span class="feature">Word Diagrams</span><span class="feature">Search
+                            Demo</span><span class="feature">Examples</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+
+            <a class="concept-card c10" href="10_Evaluation_Metrics_Precision_Recall_MAP_NDCG/index.html">
+                <div class="card-num">10</div>
+                <div class="card-content">
+                    <h3>📊 Evaluation Metrics</h3>
+                    <p>Interactive confusion matrix, P-R curve, drag-and-drop MAP calculator, and NDCG visualizer.</p>
+                    <div class="features"><span class="feature">P/R/F1</span><span class="feature">MAP</span><span
+                            class="feature">NDCG</span><span class="feature">Drag & Drop</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+            <a class="concept-card c1" href="practice-quiz/index.html"
+                style="grid-column: 1 / -1; background: rgba(108, 99, 255, 0.06); border-color: rgba(108, 99, 255, 0.2);">
+                <div class="card-num" style="background: rgba(108, 99, 255, 0.2); color: #a0a0ff; font-size: 1.2rem;">🧠
+                </div>
+                <div class="card-content">
+                    <h3>Practice Quiz — Test Your Knowledge!</h3>
+                    <p>45+ questions covering every concept with step-by-step algorithm traces and detailed
+                        explanations.</p>
+                    <div class="features"><span class="feature">Cosine Sim</span><span
+                            class="feature">TF-IDF</span><span class="feature">P/R/F1</span><span
+                            class="feature">MAP</span><span class="feature">NDCG</span><span
+                            class="feature">Step-by-Step</span></div>
+                </div>
+                <span class="arrow-icon">→</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        CS313x — Information Retrieval &bull; Week 3: Vector Space Model & TF-IDF Scoring &bull; 10 Interactive
+        Visualizations
+    </div>
+
+    <script>
+        // Stagger animation on load
+        document.querySelectorAll('.concept-card').forEach((card, i) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100 + i * 80);
+        });
+    </script>
+</body>
+
+</html>

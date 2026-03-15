@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Distance — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242838;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.3);
+            --green: #00e676;
+            --red: #ff5252;
+            --orange: #ffab40;
+            --blue: #40c4ff;
+            --pink: #f06292;
+            --text: #e8eaf6;
+            --text-dim: #9a9cb8;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--green), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: 'Inter', monospace;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #5a52e0;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: #2e3348;
+        }
+
+        .btn-success {
+            background: var(--green);
+            color: #111;
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .speed-control label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .speed-control input[type="range"] {
+            width: 80px;
+            accent-color: var(--accent);
+        }
+
+        /* Matrix */
+        .matrix-wrapper {
+            overflow-x: auto;
+            padding: 16px 0;
+        }
+
+        table.matrix {
+            border-collapse: separate;
+            border-spacing: 3px;
+            margin: 0 auto;
+        }
+
+        table.matrix td,
+        table.matrix th {
+            width: 48px;
+            height: 48px;
+            text-align: center;
+            vertical-align: middle;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        table.matrix th {
+            background: transparent;
+            color: var(--accent);
+            font-size: 1rem;
+        }
+
+        table.matrix th.source-char {
+            color: var(--orange);
+        }
+
+        table.matrix th.target-char {
+            color: var(--blue);
+        }
+
+        table.matrix td {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-dim);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        table.matrix td.filled {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        table.matrix td.current {
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+            color: #fff;
+            background: rgba(108, 99, 255, 0.15);
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        table.matrix td.match {
+            background: rgba(0, 230, 118, 0.15);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        table.matrix td.insert {
+            background: rgba(64, 196, 255, 0.12);
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        table.matrix td.delete {
+            background: rgba(255, 82, 82, 0.12);
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        table.matrix td.substitute {
+            background: rgba(255, 171, 64, 0.12);
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        table.matrix td.path {
+            box-shadow: 0 0 12px rgba(240, 98, 146, 0.4);
+            border: 2px solid var(--pink);
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.08);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+        }
+
+        #step-text {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            min-height: 50px;
+        }
+
+        #step-text .op-match {
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        #step-text .op-insert {
+            color: var(--blue);
+            font-weight: 700;
+        }
+
+        #step-text .op-delete {
+            color: var(--red);
+            font-weight: 700;
+        }
+
+        #step-text .op-sub {
+            color: var(--orange);
+            font-weight: 700;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, rgba(108, 99, 255, 0.1), rgba(0, 230, 118, 0.1));
+            border: 1px solid rgba(0, 230, 118, 0.2);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            display: none;
+        }
+
+        .result-card h3 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--green);
+            margin-bottom: 8px;
+        }
+
+        .result-card .big {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .result-card .ops {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.8;
+        }
+
+        .info-card {
+            margin-top: 24px;
+        }
+
+        .info-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .info-card p,
+        .info-card li {
+            color: var(--text-dim);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+
+        .info-card ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .info-card code {
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--blue);
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.6rem;
+            }
+
+            .container {
+                padding: 20px 12px;
+            }
+
+            table.matrix td,
+            table.matrix th {
+                width: 36px;
+                height: 36px;
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📐 Edit Distance</h1>
+            <p>Watch the Levenshtein distance algorithm fill the dynamic programming matrix cell by cell. See exactly
+                how insertions, deletions, and substitutions are chosen.</p>
+        </header>
+
+        <div class="card">
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Source Word</label>
+                    <input type="text" id="source" value="kitten" maxlength="15">
+                </div>
+                <div class="input-group">
+                    <label>Target Word</label>
+                    <input type="text" id="target" value="sitting" maxlength="15">
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="build()">🔨 Build Matrix</button>
+                <button class="btn btn-secondary" id="btn-step" onclick="stepForward()" disabled>▶ Step</button>
+                <button class="btn btn-success" id="btn-auto" onclick="autoPlay()" disabled>⏩ Auto Play</button>
+                <button class="btn btn-secondary" id="btn-reset" onclick="resetViz()" disabled>↩ Reset</button>
+                <div class="speed-control">
+                    <label>Speed</label>
+                    <input type="range" id="speed" min="100" max="1000" value="400" step="50">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>DP Matrix</h2>
+            <div class="matrix-wrapper" id="matrix-wrapper"></div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(0,230,118,0.3);border:1px solid var(--green)">
+                    </div> Match (diagonal, cost 0)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(255,171,64,0.3);border:1px solid var(--orange)">
+                    </div> Substitution (diagonal, cost 1)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(64,196,255,0.3);border:1px solid var(--blue)">
+                    </div> Insertion (from left, cost 1)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(255,82,82,0.3);border:1px solid var(--red)"></div>
+                    Deletion (from above, cost 1)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:transparent;border:2px solid var(--pink)"></div>
+                    Backtrace path
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Step-by-Step Explanation</h2>
+            <div id="step-text">Enter two words and press <strong>Build Matrix</strong> to start.</div>
+        </div>
+
+        <div class="result-card" id="result-card">
+            <h3>✅ Edit Distance Computed</h3>
+            <div class="big" id="result-dist"></div>
+            <div class="ops" id="result-ops"></div>
+        </div>
+
+        <div class="card info-card">
+            <h2>How Edit Distance Works</h2>
+            <p>The <strong>Levenshtein distance</strong> between two strings is the minimum number of single-character
+                edits needed to transform one into the other:</p>
+            <ul>
+                <li><strong style="color:var(--blue)">Insertion</strong> — add a character</li>
+                <li><strong style="color:var(--red)">Deletion</strong> — remove a character</li>
+                <li><strong style="color:var(--orange)">Substitution</strong> — replace a character</li>
+            </ul>
+            <p style="margin-top:12px">The algorithm fills a <code>(m+1) × (n+1)</code> matrix where cell
+                <code>D[i][j]</code> holds the edit distance between the first <code>i</code> characters of the source
+                and the first <code>j</code> characters of the target.
+            </p>
+            <p style="margin-top:8px">Each cell is computed as:
+                <code>min(D[i-1][j]+1, D[i][j-1]+1, D[i-1][j-1] + cost)</code> where cost = 0 if characters match, 1
+                otherwise.
+            </p>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+            <h2 style="color:var(--accent);font-size:1.1rem;margin-bottom:12px;">📜 Algorithm Pseudocode</h2>
+            <pre
+                style="background:var(--bg);border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:16px;font-size:0.82rem;line-height:1.8;overflow-x:auto;color:var(--text);font-family:'Courier New',monospace;"><code><span style="color:var(--accent)">EDIT-DISTANCE</span>(source s[1..m], target t[1..n])
+ 1  <span style="color:var(--orange)">for</span> i ← 0 <span style="color:var(--orange)">to</span> m <span style="color:var(--orange)">do</span>
+ 2    D[i, 0] ← i                   <span style="color:var(--text-dim)">// base: delete all from source</span>
+ 3  <span style="color:var(--orange)">for</span> j ← 0 <span style="color:var(--orange)">to</span> n <span style="color:var(--orange)">do</span>
+ 4    D[0, j] ← j                   <span style="color:var(--text-dim)">// base: insert all from target</span>
+ 5
+ 6  <span style="color:var(--orange)">for</span> i ← 1 <span style="color:var(--orange)">to</span> m <span style="color:var(--orange)">do</span>
+ 7    <span style="color:var(--orange)">for</span> j ← 1 <span style="color:var(--orange)">to</span> n <span style="color:var(--orange)">do</span>
+ 8      <span style="color:var(--orange)">if</span> s[i] = t[j] <span style="color:var(--orange)">then</span>
+ 9        cost ← 0                   <span style="color:var(--text-dim)">// characters match</span>
+10      <span style="color:var(--orange)">else</span>
+11        cost ← 1                   <span style="color:var(--text-dim)">// substitution needed</span>
+12      D[i, j] ← min(
+13        D[i-1, j] + 1,             <span style="color:var(--text-dim)">// deletion</span>
+14        D[i, j-1] + 1,             <span style="color:var(--text-dim)">// insertion</span>
+15        D[i-1, j-1] + cost         <span style="color:var(--text-dim)">// substitution or match</span>
+16      )
+17
+18  <span style="color:var(--orange)">return</span> D[m, n]</code></pre>
+        </div>
+    </div>
+
+    <script>
+        let S = '', T = '';
+        let dp = [], op = [];  // dp values and operation type
+        let fillOrder = [];    // list of {i, j} in fill order
+        let currentIdx = -1;
+        let autoTimer = null;
+
+        function build() {
+            stopAuto();
+            S = document.getElementById('source').value.toLowerCase();
+            T = document.getElementById('target').value.toLowerCase();
+            if (!S || !T) { setText('⚠ Please enter both words.'); return; }
+
+            const m = S.length, n = T.length;
+            dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(null));
+            op = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(''));
+            fillOrder = [];
+
+            // Base cases
+            for (let i = 0; i <= m; i++) { dp[i][0] = i; op[i][0] = i === 0 ? 'base' : 'delete'; fillOrder.push({ i, j: 0 }); }
+            for (let j = 1; j <= n; j++) { dp[0][j] = j; op[0][j] = 'insert'; fillOrder.push({ i: 0, j }); }
+
+            // Fill order
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    const cost = S[i - 1] === T[j - 1] ? 0 : 1;
+                    const del = dp[i - 1][j] + 1;
+                    const ins = dp[i][j - 1] + 1;
+                    const sub = dp[i - 1][j - 1] + cost;
+                    dp[i][j] = Math.min(del, ins, sub);
+                    if (dp[i][j] === sub) op[i][j] = cost === 0 ? 'match' : 'substitute';
+                    else if (dp[i][j] === del) op[i][j] = 'delete';
+                    else op[i][j] = 'insert';
+                    fillOrder.push({ i, j });
+                }
+            }
+
+            currentIdx = -1;
+            buildTable();
+            enableBtns(true);
+            document.getElementById('result-card').style.display = 'none';
+            setText('Matrix initialized. Press <strong>Step</strong> to fill cell by cell.');
+        }
+
+        function buildTable() {
+            const m = S.length, n = T.length;
+            let html = '<table class="matrix"><thead><tr><th></th><th></th>';
+            for (let j = 0; j < n; j++) html += `<th class="target-char">${T[j]}</th>`;
+            html += '</tr></thead><tbody>';
+            for (let i = 0; i <= m; i++) {
+                html += '<tr>';
+                html += i === 0 ? '<th></th>' : `<th class="source-char">${S[i - 1]}</th>`;
+                for (let j = 0; j <= n; j++) {
+                    html += `<td id="cell-${i}-${j}"></td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            document.getElementById('matrix-wrapper').innerHTML = html;
+        }
+
+        function stepForward() {
+            if (currentIdx >= fillOrder.length - 1) {
+                showBacktrace();
+                return;
+            }
+            currentIdx++;
+            renderUpTo(currentIdx);
+            explainStep(currentIdx);
+        }
+
+        function renderUpTo(idx) {
+            // Clear all classes
+            const m = S.length, n = T.length;
+            for (let i = 0; i <= m; i++) {
+                for (let j = 0; j <= n; j++) {
+                    const cell = document.getElementById(`cell-${i}-${j}`);
+                    cell.className = '';
+                    cell.textContent = '';
+                }
+            }
+            // Fill up to idx
+            for (let k = 0; k <= idx; k++) {
+                const { i, j } = fillOrder[k];
+                const cell = document.getElementById(`cell-${i}-${j}`);
+                cell.textContent = dp[i][j];
+                cell.classList.add('filled');
+                if (k === idx) {
+                    cell.classList.add('current');
+                }
+                // Color by operation
+                if (op[i][j] === 'match') cell.classList.add('match');
+                else if (op[i][j] === 'insert') cell.classList.add('insert');
+                else if (op[i][j] === 'delete') cell.classList.add('delete');
+                else if (op[i][j] === 'substitute') cell.classList.add('substitute');
+            }
+        }
+
+        function explainStep(idx) {
+            const { i, j } = fillOrder[idx];
+            const v = dp[i][j];
+            if (i === 0 && j === 0) {
+                setText('Base case: <code>D[0][0] = 0</code> — both strings empty, distance is 0.');
+            } else if (i === 0) {
+                setText(`Base case: <code>D[0][${j}] = ${j}</code> — insert ${j} character${j > 1 ? 's' : ''} to build "<strong>${T.slice(0, j)}</strong>".`);
+            } else if (j === 0) {
+                setText(`Base case: <code>D[${i}][0] = ${i}</code> — delete ${i} character${i > 1 ? 's' : ''} from "<strong>${S.slice(0, i)}</strong>".`);
+            } else {
+                const sChar = S[i - 1], tChar = T[j - 1];
+                const del = dp[i - 1][j] + 1;
+                const ins = dp[i][j - 1] + 1;
+                const diag = dp[i - 1][j - 1];
+                const cost = sChar === tChar ? 0 : 1;
+                const sub = diag + cost;
+                let chosen = '';
+                if (op[i][j] === 'match') chosen = `<span class="op-match">Match!</span> '${sChar}' = '${tChar}' → diagonal ${diag} + 0 = <strong>${v}</strong>`;
+                else if (op[i][j] === 'substitute') chosen = `<span class="op-sub">Substitution</span>: '${sChar}' ≠ '${tChar}' → diagonal ${diag} + 1 = <strong>${v}</strong>`;
+                else if (op[i][j] === 'delete') chosen = `<span class="op-delete">Deletion</span>: from above ${dp[i - 1][j]} + 1 = <strong>${v}</strong>`;
+                else chosen = `<span class="op-insert">Insertion</span>: from left ${dp[i][j - 1]} + 1 = <strong>${v}</strong>`;
+
+                setText(`<code>D[${i}][${j}]</code> comparing '<strong>${sChar}</strong>' vs '<strong>${tChar}</strong>'<br>
+                Options: ↑ delete=${del}, ← insert=${ins}, ↖ ${cost === 0 ? 'match' : 'sub'}=${sub}<br>
+                min = ${v} → ${chosen}`);
+            }
+        }
+
+        function showBacktrace() {
+            // Trace back from bottom-right
+            const path = [];
+            let i = S.length, j = T.length;
+            while (i > 0 || j > 0) {
+                path.push({ i, j });
+                const o = op[i][j];
+                if (o === 'match' || o === 'substitute') { i--; j--; }
+                else if (o === 'delete') { i--; }
+                else { j--; }
+            }
+            path.push({ i: 0, j: 0 });
+
+            // Highlight path
+            for (const p of path) {
+                document.getElementById(`cell-${p.i}-${p.j}`).classList.add('path');
+            }
+
+            // Build operations string
+            const ops = [];
+            for (let k = path.length - 1; k > 0; k--) {
+                const from = path[k], to = path[k - 1];
+                const o = op[to.i][to.j];
+                if (o === 'match') ops.push(`✓ keep '${S[to.i - 1]}'`);
+                else if (o === 'substitute') ops.push(`🔄 '${S[to.i - 1]}' → '${T[to.j - 1]}'`);
+                else if (o === 'delete') ops.push(`🗑 delete '${S[to.i - 1]}'`);
+                else ops.push(`➕ insert '${T[to.j - 1]}'`);
+            }
+
+            const dist = dp[S.length][T.length];
+            document.getElementById('result-card').style.display = 'block';
+            document.getElementById('result-dist').textContent = `Distance = ${dist}`;
+            document.getElementById('result-ops').innerHTML = `<strong>Operations:</strong> ${ops.join(' → ')}`;
+            setText(`<span class="op-match">🎉 Done!</span> The minimum edit distance from "<strong>${S}</strong>" to "<strong>${T}</strong>" is <strong>${dist}</strong>. The pink backtracing path shows the optimal alignment.`);
+
+            stopAuto();
+            document.getElementById('btn-step').disabled = true;
+            document.getElementById('btn-auto').disabled = true;
+        }
+
+        function autoPlay() {
+            if (autoTimer) { stopAuto(); return; }
+            document.getElementById('btn-auto').textContent = '⏸ Pause';
+            const delay = 1100 - parseInt(document.getElementById('speed').value);
+            autoTimer = setInterval(() => {
+                if (currentIdx >= fillOrder.length) { showBacktrace(); stopAuto(); return; }
+                stepForward();
+            }, delay);
+        }
+
+        function stopAuto() {
+            clearInterval(autoTimer); autoTimer = null;
+            document.getElementById('btn-auto').textContent = '⏩ Auto Play';
+        }
+
+        function resetViz() {
+            stopAuto();
+            currentIdx = -1;
+            buildTable();
+            document.getElementById('result-card').style.display = 'none';
+            enableBtns(true);
+            setText('Reset. Press <strong>Step</strong> to begin filling the matrix again.');
+        }
+
+        function enableBtns(v) {
+            document.getElementById('btn-step').disabled = !v;
+            document.getElementById('btn-auto').disabled = !v;
+            document.getElementById('btn-reset').disabled = !v;
+        }
+
+        function setText(html) {
+            document.getElementById('step-text').innerHTML = html;
+        }
+
+        // Init
+        build();
+    </script>
+</body>
+
+</html>

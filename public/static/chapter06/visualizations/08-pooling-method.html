@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08 · Pooling Method — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .systems-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .system-col h4 {
+      font-size: 0.85rem; font-weight: 700; color: var(--accent-violet);
+      margin-bottom: 0.75rem; text-align: center;
+      padding: 0.4rem; background: rgba(108,92,231,0.08); border-radius: var(--radius-sm);
+    }
+    .system-col .sys-doc {
+      padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; font-size: 0.8rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); transition: var(--transition); text-align: center;
+    }
+    .sys-doc.merging { animation: mergeFlash 0.6s ease; border-color: var(--accent-teal); }
+    @keyframes mergeFlash { 0% { transform: scale(1); } 50% { transform: scale(1.05); background: rgba(0,206,201,0.15); } 100% { transform: scale(1); } }
+    .pool-doc {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 0.75rem; margin-bottom: 0.35rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); transition: var(--transition);
+    }
+    .pool-doc .doc-id { flex: 1; font-size: 0.85rem; font-weight: 500; }
+    .pool-doc .src-tags { display: flex; gap: 0.25rem; }
+    .pool-doc .src-tag {
+      font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 100px;
+      background: rgba(108,92,231,0.15); color: var(--accent-violet); font-weight: 600;
+    }
+    .pool-doc .judge-btns { display: flex; gap: 0.25rem; }
+    .pool-doc .judge-btns button {
+      padding: 0.25rem 0.5rem; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-glass); background: var(--bg-card);
+      font-size: 0.72rem; font-weight: 600; cursor: pointer;
+      transition: var(--transition); font-family: var(--font-main);
+    }
+    .pool-doc .judge-btns button.sel-rel { background: rgba(0,184,148,0.2); border-color: var(--success); color: var(--success); }
+    .pool-doc .judge-btns button.sel-nrel { background: rgba(214,48,49,0.15); border-color: var(--error); color: var(--error); }
+    .pool-doc .judge-btns button:hover { border-color: var(--accent-violet); }
+    .progress-bar { height: 6px; border-radius: 3px; background: rgba(108,92,231,0.1); margin: 1rem 0; overflow: hidden; }
+    .progress-bar .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.4s ease; }
+    .arrow-divider { text-align: center; font-size: 1.5rem; color: var(--accent-teal); padding: 1rem 0; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 6</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 08 · Intermediate</div>
+      <h1>Pooling Method</h1>
+      <p>Watch how top-k results from multiple IR systems are merged and deduplicated to form a judgment pool. Then act as the assessor and label each document.</p>
+    </header>
+
+    <div class="viz-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <!-- Systems -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Step 1: Collect Top-k from Each System (k=5)</div>
+        <div class="systems-grid" id="systems-grid"></div>
+      </div>
+
+      <div class="arrow-divider">▼ Merge & Deduplicate ▼</div>
+
+      <!-- Pool -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Step 2: Judgment Pool</div>
+        <div class="control-row" style="margin-bottom: 1rem;">
+          <button class="btn btn-primary" id="btn-merge" onclick="startMerge()">Merge Systems</button>
+          <button class="btn" onclick="resetAll()">Reset</button>
+        </div>
+        <div class="progress-bar"><div class="fill" id="merge-progress" style="width: 0%;"></div></div>
+        <div id="pool-list"></div>
+        <div class="metric-grid" style="margin-top: 1rem;" id="pool-metrics"></div>
+      </div>
+
+      <!-- Assessment Complete -->
+      <div class="glass-card no-hover" id="results-card" style="display: none;">
+        <div class="viz-section-title">Assessment Results</div>
+        <div class="metric-grid" id="assessment-metrics"></div>
+        <div class="formula-box" style="margin-top: 1rem;" id="assessment-summary"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const systems = {
+      A: ['D1 - Web Search', 'D5 - Query Opt.', 'D3 - Ranking', 'D8 - Indexing', 'D12 - Crawling'],
+      B: ['D3 - Ranking', 'D7 - NLP Models', 'D1 - Web Search', 'D15 - ML Rank', 'D9 - Evaluation'],
+      C: ['D5 - Query Opt.', 'D3 - Ranking', 'D11 - Feedback', 'D1 - Web Search', 'D20 - Clustering']
+    };
+
+    let pool = [];
+    let merged = false;
+    let judgments = {};
+
+    function init() {
+      const grid = document.getElementById('systems-grid');
+      grid.innerHTML = Object.entries(systems).map(([name, docs]) => `
+        <div class="system-col">
+          <h4>System ${name}</h4>
+          ${docs.map(d => `<div class="sys-doc">${d}</div>`).join('')}
+        </div>
+      `).join('');
+      document.getElementById('pool-list').innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Click "Merge Systems" to create the judgment pool.</p>';
+      document.getElementById('pool-metrics').innerHTML = '';
+      document.getElementById('results-card').style.display = 'none';
+      merged = false;
+      judgments = {};
+    }
+
+    function startMerge() {
+      if (merged) return;
+      merged = true;
+
+      // Collect unique docs
+      const allDocs = {};
+      Object.entries(systems).forEach(([sys, docs]) => {
+        docs.forEach(d => {
+          const id = d.split(' - ')[0];
+          if (!allDocs[id]) allDocs[id] = { id, name: d, sources: [] };
+          allDocs[id].sources.push(sys);
+        });
+      });
+      pool = Object.values(allDocs);
+
+      // Animate progress
+      const prog = document.getElementById('merge-progress');
+      let p = 0;
+      const interval = setInterval(() => {
+        p += 10;
+        prog.style.width = p + '%';
+        if (p >= 100) {
+          clearInterval(interval);
+          renderPool();
+        }
+      }, 80);
+
+      // Flash system docs
+      document.querySelectorAll('.sys-doc').forEach((el, i) => {
+        setTimeout(() => el.classList.add('merging'), i * 100);
+      });
+    }
+
+    function renderPool() {
+      const listEl = document.getElementById('pool-list');
+      listEl.innerHTML = pool.map((doc, i) => {
+        const j = judgments[doc.id];
+        return `<div class="pool-doc">
+          <div class="doc-id">${doc.name}</div>
+          <div class="src-tags">${doc.sources.map(s => `<span class="src-tag">${s}</span>`).join('')}</div>
+          <div class="judge-btns">
+            <button class="${j === 'rel' ? 'sel-rel' : ''}" onclick="judge(${i},'rel')">Relevant</button>
+            <button class="${j === 'nrel' ? 'sel-nrel' : ''}" onclick="judge(${i},'nrel')">Not Rel</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      const judged = Object.keys(judgments).length;
+      const total = pool.length;
+      document.getElementById('pool-metrics').innerHTML = `
+        <div class="metric-box"><div class="metric-value">${total}</div><div class="metric-label">Unique Docs</div></div>
+        <div class="metric-box"><div class="metric-value">${Object.values(systems).flat().length}</div><div class="metric-label">Total Retrieved</div></div>
+        <div class="metric-box"><div class="metric-value">${judged}/${total}</div><div class="metric-label">Judged</div></div>
+      `;
+
+      if (judged === total) showResults();
+    }
+
+    function judge(idx, val) {
+      judgments[pool[idx].id] = val;
+      renderPool();
+    }
+
+    function showResults() {
+      const card = document.getElementById('results-card');
+      card.style.display = 'block';
+      const relCount = Object.values(judgments).filter(v => v === 'rel').length;
+      const nrelCount = Object.values(judgments).filter(v => v === 'nrel').length;
+      document.getElementById('assessment-metrics').innerHTML = `
+        <div class="metric-box"><div class="metric-value">${relCount}</div><div class="metric-label">Relevant</div></div>
+        <div class="metric-box"><div class="metric-value">${nrelCount}</div><div class="metric-label">Not Relevant</div></div>
+        <div class="metric-box"><div class="metric-value">${pool.length}</div><div class="metric-label">Pool Size</div></div>
+      `;
+      document.getElementById('assessment-summary').innerHTML =
+        `Assessment complete! ${relCount} relevant documents found out of ${pool.length} unique documents in the pool.`;
+    }
+
+    function resetAll() {
+      pool = [];
+      judgments = {};
+      merged = false;
+      document.getElementById('merge-progress').style.width = '0%';
+      document.querySelectorAll('.sys-doc').forEach(el => el.classList.remove('merging'));
+      init();
+    }
+
+    init();
+  
+
+    showTutorial({ id: 'pooling', icon: '🏊', title: 'Pooling Method', subtitle: 'How test collections are built from multiple systems.',
+      steps: [
+        'Click <strong>"Collect"</strong> to gather top-k results from each system',
+        'Click <strong>"Merge"</strong> to combine and deduplicate into a pool',
+        'Act as the <strong>assessor</strong> — mark each pooled doc as relevant or not',
+        'See how the pool avoids judging the entire collection'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'Why is pooling used instead of judging every document?', options: ['It is more accurate', 'Judging millions of docs is impractical', 'It favors better systems', 'Documents are ranked by relevance'], correct: 1, explanation: 'Real collections can have millions of documents. Pooling takes the top results from multiple systems to create a manageable set for human judges.' },
+      { question: 'What is a limitation of pooling?', options: ['It takes too long', 'Relevant docs not in any system\'s top-k are missed', 'It requires machine learning', 'Only one system can be used'], correct: 1, explanation: 'Pooling only judges documents retrieved by participating systems. A relevant doc that no system returns will remain unjudged — this is called pool bias.' }
+    ]);
+  </script>
+</body>
+</html>

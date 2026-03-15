@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosineScore Algorithm</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #51cf66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .top-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.05rem;
+        }
+
+        .algo-code {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .algo-line {
+            padding: 2px 8px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .algo-line.active {
+            background: rgba(0, 212, 255, 0.15);
+            border-left: 3px solid #00d4ff;
+        }
+
+        .algo-line .keyword {
+            color: #a855f7;
+        }
+
+        .algo-line .func {
+            color: #00d4ff;
+        }
+
+        .algo-line .comment {
+            color: #555;
+        }
+
+        .algo-line .var {
+            color: #ffd43b;
+        }
+
+        .scoreboard {}
+
+        .score-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            transition: all 0.4s;
+        }
+
+        .score-row.updating {
+            background: rgba(0, 212, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        .score-row .doc-label {
+            width: 60px;
+            font-weight: 600;
+            color: #aaa;
+        }
+
+        .score-bar-bg {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fg {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.6s;
+            background: linear-gradient(90deg, #00d4ff, #51cf66);
+        }
+
+        .score-num {
+            width: 70px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00d4ff, #51cf66);
+            color: #0a0a1a;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.reset {
+            background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+            color: white;
+        }
+
+        .log-section {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            border-left: 3px solid transparent;
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s;
+        }
+
+        .log-entry.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .log-entry.query {
+            border-left-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.05);
+        }
+
+        .log-entry.accumulate {
+            border-left-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .log-entry.normalize {
+            border-left-color: #a855f7;
+            background: rgba(168, 85, 247, 0.05);
+        }
+
+        .log-entry.result {
+            border-left-color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            font-weight: 600;
+        }
+
+        .final-ranking {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .rank-card {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            transition: all 0.5s;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .rank-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .rank-card .rank {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        .rank-card .name {
+            margin: 8px 0 4px;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+
+        .rank-card .val {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>⚙️ CosineScore Retrieval Algorithm</h1>
+        <p>Watch the ranking algorithm execute step-by-step</p>
+    </div>
+    <div class="container">
+        <div class="controls">
+            <button id="stepBtn" onclick="stepForward()">▶ Next Step</button>
+            <button id="autoBtn" onclick="autoPlay()">⏩ Auto Play</button>
+            <button class="reset" onclick="resetAlgo()">🔄 Reset</button>
+            <span style="color:#888; font-size:0.85rem; display:flex; align-items:center;">Step: <strong id="stepCount"
+                    style="color:#00d4ff; margin-left:6px;">0</strong></span>
+        </div>
+
+        <div class="top-row">
+            <!-- Algorithm Code -->
+            <div class="card">
+                <h3 style="color:#a855f7;">📜 CosineScore Algorithm</h3>
+                <div class="algo-code" id="algoCode"></div>
+            </div>
+
+            <!-- Scoreboard -->
+            <div class="card">
+                <h3 style="color:#00d4ff;">📊 Accumulator Scoreboard</h3>
+                <div class="scoreboard" id="scoreboard"></div>
+                <div class="final-ranking" id="finalRanking"></div>
+            </div>
+        </div>
+
+        <!-- Execution Log -->
+        <div class="card">
+            <h3 style="color:#ffd43b;">📋 Execution Log</h3>
+            <div class="log-section" id="logSection"></div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data
+        const docs = {
+            D1: { information: 0.4, retrieval: 0.5, search: 0.3 },
+            D2: { machine: 0.6, learning: 0.5, information: 0.2 },
+            D3: { retrieval: 0.7, search: 0.6, indexing: 0.4 },
+            D4: { deep: 0.5, learning: 0.8, natural: 0.3 },
+        };
+        const docNorms = { D1: 0.71, D2: 0.81, D3: 1.0, D4: 1.0 };
+        const query = { information: 0.6, retrieval: 0.8 };
+        const queryTerms = Object.keys(query);
+
+        const algoLines = [
+            { text: '<span class="keyword">function</span> <span class="func">CosineScore</span>(query):', indent: 0 },
+            { text: '<span class="comment">// Initialize accumulators</span>', indent: 1 },
+            { text: '<span class="keyword">for each</span> doc d: <span class="var">scores[d]</span> = 0', indent: 1 },
+            { text: '', indent: 0 },
+            { text: '<span class="keyword">for each</span> query term <span class="var">t</span>:', indent: 1 },
+            { text: 'compute <span class="var">w(t,q)</span> = weight of t in query', indent: 2 },
+            { text: '<span class="keyword">for each</span> doc d containing <span class="var">t</span>:', indent: 2 },
+            { text: '<span class="var">scores[d]</span> += <span class="var">w(t,d)</span> × <span class="var">w(t,q)</span>', indent: 3 },
+            { text: '', indent: 0 },
+            { text: '<span class="comment">// Normalize by document lengths</span>', indent: 1 },
+            { text: '<span class="keyword">for each</span> doc d: <span class="var">scores[d]</span> /= <span class="var">||d||</span>', indent: 1 },
+            { text: '', indent: 0 },
+            { text: '<span class="keyword">return</span> top-K by <span class="var">scores</span> descending', indent: 1 },
+        ];
+
+        let scores = {};
+        let stepIndex = 0;
+        let steps = [];
+        let autoInterval = null;
+
+        function buildSteps() {
+            steps = [];
+            // Init
+            steps.push({ line: 2, type: 'init', log: '🔧 Initialize all accumulators to 0', logType: 'query' });
+            // For each query term
+            queryTerms.forEach(qt => {
+                const wq = query[qt];
+                steps.push({ line: 5, type: 'query_term', term: qt, log: `🔍 Query term: "${qt}" → w(t,q) = ${wq}`, logType: 'query' });
+                Object.entries(docs).forEach(([dName, dTerms]) => {
+                    if (dTerms[qt]) {
+                        const wd = dTerms[qt];
+                        const contrib = wd * wq;
+                        steps.push({
+                            line: 7, type: 'accumulate', doc: dName, term: qt,
+                            wd, wq, contrib,
+                            log: `  📝 ${dName}: scores[${dName}] += ${wd} × ${wq} = +${contrib.toFixed(3)}`,
+                            logType: 'accumulate'
+                        });
+                    }
+                });
+            });
+            // Normalize
+            steps.push({ line: 10, type: 'normalize_start', log: '📏 Normalizing by document lengths...', logType: 'normalize' });
+            Object.keys(docs).forEach(d => {
+                steps.push({
+                    line: 10, type: 'normalize', doc: d,
+                    log: `  ÷ ${d}: scores[${d}] /= ||${d}|| (${docNorms[d]})`,
+                    logType: 'normalize'
+                });
+            });
+            // Final
+            steps.push({ line: 12, type: 'final', log: '🏆 Sorting by score descending → Final ranking!', logType: 'result' });
+        }
+
+        function renderAlgo(activeLine) {
+            const container = document.getElementById('algoCode');
+            container.innerHTML = algoLines.map((l, i) =>
+                `<div class="algo-line ${i === activeLine ? 'active' : ''}" style="padding-left:${l.indent * 20 + 8}px;">${l.text || '&nbsp;'}</div>`
+            ).join('');
+        }
+
+        function renderScoreboard() {
+            const container = document.getElementById('scoreboard');
+            const maxScore = Math.max(0.01, ...Object.values(scores));
+            container.innerHTML = Object.keys(docs).map(d => {
+                const s = scores[d] || 0;
+                const pct = (s / maxScore) * 100;
+                return `<div class="score-row" id="row-${d}">
+                    <div class="doc-label">${d}</div>
+                    <div class="score-bar-bg"><div class="score-bar-fg" style="width:${pct}%;"></div></div>
+                    <div class="score-num">${s.toFixed(4)}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function addLog(text, type) {
+            const container = document.getElementById('logSection');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = text;
+            container.appendChild(entry);
+            setTimeout(() => entry.classList.add('visible'), 50);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function stepForward() {
+            if (stepIndex >= steps.length) return;
+            const step = steps[stepIndex];
+
+            renderAlgo(step.line);
+            addLog(step.log, step.logType);
+
+            if (step.type === 'init') {
+                Object.keys(docs).forEach(d => scores[d] = 0);
+            } else if (step.type === 'accumulate') {
+                scores[step.doc] = (scores[step.doc] || 0) + step.contrib;
+                setTimeout(() => {
+                    const row = document.getElementById(`row-${step.doc}`);
+                    if (row) { row.classList.add('updating'); setTimeout(() => row.classList.remove('updating'), 400); }
+                }, 50);
+            } else if (step.type === 'normalize') {
+                scores[step.doc] = (scores[step.doc] || 0) / docNorms[step.doc];
+            } else if (step.type === 'final') {
+                showFinalRanking();
+            }
+
+            renderScoreboard();
+            stepIndex++;
+            document.getElementById('stepCount').textContent = stepIndex;
+
+            if (stepIndex >= steps.length) {
+                document.getElementById('stepBtn').disabled = true;
+                document.getElementById('autoBtn').disabled = true;
+                if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+            }
+        }
+
+        function autoPlay() {
+            if (autoInterval) { clearInterval(autoInterval); autoInterval = null; return; }
+            autoInterval = setInterval(() => {
+                if (stepIndex >= steps.length) { clearInterval(autoInterval); autoInterval = null; return; }
+                stepForward();
+            }, 600);
+        }
+
+        function resetAlgo() {
+            if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+            stepIndex = 0;
+            scores = {};
+            Object.keys(docs).forEach(d => scores[d] = 0);
+            document.getElementById('stepBtn').disabled = false;
+            document.getElementById('autoBtn').disabled = false;
+            document.getElementById('stepCount').textContent = '0';
+            document.getElementById('logSection').innerHTML = '';
+            document.getElementById('finalRanking').innerHTML = '';
+            renderAlgo(-1);
+            renderScoreboard();
+        }
+
+        function showFinalRanking() {
+            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            const colors = ['#51cf66', '#00d4ff', '#ffd43b', '#ff6b6b'];
+            const container = document.getElementById('finalRanking');
+            container.innerHTML = sorted.map(([d, s], i) => `
+                <div class="rank-card" id="rank-${i}">
+                    <span class="rank" style="background:${colors[i]}20; color:${colors[i]};">#${i + 1}</span>
+                    <div class="name">${d}</div>
+                    <div class="val" style="color:${colors[i]};">${s.toFixed(4)}</div>
+                </div>
+            `).join('');
+            sorted.forEach((_, i) => {
+                setTimeout(() => document.getElementById(`rank-${i}`).classList.add('visible'), i * 200);
+            });
+        }
+
+        buildSteps();
+        resetAlgo();
+    </script>
+</body>
+
+</html>

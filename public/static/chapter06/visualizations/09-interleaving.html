@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>09 · Interleaving (Team Draft) — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .il-layout { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: start; }
+    .system-list h4 {
+      text-align: center; padding: 0.5rem; border-radius: var(--radius-sm);
+      font-size: 0.85rem; font-weight: 700; margin-bottom: 0.75rem;
+    }
+    .sys-a h4 { background: rgba(108,92,231,0.12); color: var(--accent-violet); }
+    .sys-b h4 { background: rgba(0,206,201,0.12); color: var(--accent-teal); }
+    .il-doc {
+      padding: 0.5rem 0.75rem; margin-bottom: 0.35rem;
+      border-radius: var(--radius-sm); font-size: 0.82rem;
+      border: 1px solid var(--border-glass); background: var(--bg-card);
+      transition: var(--transition); text-align: center;
+    }
+    .il-doc.used { opacity: 0.3; text-decoration: line-through; }
+    .il-doc.picking { animation: pickFlash 0.5s ease; }
+    @keyframes pickFlash { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .il-doc.from-a { border-left: 3px solid var(--accent-violet); }
+    .il-doc.from-b { border-left: 3px solid var(--accent-teal); }
+    .interleaved-col { min-width: 220px; }
+    .interleaved-col h4 {
+      text-align: center; padding: 0.5rem; background: rgba(253,121,168,0.1);
+      color: var(--accent-pink); border-radius: var(--radius-sm);
+      font-size: 0.85rem; font-weight: 700; margin-bottom: 0.75rem;
+    }
+    .coin { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1rem; }
+    .coin-face {
+      width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 800; border: 2px solid var(--border-glass);
+      transition: var(--transition);
+    }
+    .coin-face.heads { background: rgba(108,92,231,0.15); color: var(--accent-violet); border-color: var(--accent-violet); }
+    .coin-face.tails { background: rgba(0,206,201,0.15); color: var(--accent-teal); border-color: var(--accent-teal); }
+    .coin-face.spinning { animation: coinSpin 0.4s ease; }
+    @keyframes coinSpin { 0% { transform: rotateY(0); } 100% { transform: rotateY(360deg); } }
+    .click-sim { margin-top: 1rem; }
+    .click-sim .il-doc { cursor: pointer; }
+    .click-sim .il-doc:hover { border-color: var(--accent-pink); }
+    .click-sim .il-doc.clicked { background: rgba(253,121,168,0.1); border-color: var(--accent-pink); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 6</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container wide">
+    <header class="page-header">
+      <div class="badge">Visualization 09 · Intermediate</div>
+      <h1>Interleaving — Team Draft</h1>
+      <p>Watch the Team Draft algorithm interleave results from two systems. Then simulate user clicks to determine which system wins.</p>
+    </header>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Team Draft Interleaving</div>
+        <div class="control-row" style="margin-bottom: 1rem;">
+          <button class="btn btn-primary" onclick="stepInterleave()">Next Pick</button>
+          <button class="btn btn-teal" onclick="autoRun()">Auto Run</button>
+          <button class="btn" onclick="resetAll()">Reset</button>
+        </div>
+        <div class="coin">
+          <span style="font-size: 0.82rem; color: var(--text-secondary);">Coin:</span>
+          <div class="coin-face" id="coin-face">?</div>
+          <span style="font-size: 0.82rem; color: var(--text-secondary);" id="coin-text">Flip to start</span>
+        </div>
+        <div class="il-layout">
+          <div class="system-list sys-a">
+            <h4>System A</h4>
+            <div id="sys-a-list"></div>
+          </div>
+          <div class="interleaved-col">
+            <h4>Interleaved</h4>
+            <div id="interleaved-list"></div>
+          </div>
+          <div class="system-list sys-b">
+            <h4>System B</h4>
+            <div id="sys-b-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Step 2: Simulate User Clicks</div>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          After interleaving, click on documents the "user" would find useful. The system that contributed more clicked docs wins.
+        </p>
+        <div class="click-sim" id="click-sim">
+          <p style="color: var(--text-muted); font-size: 0.82rem; text-align: center;">Complete interleaving first…</p>
+        </div>
+
+        <div class="metric-grid" style="margin-top: 1.5rem;" id="click-metrics"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">How It Works</div>
+        <div class="step-log" id="trace-log">
+          <div class="step-entry" style="color: var(--text-muted);">Click "Next Pick" to start the team draft…</div>
+        </div>
+
+        <div class="formula-box" style="margin-top: 1rem;">
+          Winner = system whose docs got more clicks in the interleaved list
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const sysADocs = ['D1 - IR Basics', 'D3 - Ranking', 'D5 - Indexing', 'D7 - NLP', 'D9 - Evaluation', 'D11 - Feedback'];
+    const sysBDocs = ['D2 - ML Search', 'D3 - Ranking', 'D4 - Crawling', 'D5 - Indexing', 'D8 - Filtering', 'D10 - Clustering'];
+
+    let usedA = new Set(), usedB = new Set(), usedAll = new Set();
+    let interleaved = []; // { name, source: 'A'|'B' }
+    let ptrA = 0, ptrB = 0;
+    let step = 0;
+    let traceLines = [];
+    let clicks = new Set();
+    let done = false;
+
+    function resetAll() {
+      usedA.clear(); usedB.clear(); usedAll.clear();
+      interleaved = []; ptrA = 0; ptrB = 0; step = 0;
+      traceLines = []; clicks.clear(); done = false;
+      renderAll();
+    }
+
+    function stepInterleave() {
+      if (done) return;
+      const maxLen = Math.min(sysADocs.length, sysBDocs.length);
+      if (interleaved.length >= maxLen * 2 - usedAll.size || (ptrA >= sysADocs.length && ptrB >= sysBDocs.length)) {
+        done = true;
+        renderAll();
+        return;
+      }
+
+      // Coin flip
+      const coin = Math.random() < 0.5 ? 'A' : 'B';
+      const coinEl = document.getElementById('coin-face');
+      coinEl.className = `coin-face ${coin === 'A' ? 'heads' : 'tails'} spinning`;
+      coinEl.textContent = coin;
+      document.getElementById('coin-text').textContent = `System ${coin} picks first`;
+
+      setTimeout(() => {
+        coinEl.classList.remove('spinning');
+
+        const order = coin === 'A' ? ['A', 'B'] : ['B', 'A'];
+        order.forEach(sys => {
+          const docs = sys === 'A' ? sysADocs : sysBDocs;
+          let ptr = sys === 'A' ? ptrA : ptrB;
+
+          while (ptr < docs.length && usedAll.has(docs[ptr])) ptr++;
+          if (ptr < docs.length) {
+            const doc = docs[ptr];
+            interleaved.push({ name: doc, source: sys });
+            usedAll.add(doc);
+            if (sys === 'A') { usedA.add(doc); ptrA = ptr + 1; }
+            else { usedB.add(doc); ptrB = ptr + 1; }
+            traceLines.push(`Coin=${coin} → ${sys} picks "${doc}" at position ${interleaved.length}`);
+          }
+        });
+
+        if (ptrA >= sysADocs.length && ptrB >= sysBDocs.length) done = true;
+        renderAll();
+      }, 400);
+    }
+
+    function autoRun() {
+      if (done) return;
+      const interval = setInterval(() => {
+        if (done) { clearInterval(interval); return; }
+        stepInterleave();
+      }, 900);
+    }
+
+    function toggleClick(i) {
+      if (clicks.has(i)) clicks.delete(i);
+      else clicks.add(i);
+      renderAll();
+    }
+
+    function renderAll() {
+      // System lists
+      document.getElementById('sys-a-list').innerHTML = sysADocs.map((d, i) =>
+        `<div class="il-doc ${usedAll.has(d) ? 'used' : ''}">${d}</div>`
+      ).join('');
+      document.getElementById('sys-b-list').innerHTML = sysBDocs.map((d, i) =>
+        `<div class="il-doc ${usedAll.has(d) ? 'used' : ''}">${d}</div>`
+      ).join('');
+
+      // Interleaved list
+      document.getElementById('interleaved-list').innerHTML = interleaved.map((d, i) =>
+        `<div class="il-doc from-${d.source.toLowerCase()}">${i + 1}. ${d.name}</div>`
+      ).join('');
+
+      // Click sim
+      const clickSim = document.getElementById('click-sim');
+      if (done || interleaved.length > 0) {
+        clickSim.innerHTML = interleaved.map((d, i) =>
+          `<div class="il-doc from-${d.source.toLowerCase()} ${clicks.has(i) ? 'clicked' : ''}" onclick="toggleClick(${i})" style="cursor:pointer; text-align: left;">
+            ${i + 1}. ${d.name} ${clicks.has(i) ? ' 👆' : ''}
+          </div>`
+        ).join('');
+      }
+
+      // Click metrics
+      const metricsEl = document.getElementById('click-metrics');
+      const clicksA = [...clicks].filter(i => interleaved[i].source === 'A').length;
+      const clicksB = [...clicks].filter(i => interleaved[i].source === 'B').length;
+      const winner = clicksA > clicksB ? 'System A' : clicksB > clicksA ? 'System B' : 'Tie';
+      metricsEl.innerHTML = `
+        <div class="metric-box"><div class="metric-value" style="color: var(--accent-violet);">${clicksA}</div><div class="metric-label">Clicks on A's docs</div></div>
+        <div class="metric-box"><div class="metric-value" style="color: var(--accent-teal);">${clicksB}</div><div class="metric-label">Clicks on B's docs</div></div>
+        <div class="metric-box"><div class="metric-value">${winner}</div><div class="metric-label">Winner</div></div>
+      `;
+
+      // Trace log
+      const logEl = document.getElementById('trace-log');
+      logEl.innerHTML = traceLines.length === 0
+        ? '<div class="step-entry" style="color: var(--text-muted);">Click "Next Pick" to start…</div>'
+        : traceLines.map(l => `<div class="step-entry">${l}</div>`).join('');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    renderAll();
+  
+
+    showTutorial({ id: 'interleaving', icon: '🔀', title: 'Interleaving (Team Draft)', subtitle: 'Online A/B testing for search systems.',
+      steps: [
+        'Click <strong>"Next Pick"</strong> to watch the coin-flip draft algorithm',
+        'Each system takes turns picking its next unchosen document',
+        'After interleaving, <strong>click documents</strong> to simulate user clicks',
+        'The system whose docs get more clicks <strong>wins</strong>!'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'Why use interleaving instead of showing two separate ranked lists?', options: ['It is faster', 'Users see a single natural-looking list (no bias)', 'It requires fewer clicks', 'It uses less data'], correct: 1, explanation: 'Interleaving mixes results into one list, so users interact naturally without knowing two systems are being compared. This eliminates presentation bias.' },
+      { question: 'In Team Draft, what determines who picks first?', options: ['The better system', 'A coin flip', 'Alphabetical order', 'The system with more docs'], correct: 1, explanation: 'A fair coin flip determines which system picks first in each round, ensuring neither system has a systematic advantage.' }
+    ]);
+  </script>
+</body>
+</html>

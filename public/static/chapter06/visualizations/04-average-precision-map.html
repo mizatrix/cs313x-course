@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · Average Precision & MAP — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .query-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .query-tab {
+      padding: 0.45rem 1rem; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-glass); background: var(--bg-card);
+      color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: var(--transition); font-family: var(--font-main);
+    }
+    .query-tab.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+    .step-btn-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .rank-item .rank-p-val {
+      font-size: 0.78rem; font-weight: 700; color: var(--accent-teal);
+      min-width: 60px; text-align: right;
+    }
+    .rank-item.highlighted-step {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 16px rgba(0,206,201,0.2);
+      background: rgba(0,206,201,0.06);
+    }
+    .ap-row {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.6rem 1rem; background: var(--bg-card);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      font-size: 0.85rem; margin-bottom: 0.4rem;
+    }
+    .ap-row .ap-query { font-weight: 600; color: var(--text-primary); flex: 1; }
+    .ap-row .ap-val { font-weight: 800; color: var(--accent-violet); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 6</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Intermediate</div>
+      <h1>Average Precision & MAP</h1>
+      <p>Step through the AP calculation rank-by-rank. Switch between queries to see individual APs, then view the Mean Average Precision across all.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Step through all queries to compute MAP. Notice how AP rewards systems that return relevant documents <strong>earlier</strong> in the ranking!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- Left: Ranked List -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Select Query</div>
+        <div class="query-tabs" id="query-tabs"></div>
+
+        <div class="step-btn-row">
+          <button class="btn btn-primary" id="btn-step" onclick="stepForward()">Step Forward</button>
+          <button class="btn" onclick="resetSteps()">Reset Steps</button>
+          <button class="btn btn-teal" onclick="showAll()">Show All</button>
+        </div>
+
+        <div class="ranked-list" id="ranked-list"></div>
+      </div>
+
+      <!-- Right: Metrics + Step Log -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">AP Calculation</div>
+        <div class="metric-grid" style="margin-bottom: 1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-ap">0.0000</div>
+            <div class="metric-label">Avg Precision (AP)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-rel-found">0</div>
+            <div class="metric-label">Relevant Found</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          AP = (1/|Relevant|) × Σ P@k × rel(k)
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Step-by-Step Trace</div>
+        <div class="step-log" id="step-log">
+          <div class="step-entry" style="color: var(--text-muted);">Click "Step Forward" to begin…</div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Mean Average Precision</div>
+        <div id="map-section"></div>
+        <div class="metric-grid" style="margin-top: 0.75rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-map">—</div>
+            <div class="metric-label">MAP</div>
+          </div>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const queries = [
+      {
+        name: 'Q1: "search engine"',
+        docs: [
+          { name: 'Web Search Architecture', relevant: true },
+          { name: 'Social Media Trends', relevant: false },
+          { name: 'Search Ranking Models', relevant: true },
+          { name: 'Cloud Computing Review', relevant: false },
+          { name: 'Query Processing Paper', relevant: true },
+          { name: 'Database Systems', relevant: false },
+          { name: 'Link Analysis Methods', relevant: true },
+          { name: 'Mobile App Development', relevant: false },
+          { name: 'IR Evaluation Methods', relevant: true },
+          { name: 'Network Security Guide', relevant: false },
+        ]
+      },
+      {
+        name: 'Q2: "machine learning"',
+        docs: [
+          { name: 'Neural Network Primer', relevant: true },
+          { name: 'Data Visualization', relevant: false },
+          { name: 'Web Design Patterns', relevant: false },
+          { name: 'SVM Classification', relevant: true },
+          { name: 'Blockchain Overview', relevant: false },
+          { name: 'Deep Learning Survey', relevant: true },
+          { name: 'Image Recognition', relevant: true },
+          { name: 'Project Management', relevant: false },
+          { name: 'Ensemble Methods', relevant: true },
+          { name: 'Operating Systems', relevant: false },
+        ]
+      },
+      {
+        name: 'Q3: "natural language"',
+        docs: [
+          { name: 'Text Segmentation', relevant: false },
+          { name: 'Named Entity Recognition', relevant: true },
+          { name: 'Sentiment Analysis', relevant: true },
+          { name: 'Graph Theory Basics', relevant: false },
+          { name: 'Language Models', relevant: true },
+          { name: 'Computer Architecture', relevant: false },
+          { name: 'Word Embeddings', relevant: true },
+          { name: 'Parallel Computing', relevant: false },
+          { name: 'Syntax Parsing', relevant: true },
+          { name: 'Cryptography Survey', relevant: false },
+        ]
+      }
+    ];
+
+    let currentQuery = 0;
+    let currentStep = 0;  // 0 = not started, 1..n = stepping through ranks
+    let queryAPs = {};    // store computed APs
+
+    function selectQuery(idx) {
+      currentQuery = idx;
+      currentStep = 0;
+      render();
+    }
+
+    function stepForward() {
+      const q = queries[currentQuery];
+      if (currentStep < q.docs.length) {
+        currentStep++;
+        render();
+      }
+    }
+
+    function resetSteps() {
+      currentStep = 0;
+      render();
+    }
+
+    function showAll() {
+      currentStep = queries[currentQuery].docs.length;
+      render();
+    }
+
+    function computeAP(docs, upToStep) {
+      const totalRelevant = docs.filter(d => d.relevant).length;
+      if (totalRelevant === 0) return { ap: 0, relFound: 0, steps: [] };
+      let relFound = 0;
+      let sumP = 0;
+      const steps = [];
+      for (let i = 0; i < upToStep; i++) {
+        if (docs[i].relevant) {
+          relFound++;
+          const pAtK = relFound / (i + 1);
+          sumP += pAtK;
+          steps.push({ rank: i + 1, pAtK, relFound, isRelevant: true });
+        } else {
+          steps.push({ rank: i + 1, pAtK: null, relFound, isRelevant: false });
+        }
+      }
+      return { ap: sumP / totalRelevant, relFound, steps, totalRelevant };
+    }
+
+    function render() {
+      const q = queries[currentQuery];
+
+      // Tabs
+      const tabsEl = document.getElementById('query-tabs');
+      tabsEl.innerHTML = queries.map((qq, i) =>
+        `<button class="query-tab ${i === currentQuery ? 'active' : ''}" onclick="selectQuery(${i})">${qq.name}</button>`
+      ).join('');
+
+      // Ranked list
+      const listEl = document.getElementById('ranked-list');
+      const { ap, relFound, steps, totalRelevant } = computeAP(q.docs, currentStep);
+      listEl.innerHTML = q.docs.map((doc, i) => {
+        const processed = i < currentStep;
+        const isStep = i === currentStep - 1;
+        const step = processed ? steps[i] : null;
+        return `
+          <div class="rank-item ${doc.relevant ? 'relevant' : 'not-relevant'} ${isStep ? 'highlighted-step' : ''}" style="${processed ? '' : 'opacity:0.4'}">
+            <div class="rank-num">${i + 1}</div>
+            <div class="doc-name">${doc.name}</div>
+            <span class="tag ${doc.relevant ? 'tag-relevant' : 'tag-not-relevant'}">${doc.relevant ? 'REL' : 'N/R'}</span>
+            <div class="rank-p-val">${step && step.pAtK !== null ? 'P=' + step.pAtK.toFixed(3) : ''}</div>
+          </div>
+        `;
+      }).join('');
+
+      // Metrics
+      document.getElementById('m-ap').textContent = ap.toFixed(4);
+      document.getElementById('m-rel-found').textContent = `${relFound} / ${totalRelevant || q.docs.filter(d => d.relevant).length}`;
+
+      // Step log
+      const logEl = document.getElementById('step-log');
+      if (currentStep === 0) {
+        logEl.innerHTML = '<div class="step-entry" style="color: var(--text-muted);">Click "Step Forward" to begin…</div>';
+      } else {
+        logEl.innerHTML = steps.map(s => {
+          if (s.isRelevant) {
+            return `<div class="step-entry">Rank <span class="step-highlight">${s.rank}</span>: Relevant ✓ → P@${s.rank} = ${s.relFound}/${s.rank} = <span class="step-value">${s.pAtK.toFixed(4)}</span></div>`;
+          }
+          return `<div class="step-entry" style="opacity:0.5;">Rank ${s.rank}: Not Relevant ✗ → skipped</div>`;
+        }).join('');
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      // Store AP if fully computed
+      if (currentStep === q.docs.length) {
+        queryAPs[currentQuery] = ap;
+      }
+
+      // MAP section
+      const mapSection = document.getElementById('map-section');
+      const entries = queries.map((qq, i) => {
+        const hasAP = queryAPs[i] !== undefined;
+        return `<div class="ap-row">
+          <div class="ap-query">${qq.name}</div>
+          <div class="ap-val">${hasAP ? queryAPs[i].toFixed(4) : '—'}</div>
+        </div>`;
+      }).join('');
+      mapSection.innerHTML = entries;
+
+      const computedAPs = Object.values(queryAPs);
+      const mapVal = computedAPs.length === queries.length
+        ? (computedAPs.reduce((a, b) => a + b, 0) / computedAPs.length)
+        : null;
+      document.getElementById('m-map').textContent = mapVal !== null ? mapVal.toFixed(4) : '—';
+    }
+
+    render();
+
+    showTutorial({ id: 'ap-map', icon: '📈', title: 'Average Precision & MAP', subtitle: 'The gold standard metric for ranked retrieval.',
+      steps: [
+        'Click <strong>"Step Forward"</strong> to process one rank at a time',
+        'Watch P@k being computed <strong>only at relevant positions</strong>',
+        'Switch <strong>query tabs</strong> and repeat for each query',
+        'After all queries, <strong>MAP</strong> = average of all APs'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'For a query with relevant docs at ranks 1, 3, 5 (out of 5), what is AP?', options: ['0.60', '0.76', '0.82', '0.50'], correct: 1, explanation: 'AP = (P@1 + P@3 + P@5) / 3 = (1/1 + 2/3 + 3/5) / 3 = (1.0+0.667+0.6)/3 ≈ 0.756.' },
+      { question: 'MAP is computed by averaging AP across what?', options: ['Different rank cutoffs', 'All documents', 'Multiple queries', 'All relevant docs'], correct: 2, explanation: 'MAP = Mean AP across multiple queries. It gives a single number summarizing system performance over a whole test collection.' }
+    ]);
+  </script>
+</body>
+</html>

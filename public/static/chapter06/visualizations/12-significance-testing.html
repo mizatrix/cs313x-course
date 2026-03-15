@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>12 · Significance Testing — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .input-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .score-col h4{font-size:.85rem;font-weight:700;margin-bottom:.75rem;padding:.4rem;border-radius:var(--radius-sm);text-align:center}
+    .score-col.sys-a h4{background:rgba(108,92,231,.12);color:var(--accent-violet)}
+    .score-col.sys-b h4{background:rgba(0,206,201,.12);color:var(--accent-teal)}
+    .score-inputs{display:flex;flex-direction:column;gap:.35rem}
+    .score-row{display:flex;align-items:center;gap:.5rem}
+    .score-row label{font-size:.75rem;color:var(--text-muted);min-width:28px;font-weight:600}
+    .score-row input{width:80px;text-align:center;padding:.35rem;font-size:.85rem}
+    .sig-badge{display:inline-block;padding:.35rem 1rem;border-radius:100px;font-weight:700;font-size:.85rem;letter-spacing:.03em}
+    .sig-yes{background:rgba(0,184,148,.15);color:var(--success);border:1px solid rgba(0,184,148,.3)}
+    .sig-no{background:rgba(214,48,49,.12);color:var(--error);border:1px solid rgba(214,48,49,.25)}
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 6</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 12 · Advanced</div>
+      <h1>Significance Testing</h1>
+      <p>Enter per-query scores for two systems and run a paired t-test to determine if the difference is statistically significant (p &lt; 0.05).</p>
+    </header>
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Per-Query Scores</div>
+        <div class="input-grid">
+          <div class="score-col sys-a"><h4>System A</h4><div class="score-inputs" id="scores-a"></div></div>
+          <div class="score-col sys-b"><h4>System B</h4><div class="score-inputs" id="scores-b"></div></div>
+        </div>
+        <div class="control-row" style="margin-top:1rem">
+          <button class="btn btn-primary" onclick="compute()">Run t-test</button>
+          <button class="btn" onclick="randomize()">Randomize</button>
+          <button class="btn" onclick="init()">Reset</button>
+        </div>
+      </div>
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Results</div>
+        <div class="metric-grid" style="margin-bottom:1rem">
+          <div class="metric-box"><div class="metric-value" id="m-t">—</div><div class="metric-label">t-statistic</div></div>
+          <div class="metric-box"><div class="metric-value" id="m-p">—</div><div class="metric-label">p-value</div></div>
+          <div class="metric-box"><div class="metric-value" id="m-df">—</div><div class="metric-label">Degrees of Freedom</div></div>
+        </div>
+        <div style="text-align:center;margin-bottom:1rem" id="sig-result"></div>
+        <div class="formula-box">t = d̄ / (s_d / √n)&emsp;where d_i = A_i − B_i</div>
+        <div class="viz-section-title" style="margin-top:1.5rem">Distribution</div>
+        <canvas id="dist-chart" width="460" height="220"></canvas>
+        <div class="viz-section-title" style="margin-top:1.5rem">Step-by-Step</div>
+        <div class="step-log" id="step-log"><div class="step-entry" style="color:var(--text-muted)">Click "Run t-test" to begin…</div></div>
+        <div class="viz-section-title" style="margin-top:1.5rem">Key Insight</div>
+        <p style="font-size:.85rem;color:var(--text-secondary);line-height:1.7">
+          A <strong style="color:var(--accent-violet)">p-value &lt; 0.05</strong> means there's less than a 5% chance the observed difference happened by luck. Without significance testing, we can't know if System A's advantage over B is real or just noise.
+        </p>
+      </div>
+    </div>
+  </div>
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const N=8;
+    let scoresA=[],scoresB=[];
+
+    function init(){
+      scoresA=[0.42,0.58,0.31,0.65,0.48,0.72,0.39,0.55];
+      scoresB=[0.38,0.45,0.28,0.50,0.42,0.60,0.35,0.48];
+      renderInputs();document.getElementById('m-t').textContent='—';
+      document.getElementById('m-p').textContent='—';document.getElementById('m-df').textContent='—';
+      document.getElementById('sig-result').innerHTML='';document.getElementById('step-log').innerHTML='<div class="step-entry" style="color:var(--text-muted)">Click "Run t-test" to begin…</div>';
+      clearChart();
+    }
+
+    function randomize(){
+      scoresA=Array.from({length:N},()=> +(Math.random()*0.5+0.3).toFixed(2));
+      scoresB=Array.from({length:N},()=> +(Math.random()*0.5+0.25).toFixed(2));
+      renderInputs();compute();
+    }
+
+    function renderInputs(){
+      const aEl=document.getElementById('scores-a'),bEl=document.getElementById('scores-b');
+      aEl.innerHTML=scoresA.map((v,i)=>`<div class="score-row"><label>Q${i+1}</label><input type="number" step="0.01" value="${v}" onchange="scoresA[${i}]=+this.value"></div>`).join('');
+      bEl.innerHTML=scoresB.map((v,i)=>`<div class="score-row"><label>Q${i+1}</label><input type="number" step="0.01" value="${v}" onchange="scoresB[${i}]=+this.value"></div>`).join('');
+    }
+
+    function compute(){
+      // Read inputs
+      document.querySelectorAll('#scores-a input').forEach((el,i)=>scoresA[i]=+el.value);
+      document.querySelectorAll('#scores-b input').forEach((el,i)=>scoresB[i]=+el.value);
+
+      const n=scoresA.length;
+      const diffs=scoresA.map((a,i)=>a-scoresB[i]);
+      const dBar=diffs.reduce((s,d)=>s+d,0)/n;
+      const sd=Math.sqrt(diffs.map(d=>(d-dBar)**2).reduce((s,v)=>s+v,0)/(n-1));
+      const se=sd/Math.sqrt(n);
+      const t=se===0?0:dBar/se;
+      const df=n-1;
+      const p=tTestPValue(Math.abs(t),df);
+
+      document.getElementById('m-t').textContent=t.toFixed(4);
+      document.getElementById('m-p').textContent=p.toFixed(6);
+      document.getElementById('m-df').textContent=df;
+
+      const sig=p<0.05;
+      document.getElementById('sig-result').innerHTML=sig
+        ?`<div class="sig-badge sig-yes">✓ Statistically Significant (p < 0.05)</div>`
+        :`<div class="sig-badge sig-no">✗ Not Significant (p ≥ 0.05)</div>`;
+
+      // Step log
+      const log=document.getElementById('step-log');
+      log.innerHTML=`
+        <div class="step-entry">Differences d_i = A_i − B_i: [${diffs.map(d=>d.toFixed(3)).join(', ')}]</div>
+        <div class="step-entry">Mean difference d̄ = <span class="step-value">${dBar.toFixed(4)}</span></div>
+        <div class="step-entry">Std dev of diffs s_d = <span class="step-value">${sd.toFixed(4)}</span></div>
+        <div class="step-entry">Standard error SE = s_d/√n = ${sd.toFixed(4)}/√${n} = <span class="step-value">${se.toFixed(4)}</span></div>
+        <div class="step-entry">t = d̄/SE = ${dBar.toFixed(4)}/${se.toFixed(4)} = <span class="step-value">${t.toFixed(4)}</span></div>
+        <div class="step-entry">df = n−1 = <span class="step-value">${df}</span></div>
+        <div class="step-entry">p-value (two-tailed) = <span class="step-value">${p.toFixed(6)}</span> ${sig?'→ <span class="step-highlight">Significant!</span>':'→ Not significant'}</div>
+      `;
+
+      drawChart(t,df);
+    }
+
+    // Approximate two-tailed p-value for t-distribution
+    function tTestPValue(t,df){
+      const x=df/(df+t*t);return betaInc(df/2,0.5,x);
+    }
+    function betaInc(a,b,x){
+      // Regularized incomplete beta using continued fraction
+      if(x<0||x>1)return 0;if(x===0||x===1)return x===0?1:0;
+      const lnBeta=lgamma(a)+lgamma(b)-lgamma(a+b);
+      const front=Math.exp(Math.log(x)*a+Math.log(1-x)*b-lnBeta);
+      let f=1,c=1,d=1-(a+1)*(a+b+1)*x/(a+2);if(Math.abs(d)<1e-30)d=1e-30;d=1/d;
+      for(let m=1;m<=200;m++){
+        let num=m*(b-m)*x/((a+2*m-1)*(a+2*m));
+        d=1+num*d;if(Math.abs(d)<1e-30)d=1e-30;c=1+num/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;f*=d*c;
+        num=-(a+m)*(a+b+m)*x/((a+2*m)*(a+2*m+1));
+        d=1+num*d;if(Math.abs(d)<1e-30)d=1e-30;c=1+num/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;f*=d*c;
+        if(Math.abs(d*c-1)<1e-10)break;
+      }
+      return front*f/a;
+    }
+    function lgamma(x){
+      const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.001208650973866179,-5.395239384953e-6];
+      let y=x,tmp=x+5.5;tmp-=(x+0.5)*Math.log(tmp);let ser=1.000000000190015;
+      for(let j=0;j<6;j++)ser+=c[j]/++y;
+      return -tmp+Math.log(2.5066282746310005*ser/x);
+    }
+
+    function clearChart(){const c=document.getElementById('dist-chart');c.getContext('2d').clearRect(0,0,c.width,c.height);}
+
+    function drawChart(tVal,df){
+      const c=document.getElementById('dist-chart'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+      const pad={t:15,r:15,b:30,l:15},cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+      ctx.clearRect(0,0,W,H);
+
+      // t-distribution PDF approximation
+      function tPDF(t,df){
+        const coeff=Math.exp(lgamma((df+1)/2)-lgamma(df/2))/(Math.sqrt(df*Math.PI));
+        return coeff*Math.pow(1+t*t/df,-(df+1)/2);
+      }
+
+      const range=5;const steps=200;
+      let maxY=0;const pts=[];
+      for(let i=0;i<=steps;i++){
+        const t=-range+2*range*i/steps;const y=tPDF(t,df);pts.push({t,y});if(y>maxY)maxY=y;
+      }
+
+      // Draw curve
+      ctx.beginPath();
+      pts.forEach((p,i)=>{
+        const x=pad.l+(p.t+range)/(2*range)*cw;const y=pad.t+ch-p.y/maxY*ch;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.strokeStyle='rgba(108,92,231,0.7)';ctx.lineWidth=2;ctx.stroke();
+
+      // Fill rejection regions
+      ctx.beginPath();
+      const critT=2.0; // approximate for df=7
+      pts.forEach((p,i)=>{
+        if(Math.abs(p.t)>=critT){
+          const x=pad.l+(p.t+range)/(2*range)*cw;const y=pad.t+ch-p.y/maxY*ch;
+          ctx.lineTo(x,y);
+        }
+      });
+      ctx.fillStyle='rgba(214,48,49,0.15)';ctx.fill();
+
+      // t-value line
+      const tx=pad.l+(tVal+range)/(2*range)*cw;
+      if(tx>=pad.l&&tx<=pad.l+cw){
+        ctx.beginPath();ctx.moveTo(tx,pad.t);ctx.lineTo(tx,pad.t+ch);
+        ctx.strokeStyle='rgba(0,184,148,0.8)';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle='#00b894';ctx.font='700 11px Inter';ctx.textAlign='center';
+        ctx.fillText(`t = ${tVal.toFixed(2)}`,tx,pad.t-4);
+      }
+
+      // x-axis
+      ctx.fillStyle='#5a5a7a';ctx.font='400 10px Inter';ctx.textAlign='center';
+      for(let v=-4;v<=4;v+=2){
+        const x=pad.l+(v+range)/(2*range)*cw;ctx.fillText(v,x,H-5);
+      }
+
+      // Legend
+      ctx.fillStyle='rgba(214,48,49,0.3)';ctx.fillRect(pad.l+cw-130,pad.t,10,10);
+      ctx.fillStyle='#5a5a7a';ctx.font='400 10px Inter';ctx.textAlign='left';
+      ctx.fillText('Rejection region',pad.l+cw-116,pad.t+9);
+    }
+
+    init();
+  
+
+    showTutorial({ id: 'sig-testing', icon: '📏', title: 'Significance Testing', subtitle: 'Is the difference between two systems real or just luck?',
+      steps: [
+        'Enter per-query scores for <strong>System A</strong> and <strong>System B</strong>',
+        'Click <strong>"Run t-test"</strong> to compute the paired t-test',
+        'If <strong>p < 0.05</strong>, the difference is statistically significant',
+        'Try <strong>"Randomize"</strong> to see different scenarios'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What does p < 0.05 mean?', options: ['System A is 5% better', 'There is less than 5% chance the difference is due to random chance', 'We tested 5% of queries', 'The improvement is exactly 5%'], correct: 1, explanation: 'p < 0.05 means there\'s less than a 5% probability that we\'d see this difference if the two systems were actually equally good. It\'s likely a real difference.' },
+      { question: 'Why use a PAIRED t-test specifically?', options: ['It works with fewer samples', 'Each query is tested on BOTH systems, creating natural pairs', 'It is more conservative', 'It doesn\'t require normal distribution'], correct: 1, explanation: 'A paired t-test is used because each query is evaluated by both systems. The test analyzes the differences within each pair, controlling for query difficulty variation.' }
+    ]);
+  </script>
+</body>
+</html>

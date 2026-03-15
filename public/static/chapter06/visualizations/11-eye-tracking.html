@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>11 · Eye-Tracking Patterns — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .serp-container { position: relative; background: #111120; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-glass); }
+    .serp-search-bar { padding: 1rem 1.25rem; background: rgba(20,20,36,0.9); border-bottom: 1px solid var(--border-glass); display: flex; align-items: center; gap: 0.75rem; }
+    .serp-results { padding: 1rem 1.25rem; }
+    .serp-result { padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .result-title { color: #7c9cff; font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .result-url { color: var(--success); font-size: 0.75rem; margin-bottom: 0.3rem; }
+    .result-snippet { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; }
+    .heatmap-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; transition: opacity 0.4s ease; }
+    .gaze-path { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+    .fixation-dot { position: absolute; border-radius: 50%; background: rgba(253,121,168,0.6); pointer-events: none; transition: all 0.3s ease; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 6</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 11 · Beginner</div>
+      <h1>Eye-Tracking Patterns</h1>
+      <p>Toggle between the F-shaped pattern and the Golden Triangle to see how users scan search engine result pages.</p>
+    </header>
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Simulated SERP</div>
+        <div class="control-row" style="margin-bottom: 1rem;">
+          <div class="toggle-group">
+            <button class="toggle-opt active" id="btn-f" onclick="setMode('f-shape')">F-Shape</button>
+            <button class="toggle-opt" id="btn-tri" onclick="setMode('triangle')">Golden Triangle</button>
+            <button class="toggle-opt" id="btn-gaze" onclick="setMode('gaze')">Gaze Path</button>
+          </div>
+          <button class="btn btn-primary" onclick="animateGaze()">▶ Animate</button>
+        </div>
+        <div class="serp-container" id="serp-container">
+          <div class="serp-search-bar"><span style="color:var(--text-muted)">🔍</span><span style="color:var(--text-primary);font-weight:500">information retrieval evaluation</span></div>
+          <div class="serp-results" id="serp-results"></div>
+          <canvas class="heatmap-overlay" id="heatmap-canvas"></canvas>
+          <div class="gaze-path" id="gaze-path"></div>
+        </div>
+      </div>
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Pattern Details</div>
+        <div id="pattern-info"></div>
+        <div class="viz-section-title" style="margin-top:1.5rem;">Engagement by Position</div>
+        <canvas id="eng-chart" width="400" height="200"></canvas>
+        <div class="viz-section-title" style="margin-top:1.5rem;">Key Findings</div>
+        <div class="step-log">
+          <div class="step-entry"><span class="step-highlight">53%</span> of fixations land on the first two results</div>
+          <div class="step-entry">The <span class="step-highlight">Golden Triangle</span> captures ~80% of eye fixations</div>
+          <div class="step-entry"><span class="step-highlight">Position bias</span>: higher-ranked results get more attention regardless of quality</div>
+          <div class="step-entry">Snippet reading time decreases <span class="step-highlight">exponentially</span> with rank</div>
+        </div>
+        <div class="metric-grid" style="margin-top:1rem;">
+          <div class="metric-box"><div class="metric-value">~2.4s</div><div class="metric-label">Avg Fixation (Rank 1)</div></div>
+          <div class="metric-box"><div class="metric-value">36%</div><div class="metric-label">CTR (Position 1)</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const serpData=[
+      {title:'Introduction to IR - Stanford NLP',url:'nlp.stanford.edu/IR-book/',snippet:'Core concepts of IR including indexing, ranking, and evaluation metrics.'},
+      {title:'Evaluation Measures in IR — ACM Survey',url:'dl.acm.org/doi/evaluation-ir',snippet:'Comprehensive survey of offline metrics (MAP, NDCG) and online evaluation.'},
+      {title:'TREC: Text REtrieval Conference',url:'trec.nist.gov/overview',snippet:'Large-scale IR evaluation with test collections and relevance judgments.'},
+      {title:'Cranfield Paradigm Revisited',url:'sigir.org/cranfield-revisited',snippet:'Evolution of controlled laboratory experiments to web-scale IR evaluation.'},
+      {title:'PyTerrier: Python IR Framework',url:'pyterrier.readthedocs.io',snippet:'Framework for rapid prototyping and evaluation of IR pipelines.'},
+      {title:'User Click Behavior in Web Search',url:'research.google/click-models',snippet:'Cascade and dependent click models for understanding user interactions.'}
+    ];
+    const rEl=document.getElementById('serp-results');
+    rEl.innerHTML=serpData.map(d=>`<div class="serp-result"><div class="result-title">${d.title}</div><div class="result-url">${d.url}</div><div class="result-snippet">${d.snippet}</div></div>`).join('');
+
+    let mode='f-shape';
+    const serpEl=document.getElementById('serp-container');
+    const hc=document.getElementById('heatmap-canvas');
+    const gEl=document.getElementById('gaze-path');
+
+    function setMode(m){mode=m;document.querySelectorAll('.toggle-opt').forEach(b=>b.classList.remove('active'));
+      document.getElementById(m==='f-shape'?'btn-f':m==='triangle'?'btn-tri':'btn-gaze').classList.add('active');render();}
+
+    function render(){
+      hc.width=serpEl.offsetWidth;hc.height=serpEl.offsetHeight;
+      const ctx=hc.getContext('2d');ctx.clearRect(0,0,hc.width,hc.height);gEl.innerHTML='';
+      const W=hc.width,H=hc.height;
+      if(mode==='f-shape'){hc.style.opacity='1';drawF(ctx,W,H);showInfo('f');}
+      else if(mode==='triangle'){hc.style.opacity='1';drawTri(ctx,W,H);showInfo('t');}
+      else{hc.style.opacity='0';showInfo('g');}
+      drawEng();
+    }
+
+    function drawF(ctx,W,H){
+      const bars=[{y:70,w:W*0.85,a:.6},{y:110,w:W*0.7,a:.45},{y:170,w:W*0.8,a:.35},{y:210,w:W*0.55,a:.25},{y:270,w:W*0.6,a:.2},{y:310,w:W*0.35,a:.12},{y:370,w:W*0.45,a:.1},{y:410,w:W*0.25,a:.07}];
+      bars.forEach(b=>{const g=ctx.createRadialGradient(W*0.15,b.y,10,W*0.15,b.y,b.w);
+        g.addColorStop(0,`rgba(255,50,50,${b.a})`);g.addColorStop(0.3,`rgba(255,150,0,${b.a*0.7})`);
+        g.addColorStop(0.7,`rgba(255,255,0,${b.a*0.3})`);g.addColorStop(1,'rgba(0,255,0,0)');
+        ctx.fillStyle=g;ctx.fillRect(0,b.y-20,b.w,40);});
+      const vG=ctx.createLinearGradient(0,60,0,H);vG.addColorStop(0,'rgba(255,50,50,0.4)');
+      vG.addColorStop(0.5,'rgba(255,150,0,0.15)');vG.addColorStop(1,'rgba(0,255,0,0)');
+      ctx.fillStyle=vG;ctx.fillRect(0,60,80,H-60);
+    }
+
+    function drawTri(ctx,W,H){
+      ctx.beginPath();ctx.moveTo(0,50);ctx.lineTo(W*0.8,50);ctx.lineTo(0,H*0.7);ctx.closePath();
+      const g=ctx.createLinearGradient(0,50,W*0.4,H*0.5);
+      g.addColorStop(0,'rgba(255,50,50,0.5)');g.addColorStop(0.3,'rgba(255,150,0,0.3)');
+      g.addColorStop(0.6,'rgba(255,255,0,0.15)');g.addColorStop(1,'rgba(0,200,0,0.02)');
+      ctx.fillStyle=g;ctx.fill();
+    }
+
+    function animateGaze(){setMode('gaze');gEl.innerHTML='';
+      const pts=[{x:120,y:75,s:18,d:0},{x:280,y:75,s:14,d:300},{x:400,y:78,s:10,d:500},{x:100,y:110,s:10,d:800},{x:250,y:112,s:8,d:1e3},{x:130,y:170,s:16,d:1300},{x:300,y:172,s:12,d:1500},{x:110,y:215,s:10,d:2e3},{x:120,y:275,s:12,d:2500},{x:260,y:278,s:8,d:2700},{x:100,y:320,s:6,d:3e3},{x:140,y:375,s:8,d:3300}];
+      pts.forEach(p=>{setTimeout(()=>{const d=document.createElement('div');d.className='fixation-dot';
+        d.style.cssText=`left:${p.x}px;top:${p.y}px;width:${p.s}px;height:${p.s}px;opacity:0;`;
+        gEl.appendChild(d);requestAnimationFrame(()=>d.style.opacity='1');
+        setTimeout(()=>{d.style.opacity='0.3';},400);},p.d);});
+      setTimeout(()=>{const c=document.createElement('canvas');
+        c.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+        c.width=serpEl.offsetWidth;c.height=serpEl.offsetHeight;gEl.appendChild(c);
+        const ctx=c.getContext('2d');ctx.strokeStyle='rgba(253,121,168,0.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+        ctx.beginPath();pts.forEach((p,i)=>{i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);});ctx.stroke();},3800);
+    }
+
+    function showInfo(m){const el=document.getElementById('pattern-info');
+      const map={f:`<div class="formula-box" style="text-align:left"><strong>F-Shaped Reading Pattern</strong><br>Users read horizontally across the top, then a shorter horizontal sweep, then scan vertically down the left side — forming an "F".</div>`,
+        t:`<div class="formula-box" style="text-align:left"><strong>Golden Triangle</strong><br>~80% of fixations concentrate in a triangular area at the top-left of the SERP, narrowing toward the left as it goes down.</div>`,
+        g:`<div class="formula-box" style="text-align:left"><strong>Gaze Path</strong><br>Pink dots represent fixation points. Larger dots = longer fixation. Click "Animate" to see the scanpath sequence.</div>`};
+      el.innerHTML=map[m];}
+
+    function drawEng(){const c=document.getElementById('eng-chart'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+      const pad={t:10,r:15,b:25,l:45},cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+      ctx.clearRect(0,0,W,H);const data=[100,68,42,28,18,12],bw=cw/data.length-8;
+      data.forEach((v,i)=>{const x=pad.l+i*(cw/data.length)+4,h=(v/100)*ch;
+        const g=ctx.createLinearGradient(x,pad.t+ch-h,x,pad.t+ch);
+        g.addColorStop(0,`rgba(253,121,168,${0.4+v/200})`);g.addColorStop(1,`rgba(108,92,231,${0.3+v/300})`);
+        ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(x,pad.t+ch-h,bw,h,[4,4,0,0]);ctx.fill();
+        ctx.fillStyle='#e8e8f0';ctx.font='700 10px Inter';ctx.textAlign='center';ctx.fillText(v+'%',x+bw/2,pad.t+ch-h-6);
+        ctx.fillStyle='#5a5a7a';ctx.font='400 10px Inter';ctx.fillText('Pos '+(i+1),x+bw/2,H-5);});}
+    render();
+  
+
+    showTutorial({ id: 'eye-tracking', icon: '👁️', title: 'Eye-Tracking Patterns', subtitle: 'How users actually scan search results.',
+      steps: [
+        'Toggle between <strong>F-Shape</strong> and <strong>Golden Triangle</strong> overlays',
+        'Click <strong>"Animate"</strong> to see a simulated gaze path',
+        'Notice how fixation dots get <strong>smaller</strong> further down the page',
+        'Check the <strong>engagement chart</strong> for attention by position'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In the F-shaped pattern, where do users spend the MOST time?', options: ['Bottom of the page', 'First 2 results (top horizontal bars)', 'Right side of results', 'Equally across all results'], correct: 1, explanation: 'The F-shape shows users read the first 1-2 results thoroughly (horizontal bars), then scan vertically down the left side with decreasing attention.' },
+      { question: 'What is "position bias" in search evaluation?', options: ['Users prefer longer titles', 'Higher-ranked results get more attention regardless of quality', 'Users always click the last result', 'Search engines are biased'], correct: 1, explanation: 'Position bias means users are more likely to examine and click higher-ranked results simply because of their position, not because they are necessarily better.' }
+    ]);
+  </script>
+</body>
+</html>

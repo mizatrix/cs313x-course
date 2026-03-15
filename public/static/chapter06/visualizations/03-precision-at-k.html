@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Precision@k — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .k-display { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .k-display .k-val { font-size: 2rem; font-weight: 800; color: var(--accent-violet); min-width: 40px; text-align: center; }
+    .k-display input[type="range"] { flex: 1; }
+    .rank-item { cursor: pointer; user-select: none; }
+    .rank-item .relevance-toggle {
+      width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border-glass);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-size: 0.8rem; transition: var(--transition); background: transparent;
+      flex-shrink: 0; color: var(--text-muted);
+    }
+    .rank-item.relevant .relevance-toggle {
+      border-color: var(--success); background: rgba(0,184,148,0.15); color: var(--success);
+    }
+    .rank-item.not-relevant .relevance-toggle {
+      border-color: var(--error); background: rgba(214,48,49,0.1); color: var(--error);
+    }
+    .rank-item.outside-k { opacity: 0.35; }
+    .rank-item.inside-k { border-left: 3px solid var(--accent-violet); }
+    .k-window-label {
+      text-align: center; padding: 0.5rem; font-size: 0.75rem; font-weight: 600;
+      color: var(--accent-violet); text-transform: uppercase; letter-spacing: 0.06em;
+      border: 1px dashed rgba(108,92,231,0.3); border-radius: var(--radius-sm);
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 6</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Beginner</div>
+      <h1>Precision@k</h1>
+      <p>Drag the slider to choose a cutoff rank k, and click documents to toggle their relevance. P@k shows what fraction of the top-k results are relevant.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Make the first 3 results relevant and the rest not. Then slide k from 3 to 10 — watch P@k <strong>decrease</strong> even though you didn't remove any relevant docs!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Ranked Result List</div>
+        <div class="k-display">
+          <span style="font-size:0.82rem; color:var(--text-secondary); font-weight:600;">k =</span>
+          <span class="k-val" id="k-val">5</span>
+          <input type="range" id="k-slider" min="1" max="15" value="5">
+        </div>
+        <div class="k-window-label" id="k-window-label">Top-5 Window</div>
+        <div class="ranked-list" id="ranked-list"></div>
+        <p style="margin-top: 1rem; font-size: 0.78rem; color: var(--text-muted);">
+          Click the circle on any document to toggle its relevance (relevant / not relevant).
+        </p>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Metrics</div>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <div class="metric-value" id="m-pk">0.6000</div>
+            <div class="metric-label">P@k</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-rel-in-k">3</div>
+            <div class="metric-label">Relevant in top-k</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-total-rel">7</div>
+            <div class="metric-label">Total Relevant</div>
+          </div>
+        </div>
+
+        <div class="formula-box" style="margin-top: 1.5rem;">
+          P@k = (# relevant in top-k) / k
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <div class="viz-section-title">P@k for all cutoffs</div>
+          <canvas id="pk-chart" width="480" height="280"></canvas>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <button class="btn btn-primary" onclick="randomize()">Randomize Results</button>
+          <button class="btn" onclick="init()">Reset</button>
+        </div>
+
+        <button class="hint-btn" onclick="toggleHint('hint-pk')" style="margin-top: 0.5rem;">💡 Why does P@k change with k?</button>
+        <div class="hint-box" id="hint-pk">P@k = (relevant in top-k) / k. As you increase k, you include more results — if those extra results are not relevant, P@k drops even though you haven't lost any relevant documents. That's why choosing the <strong>right cutoff</strong> matters!</div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const DOC_NAMES = [
+      'Information Retrieval Basics', 'Machine Learning Survey', 'Search Engine Design',
+      'Natural Language Processing', 'Web Crawling Techniques', 'Data Mining Algorithms',
+      'Relevance Feedback Methods', 'Computer Vision Papers', 'Text Classification',
+      'Query Expansion Research', 'Deep Learning Overview', 'Ranking Algorithms',
+      'Social Media Analytics', 'Recommendation Systems', 'Knowledge Graphs'
+    ];
+
+    let docs = [];
+    const listEl = document.getElementById('ranked-list');
+    const kSlider = document.getElementById('k-slider');
+
+    function init() {
+      docs = DOC_NAMES.map((name, i) => ({
+        name: name,
+        relevant: [0, 2, 4, 6, 8, 9, 11].includes(i)
+      }));
+      render();
+    }
+
+    function randomize() {
+      docs = DOC_NAMES.map((name) => ({
+        name: name,
+        relevant: Math.random() > 0.55
+      }));
+      // Shuffle
+      for (let i = docs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [docs[i], docs[j]] = [docs[j], docs[i]];
+      }
+      render();
+    }
+
+    function toggleRelevance(i) {
+      docs[i].relevant = !docs[i].relevant;
+      render();
+    }
+
+    function render() {
+      const k = parseInt(kSlider.value);
+      document.getElementById('k-val').textContent = k;
+      document.getElementById('k-window-label').textContent = `Top-${k} Window`;
+
+      listEl.innerHTML = '';
+      docs.forEach((doc, i) => {
+        const inK = i < k;
+        const div = document.createElement('div');
+        div.className = `rank-item ${doc.relevant ? 'relevant' : 'not-relevant'} ${inK ? 'inside-k' : 'outside-k'}`;
+        div.innerHTML = `
+          <div class="rank-num">${i + 1}</div>
+          <div class="doc-name">${doc.name}</div>
+          <div class="relevance-toggle" onclick="toggleRelevance(${i})">${doc.relevant ? '✓' : '✗'}</div>
+        `;
+        listEl.appendChild(div);
+      });
+
+      // Compute metrics
+      const relInK = docs.slice(0, k).filter(d => d.relevant).length;
+      const totalRel = docs.filter(d => d.relevant).length;
+      const pk = k === 0 ? 0 : relInK / k;
+
+      document.getElementById('m-pk').textContent = pk.toFixed(4);
+      document.getElementById('m-rel-in-k').textContent = relInK;
+      document.getElementById('m-total-rel').textContent = totalRel;
+
+      drawChart(k);
+    }
+
+    function drawChart(currentK) {
+      const canvas = document.getElementById('pk-chart');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const pad = { top: 15, right: 15, bottom: 35, left: 50 };
+      const cw = W - pad.left - pad.right;
+      const ch = H - pad.top - pad.bottom;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(108,92,231,0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i++) {
+        const y = pad.top + ch * i / 10;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+      }
+
+      // Axis labels
+      ctx.font = '400 10px Inter, sans-serif';
+      ctx.fillStyle = '#5a5a7a';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 10; i += 2) {
+        ctx.fillText((i / 10).toFixed(1), pad.left - 6, pad.top + ch - (ch * i / 10) + 4);
+      }
+      ctx.textAlign = 'center';
+
+      // Bars
+      const n = docs.length;
+      const barW = cw / n - 4;
+      for (let k = 1; k <= n; k++) {
+        const relInK = docs.slice(0, k).filter(d => d.relevant).length;
+        const pk = relInK / k;
+        const x = pad.left + (k - 1) * (cw / n) + 2;
+        const barH = pk * ch;
+
+        const isActive = k === currentK;
+        ctx.fillStyle = isActive ? 'rgba(108,92,231,0.8)' : 'rgba(108,92,231,0.2)';
+        ctx.beginPath();
+        ctx.roundRect(x, pad.top + ch - barH, barW, barH, [3, 3, 0, 0]);
+        ctx.fill();
+
+        // k label
+        ctx.fillStyle = isActive ? '#e8e8f0' : '#5a5a7a';
+        ctx.font = isActive ? '700 10px Inter, sans-serif' : '400 9px Inter, sans-serif';
+        ctx.fillText(k, x + barW / 2, pad.top + ch + 16);
+      }
+
+      ctx.fillStyle = '#5a5a7a';
+      ctx.font = '500 11px Inter, sans-serif';
+      ctx.fillText('k', pad.left + cw / 2, H - 3);
+    }
+
+    kSlider.addEventListener('input', render);
+    init();
+
+    showTutorial({ id: 'precision-at-k', icon: '🎯', title: 'Precision@k', subtitle: 'How precision changes at different cutoff points.',
+      steps: [
+        'Drag the <strong>k slider</strong> to set the cutoff rank',
+        'Click the <strong>circle</strong> on any document to toggle relevance',
+        'Watch <strong>P@k</strong> update — it only counts docs in the top-k window',
+        'Check the <strong>bar chart</strong> to compare P@k at all cutoff values'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'If the top 5 results have 3 relevant docs, what is <strong>P@5</strong>?', options: ['0.50', '0.60', '0.30', '0.75'], correct: 1, explanation: 'P@5 = 3/5 = 0.60. Three relevant out of the five retrieved at cutoff 5.' },
+      { question: 'Does P@k consider documents <strong>after</strong> rank k?', options: ['Yes, all documents matter', 'No, only the top-k window', 'Only relevant ones after k', 'It depends on the query'], correct: 1, explanation: 'Correct! P@k only looks at the top-k results. Documents after rank k are completely ignored.' },
+      { question: 'If P@3 = 1.0, what does that tell us?', options: ['All docs in collection are relevant', 'The first 3 results are ALL relevant', 'There are exactly 3 relevant docs', 'Recall is also 1.0'], correct: 1, explanation: 'P@3 = 1.0 means 3/3 = all three top-ranked documents are relevant. It says nothing about docs after rank 3.' }
+    ]);
+  </script>
+</body>
+</html>

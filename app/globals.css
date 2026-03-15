@@ -1,0 +1,485 @@
+/* ============================================================
+   CS313x Course Website — Design System
+   Ported from Chapter 6 glassmorphism aesthetic
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────── */
+:root {
+  --bg-primary:    #0a0a12;
+  --bg-surface:    rgba(18, 18, 31, 0.7);
+  --bg-card:       rgba(24, 24, 42, 0.6);
+  --bg-card-hover: rgba(30, 30, 54, 0.8);
+  --border-glass:  rgba(108, 92, 231, 0.15);
+  --border-active: rgba(108, 92, 231, 0.4);
+
+  --accent-violet: #6c5ce7;
+  --accent-teal:   #00cec9;
+  --accent-pink:   #fd79a8;
+  --success:       #00b894;
+  --error:         #d63031;
+  --warning:       #fdcb6e;
+
+  --text-primary:   #e8e8f0;
+  --text-secondary: #9a9ab8;
+  --text-muted:     #5a5a7a;
+
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-glow: 0 0 30px rgba(108, 92, 231, 0.15);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Reset & Base ──────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ── Particle Background ───────────────────────────── */
+#particles-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Navigation Bar ────────────────────────────────── */
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 10, 18, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-glass);
+  transition: var(--transition);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.navbar-brand .brand-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.navbar-brand .brand-text {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.navbar-brand .brand-text span {
+  color: var(--accent-violet);
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.nav-back:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-violet);
+  background: var(--bg-card-hover);
+}
+
+/* ── Page Layout ───────────────────────────────────── */
+.page-container {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 6rem 2rem 3rem;
+}
+
+/* ── Page Header ───────────────────────────────────── */
+.page-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.page-header .badge {
+  display: inline-block;
+  padding: 0.35rem 1rem;
+  background: rgba(108, 92, 231, 0.12);
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  border-radius: 100px;
+  color: var(--accent-violet);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.page-header h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-violet) 50%, var(--accent-teal) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header p {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ── Glass Cards ───────────────────────────────────── */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  transition: var(--transition);
+}
+
+.glass-card:hover {
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+}
+
+.glass-card.no-hover:hover {
+  transform: none;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── Buttons ───────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: var(--accent-violet);
+  background: var(--bg-card-hover);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-violet), #8b5cf6);
+  border-color: var(--accent-violet);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 20px rgba(108, 92, 231, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+/* ── Hub Grid ──────────────────────────────────────── */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.hub-card {
+  display: block;
+  text-decoration: none;
+  color: var(--text-primary);
+  padding: 1.5rem;
+  position: relative;
+}
+
+.hub-card .card-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.hub-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.01em;
+}
+
+.hub-card p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.hub-card .card-arrow {
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-violet);
+  transition: var(--transition);
+}
+
+.hub-card:hover .card-arrow {
+  gap: 0.7rem;
+}
+
+/* ── Welcome Bar ───────────────────────────────── */
+.welcome-bar {
+  display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.05));
+  border: 1px solid rgba(108,92,231,0.15); border-radius: var(--radius-lg);
+  margin-bottom: 2rem;
+}
+.welcome-bar .welcome-icon { font-size: 2rem; }
+.welcome-bar .welcome-text { flex: 1; }
+.welcome-bar .welcome-text h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; }
+.welcome-bar .welcome-text p { font-size: 0.82rem; color: var(--text-secondary); }
+.welcome-bar .progress-info { text-align: right; }
+.welcome-bar .progress-info .progress-count { font-size: 1.5rem; font-weight: 800; color: var(--accent-violet); }
+.welcome-bar .progress-info .progress-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.overall-progress { height: 6px; border-radius: 3px; background: rgba(108,92,231,0.1); margin-top: 0.75rem; overflow: hidden; }
+.overall-progress .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.6s ease; }
+
+/* ── Learning Path Filter ─────────────────────── */
+.learning-path { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.path-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.path-tag {
+  padding: 0.3rem 0.7rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600;
+  border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer;
+  transition: var(--transition); background: transparent;
+  font-family: var(--font-main);
+}
+.path-tag:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+.path-tag.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+
+/* ── Difficulty Badges ─────────────────────────── */
+.difficulty-badge {
+  display: inline-block; padding: 0.15rem 0.5rem; border-radius: 100px;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+  margin-top: 0.5rem;
+}
+.diff-beginner { background: rgba(0,184,148,0.12); color: var(--success); }
+.diff-intermediate { background: rgba(253,203,110,0.12); color: var(--warning); }
+.diff-advanced { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+
+/* ── Progress Checkmarks ──────────────────────── */
+.hub-card .card-check {
+  position: absolute; top: 12px; right: 12px;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; transition: var(--transition);
+}
+.hub-card .card-check.done { background: rgba(0,184,148,0.2); color: var(--success); }
+.hub-card .card-check.pending { background: rgba(108,92,231,0.08); color: var(--text-muted); }
+
+/* ── Card Aim & Use ────────────────────────────── */
+.card-aim {
+  font-size: 0.78rem; color: var(--accent-teal); line-height: 1.5;
+  padding: 0.5rem 0.65rem; margin: 0.5rem 0 0.25rem;
+  background: rgba(0,206,201,0.06); border-left: 2px solid var(--accent-teal);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.card-use {
+  font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+  padding: 0.4rem 0.65rem; margin: 0.25rem 0 0.25rem;
+  background: rgba(108,92,231,0.05); border-left: 2px solid var(--accent-violet);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.card-use strong { color: var(--accent-violet); }
+
+/* ── Recommended Tag ───────────────────────────── */
+.recommended-tag {
+  position: absolute; top: -8px; left: 16px;
+  padding: 0.2rem 0.6rem; border-radius: 100px;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+  color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em;
+  box-shadow: 0 2px 10px rgba(108,92,231,0.3);
+}
+
+/* ── PDF Download Button ───────────────────────── */
+.pdf-download {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(108, 92, 231, 0.1);
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--accent-violet);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: var(--transition);
+  cursor: pointer;
+  text-decoration: none;
+}
+.pdf-download:hover {
+  background: rgba(108, 92, 231, 0.2);
+  border-color: var(--accent-violet);
+  transform: translateY(-1px);
+}
+
+/* ── Viz Iframe Container ──────────────────────── */
+.viz-iframe-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: calc(100vh - 64px);
+  margin-top: 64px;
+}
+.viz-iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--bg-primary);
+}
+
+/* ── Home Chapter Cards ────────────────────────── */
+.chapter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.chapter-card .chapter-week {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-teal);
+}
+.chapter-card .chapter-stats {
+  display: flex; gap: 1rem; margin-top: 0.5rem;
+}
+.chapter-card .chapter-stats .stat {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.chapter-card .chapter-stats .stat strong {
+  color: var(--accent-violet);
+  font-weight: 800;
+}
+
+/* ── Home Hero Stats ───────────────────────────── */
+.hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-top: 2rem;
+}
+.hero-stats .hero-stat {
+  text-align: center;
+}
+.hero-stats .hero-stat .stat-num {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-stats .hero-stat .stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+/* ── Scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(108, 92, 231, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(108, 92, 231, 0.5); }
+
+/* ── Animations ────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width: 768px) {
+  .navbar { padding: 0.75rem 1rem; }
+  .page-container { padding: 5rem 1rem 2rem; }
+  .hub-grid { grid-template-columns: 1fr; }
+  .welcome-bar { flex-direction: column; text-align: center; }
+  .welcome-bar .progress-info { text-align: center; }
+  .hero-stats { gap: 1.5rem; }
+  .hero-stats .hero-stat .stat-num { font-size: 1.5rem; }
+}
