@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Boolean Retrieval Simulator — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .index-builder { display: flex; flex-direction: column; gap: 1rem; }
+    .doc-input-row { display: flex; gap: 0.5rem; align-items: center; }
+    .doc-input-row input { flex: 1; padding: 0.5rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-main); font-size: 0.85rem; outline: none; }
+    .doc-input-row input:focus { border-color: var(--accent-violet); }
+    .doc-label { font-size: 0.72rem; font-weight: 700; color: var(--accent-teal); min-width: 40px; }
+    .inverted-index { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+    .index-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: rgba(108,92,231,0.05); border: 1px solid rgba(108,92,231,0.1); transition: var(--transition); }
+    .index-row.highlight { background: rgba(0,206,201,0.1); border-color: rgba(0,206,201,0.3); }
+    .index-term { font-weight: 700; color: var(--accent-violet); min-width: 80px; font-size: 0.85rem; }
+    .index-arrow { color: var(--text-muted); font-size: 0.8rem; }
+    .posting-list { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .posting-id { display: inline-flex; align-items: center; justify-content: center; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(108,92,231,0.1); color: var(--accent-violet); transition: var(--transition); }
+    .posting-id.match { background: rgba(0,184,148,0.2); color: var(--success); box-shadow: 0 0 8px rgba(0,184,148,0.3); }
+    .posting-id.eliminated { opacity: 0.3; }
+    .df-badge { font-size: 0.65rem; color: var(--text-muted); margin-left: auto; }
+    .query-section { margin-top: 1.5rem; }
+    .query-input-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+    .query-input-row input { flex: 1; padding: 0.6rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-main); font-size: 0.9rem; outline: none; }
+    .query-input-row input:focus { border-color: var(--accent-violet); }
+    .query-btn { padding: 0.6rem 1.2rem; background: linear-gradient(135deg, var(--accent-violet), #8b5cf6); border: none; border-radius: var(--radius-sm); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: var(--font-main); transition: var(--transition); }
+    .query-btn:hover { box-shadow: 0 0 20px rgba(108,92,231,0.4); transform: translateY(-1px); }
+    .result-section { margin-top: 1rem; }
+    .result-steps { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+    .step-card { padding: 0.75rem 1rem; border-radius: var(--radius-sm); background: rgba(108,92,231,0.05); border-left: 3px solid var(--accent-violet); }
+    .step-card.final { border-left-color: var(--success); background: rgba(0,184,148,0.08); }
+    .step-label { font-size: 0.72rem; font-weight: 700; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.05em; }
+    .step-content { font-size: 0.85rem; color: var(--text-primary); margin-top: 0.3rem; }
+    .step-docs { margin-top: 0.3rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .op-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700; }
+    .op-and { background: rgba(0,184,148,0.12); color: var(--success); }
+    .op-or { background: rgba(108,92,231,0.12); color: var(--accent-violet); }
+    .op-not { background: rgba(253,121,168,0.12); color: var(--accent-pink); }
+    .example-queries { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .example-q { padding: 0.3rem 0.6rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer; transition: var(--transition); background: transparent; font-family: var(--font-main); }
+    .example-q:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 5</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Boolean Retrieval Simulator</h1>
+      <p>Build an inverted index from documents, then process Boolean queries (AND, OR, NOT) step by step. See how the merge/intersect algorithm works on sorted posting lists.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Enter your own documents, then query <code>caesar AND brutus NOT calpurnia</code> to see three-way Boolean processing!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">📚 Document Corpus</div>
+        <div class="index-builder" id="doc-inputs">
+          <div class="doc-input-row"><span class="doc-label">D1:</span><input type="text" value="brutus caesar killed stabbed" data-doc="1"></div>
+          <div class="doc-input-row"><span class="doc-label">D2:</span><input type="text" value="caesar calpurnia lived rome" data-doc="2"></div>
+          <div class="doc-input-row"><span class="doc-label">D3:</span><input type="text" value="brutus killed brutus rome" data-doc="3"></div>
+          <div class="doc-input-row"><span class="doc-label">D4:</span><input type="text" value="caesar emperor rome great" data-doc="4"></div>
+          <div class="doc-input-row"><span class="doc-label">D5:</span><input type="text" value="calpurnia caesar wife brutus" data-doc="5"></div>
+        </div>
+        <button class="query-btn" style="margin-top:1rem;width:100%" onclick="buildIndex()">Build Inverted Index</button>
+
+        <div class="viz-section-title" style="margin-top:1.5rem">📑 Inverted Index</div>
+        <div class="inverted-index" id="index-display">
+          <div style="color:var(--text-muted);font-size:0.85rem">Click "Build Inverted Index" above to start.</div>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">🔍 Boolean Query</div>
+        <div class="query-input-row">
+          <input type="text" id="query-input" placeholder="e.g. brutus AND caesar" onkeydown="if(event.key==='Enter')processQuery()">
+          <button class="query-btn" onclick="processQuery()">Search</button>
+        </div>
+        <div class="example-queries">
+          <span style="font-size:0.72rem;color:var(--text-muted)">Try:</span>
+          <button class="example-q" onclick="setQuery('brutus AND caesar')">brutus AND caesar</button>
+          <button class="example-q" onclick="setQuery('caesar OR calpurnia')">caesar OR calpurnia</button>
+          <button class="example-q" onclick="setQuery('brutus NOT rome')">brutus NOT rome</button>
+          <button class="example-q" onclick="setQuery('caesar AND brutus NOT calpurnia')">3-way query</button>
+        </div>
+
+        <div class="result-section" id="result-section">
+          <div class="result-steps" id="result-steps"></div>
+        </div>
+
+        <button class="hint-btn" onclick="toggleHint('hint1')" style="margin-top:1rem">💡 How does the intersection algorithm work?</button>
+        <div class="hint-box" id="hint1">
+          <strong>The Merge Algorithm:</strong><br>
+          1. Start with two pointers at the beginning of each sorted posting list.<br>
+          2. If both pointers point to the same DocID → add to result, advance both.<br>
+          3. If they differ → advance the pointer with the smaller DocID.<br>
+          4. Continue until one list is exhausted.
+        </div>
+
+        <div id="quiz-container" style="margin-top:1.5rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    let invertedIndex = {};
+
+    function buildIndex() {
+      invertedIndex = {};
+      const inputs = document.querySelectorAll('#doc-inputs input');
+      inputs.forEach(input => {
+        const docId = parseInt(input.dataset.doc);
+        const terms = input.value.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+        terms.forEach(term => {
+          if (!invertedIndex[term]) invertedIndex[term] = new Set();
+          invertedIndex[term].add(docId);
+        });
+      });
+
+      // Sort posting lists and render
+      const display = document.getElementById('index-display');
+      const sortedTerms = Object.keys(invertedIndex).sort();
+      display.innerHTML = sortedTerms.map(term => {
+        const docs = [...invertedIndex[term]].sort((a,b) => a-b);
+        return `<div class="index-row" id="idx-${term}">
+          <span class="index-term">${term}</span>
+          <span class="index-arrow">→</span>
+          <span class="posting-list">${docs.map(d => `<span class="posting-id" id="post-${term}-${d}">D${d}</span>`).join('')}</span>
+          <span class="df-badge">df=${docs.length}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function setQuery(q) {
+      document.getElementById('query-input').value = q;
+      processQuery();
+    }
+
+    function processQuery() {
+      if (Object.keys(invertedIndex).length === 0) { buildIndex(); }
+      const raw = document.getElementById('query-input').value.trim().toLowerCase();
+      if (!raw) return;
+
+      // Reset highlights
+      document.querySelectorAll('.index-row').forEach(r => r.classList.remove('highlight'));
+      document.querySelectorAll('.posting-id').forEach(p => { p.classList.remove('match','eliminated'); });
+
+      const tokens = raw.split(/\s+/);
+      const steps = [];
+      let result = null;
+      let i = 0;
+
+      while (i < tokens.length) {
+        const term = tokens[i];
+        if (['and','or','not'].includes(term)) { i++; continue; }
+
+        const postings = invertedIndex[term] ? [...invertedIndex[term]].sort((a,b) => a-b) : [];
+        // Highlight index row
+        const row = document.getElementById(`idx-${term}`);
+        if (row) row.classList.add('highlight');
+
+        if (result === null) {
+          result = new Set(postings);
+          steps.push({ label: 'Step 1: Retrieve', op: null, content: `Fetch posting list for "<strong>${term}</strong>"`, docs: postings });
+        } else {
+          const op = tokens[i-1]?.toUpperCase();
+          const prevResult = new Set(result);
+          if (op === 'AND') {
+            result = new Set([...result].filter(d => postings.includes(d)));
+            steps.push({ label: `Step ${steps.length+1}: ${op}`, op: 'and', content: `Intersect with "<strong>${term}</strong>" [${postings.map(d=>'D'+d).join(', ')}]`, docs: [...result] });
+          } else if (op === 'OR') {
+            postings.forEach(d => result.add(d));
+            steps.push({ label: `Step ${steps.length+1}: ${op}`, op: 'or', content: `Union with "<strong>${term}</strong>" [${postings.map(d=>'D'+d).join(', ')}]`, docs: [...result] });
+          } else if (op === 'NOT') {
+            result = new Set([...result].filter(d => !postings.includes(d)));
+            steps.push({ label: `Step ${steps.length+1}: ${op}`, op: 'not', content: `Remove "<strong>${term}</strong>" [${postings.map(d=>'D'+d).join(', ')}]`, docs: [...result] });
+          }
+        }
+        i++;
+      }
+
+      // Final result
+      const finalDocs = result ? [...result].sort((a,b) => a-b) : [];
+      steps.push({ label: 'Final Result', op: 'final', content: finalDocs.length > 0 ? `${finalDocs.length} document(s) matched` : 'No documents matched', docs: finalDocs });
+
+      // Highlight matching postings
+      finalDocs.forEach(d => {
+        Object.keys(invertedIndex).forEach(term => {
+          const el = document.getElementById(`post-${term}-${d}`);
+          if (el) el.classList.add('match');
+        });
+      });
+
+      // Render steps
+      const stepsEl = document.getElementById('result-steps');
+      stepsEl.innerHTML = steps.map(s => `
+        <div class="step-card ${s.op === 'final' ? 'final' : ''}">
+          <div class="step-label">${s.label} ${s.op && s.op !== 'final' ? `<span class="op-badge op-${s.op}">${s.op.toUpperCase()}</span>` : ''}</div>
+          <div class="step-content">${s.content}</div>
+          <div class="step-docs">${s.docs.map(d => `<span class="posting-id match">D${d}</span>`).join('')}</div>
+        </div>
+      `).join('');
+    }
+
+    // Auto-build on load
+    buildIndex();
+
+    showTutorial({
+      id: 'boolean-retrieval',
+      icon: '🔍',
+      title: 'Boolean Retrieval Simulator',
+      subtitle: 'The foundation of all search engines.',
+      steps: [
+        'Edit the <strong>document text</strong> on the left to build your own corpus',
+        'Click <strong>Build Inverted Index</strong> to see the term → document mapping',
+        'Enter a <strong>Boolean query</strong> using AND, OR, NOT operators',
+        'Watch the <strong>step-by-step merge algorithm</strong> execute on the posting lists'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What data structure is used for Boolean retrieval?', options: ['B-Tree', 'Inverted Index', 'Hash Table', 'Linked List'], correct: 1, explanation: 'The inverted index maps each term to a sorted list of document IDs containing that term.' },
+      { question: 'In the merge algorithm for AND queries, what happens when two pointers point to different DocIDs?', options: ['Both advance', 'The larger one advances', 'The smaller one advances', 'The algorithm stops'], correct: 2, explanation: 'We advance the pointer with the smaller DocID because the lists are sorted — we can never match a smaller ID with a larger one ahead.' },
+      { question: 'What is the time complexity of intersecting two posting lists of lengths m and n?', options: ['O(m × n)', 'O(m + n)', 'O(log m + log n)', 'O(m × log n)'], correct: 1, explanation: 'The merge algorithm walks through both sorted lists simultaneously in O(m + n) time.' }
+    ]);
+  </script>
+</body>
+</html>

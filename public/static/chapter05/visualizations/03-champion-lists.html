@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Champion Lists & Index Elimination — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .doc-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); margin-bottom: 0.35rem; transition: var(--transition); cursor: default; }
+    .doc-row.champion { background: rgba(0,184,148,0.08); border: 1px solid rgba(0,184,148,0.15); }
+    .doc-row.normal { background: rgba(108,92,231,0.04); border: 1px solid rgba(108,92,231,0.08); }
+    .doc-row.eliminated { background: rgba(253,121,168,0.05); border: 1px solid rgba(253,121,168,0.1); opacity: 0.5; }
+    .doc-id { font-weight: 700; color: var(--accent-violet); min-width: 35px; font-size: 0.82rem; }
+    .doc-score { font-weight: 700; min-width: 50px; text-align: right; font-size: 0.82rem; }
+    .doc-score.high { color: var(--success); }
+    .doc-score.low { color: var(--text-muted); }
+    .doc-bar { flex: 1; height: 16px; border-radius: 3px; background: rgba(108,92,231,0.06); overflow: hidden; }
+    .doc-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .doc-bar-fill.champ { background: linear-gradient(90deg, var(--success), var(--accent-teal)); }
+    .doc-bar-fill.norm { background: linear-gradient(90deg, var(--accent-violet), #8b5cf6); }
+    .doc-bar-fill.elim { background: rgba(253,121,168,0.3); }
+    .tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem; }
+    .tag-champ { background: rgba(0,184,148,0.15); color: var(--success); }
+    .tag-elim { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+    .controls-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .control-item { display: flex; align-items: center; gap: 0.5rem; }
+    .control-item label { font-size: 0.82rem; color: var(--text-secondary); }
+    .control-item input[type=range] { width: 120px; accent-color: var(--accent-violet); }
+    .control-item .val { font-weight: 700; color: var(--accent-violet); min-width: 30px; }
+    .stats-row { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+    .stat-box { flex: 1; min-width: 120px; padding: 0.75rem; border-radius: var(--radius-sm); text-align: center; }
+    .stat-box.full { background: rgba(108,92,231,0.08); border: 1px solid rgba(108,92,231,0.15); }
+    .stat-box.champ { background: rgba(0,184,148,0.08); border: 1px solid rgba(0,184,148,0.15); }
+    .stat-box.elim { background: rgba(253,121,168,0.06); border: 1px solid rgba(253,121,168,0.12); }
+    .stat-val { font-size: 1.5rem; font-weight: 800; }
+    .stat-val.violet { color: var(--accent-violet); }
+    .stat-val.green { color: var(--success); }
+    .stat-val.pink { color: var(--accent-pink); }
+    .stat-lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.2rem; }
+    .method-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .method-btn { padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); background: transparent; color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: var(--font-main); }
+    .method-btn.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+    .method-btn:hover { border-color: var(--accent-violet); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 5</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>Champion Lists & Index Elimination</h1>
+      <p>Explore how search engines use heuristics to avoid scoring every document. Compare full scoring vs. champion lists vs. index elimination.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Key Trade-off:</strong> These heuristics sacrifice recall (might miss some relevant docs) for massive speed gains. Is the trade-off worth it?</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">⚙️ Controls</div>
+        <div class="controls-row">
+          <div class="control-item">
+            <label>Documents (N):</label>
+            <input type="range" id="n-docs" min="10" max="50" value="20" oninput="generate()">
+            <span class="val" id="n-val">20</span>
+          </div>
+          <div class="control-item">
+            <label>Top-K:</label>
+            <input type="range" id="top-k" min="3" max="10" value="5" oninput="render()">
+            <span class="val" id="k-val">5</span>
+          </div>
+          <div class="control-item">
+            <label>Champions (r):</label>
+            <input type="range" id="champ-r" min="3" max="15" value="8" oninput="render()">
+            <span class="val" id="r-val">8</span>
+          </div>
+        </div>
+
+        <div class="method-toggle">
+          <button class="method-btn active" onclick="setMethod('full')">Full Scoring</button>
+          <button class="method-btn" onclick="setMethod('champion')">Champion Lists</button>
+          <button class="method-btn" onclick="setMethod('elimination')">Index Elimination</button>
+        </div>
+
+        <div class="viz-section-title">📊 Document Scores</div>
+        <div id="doc-list"></div>
+
+        <div class="stats-row" id="stats-row"></div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">📖 How It Works</div>
+        <div id="explanation"></div>
+
+        <button class="hint-btn" onclick="toggleHint('hint1')" style="margin-top:1rem">💡 When to use which method?</button>
+        <div class="hint-box" id="hint1">
+          <strong>Full Scoring:</strong> ✅ Exact results, ❌ Slow (O(N)) — use for small collections.<br>
+          <strong>Champion Lists:</strong> ✅ Pre-computed top-r per term, ❌ May miss some docs — best general approach.<br>
+          <strong>Index Elimination:</strong> ✅ Fast by skipping low-IDF terms, ❌ May miss docs — use when query has many terms.
+        </div>
+
+        <div id="quiz-container" style="margin-top:1.5rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    let docs = [];
+    let method = 'full';
+
+    function generate() {
+      const n = parseInt(document.getElementById('n-docs').value);
+      document.getElementById('n-val').textContent = n;
+      docs = Array.from({length: n}, (_, i) => ({
+        id: i + 1,
+        score: Math.round((Math.random() * 0.8 + 0.1 + (i < 5 ? 0.3 : 0)) * 100) / 100
+      }));
+      docs.sort((a, b) => b.score - a.score);
+      // Normalize to 0-1
+      const maxS = docs[0].score;
+      docs.forEach(d => d.score = Math.round((d.score / maxS) * 100) / 100);
+      render();
+    }
+
+    function setMethod(m) {
+      method = m;
+      document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      render();
+    }
+
+    function render() {
+      const k = parseInt(document.getElementById('top-k').value);
+      const r = parseInt(document.getElementById('champ-r').value);
+      document.getElementById('k-val').textContent = k;
+      document.getElementById('r-val').textContent = r;
+
+      const maxScore = docs.length > 0 ? docs[0].score : 1;
+      let considered = 0, eliminated = 0;
+
+      const html = docs.map((d, i) => {
+        let cls = 'normal', barCls = 'norm', tag = '';
+        if (method === 'champion') {
+          if (i < r) { cls = 'champion'; barCls = 'champ'; tag = '<span class="tag tag-champ">CHAMPION</span>'; considered++; }
+          else { cls = 'eliminated'; barCls = 'elim'; tag = '<span class="tag tag-elim">SKIPPED</span>'; eliminated++; }
+        } else if (method === 'elimination') {
+          // Index elimination: skip docs with score below median
+          const threshold = docs[Math.floor(docs.length / 2)]?.score || 0;
+          if (d.score >= threshold) { cls = 'normal'; barCls = 'norm'; considered++; }
+          else { cls = 'eliminated'; barCls = 'elim'; tag = '<span class="tag tag-elim">ELIMINATED</span>'; eliminated++; }
+        } else {
+          considered++;
+        }
+
+        return `<div class="doc-row ${cls}">
+          <span class="doc-id">D${d.id}</span>
+          <div class="doc-bar"><div class="doc-bar-fill ${barCls}" style="width:${(d.score/maxScore*100)}%"></div></div>
+          <span class="doc-score ${d.score >= 0.7 ? 'high' : 'low'}">${d.score.toFixed(2)}</span>
+          ${tag}
+        </div>`;
+      }).join('');
+
+      document.getElementById('doc-list').innerHTML = html;
+
+      if (method === 'full') considered = docs.length;
+
+      const savings = docs.length > 0 ? Math.round((1 - considered / docs.length) * 100) : 0;
+
+      document.getElementById('stats-row').innerHTML = `
+        <div class="stat-box full"><div class="stat-val violet">${docs.length}</div><div class="stat-lbl">Total Docs</div></div>
+        <div class="stat-box champ"><div class="stat-val green">${considered}</div><div class="stat-lbl">Scored</div></div>
+        <div class="stat-box elim"><div class="stat-val pink">${savings}%</div><div class="stat-lbl">Savings</div></div>
+      `;
+
+      // Explanation
+      const explanations = {
+        full: `<div class="formula-box" style="margin-bottom:0.75rem"><strong>Full Scoring:</strong> Score ALL ${docs.length} documents, sort by score, return top ${k}.<br>Time: O(N) where N = collection size.</div><p style="font-size:0.85rem;color:var(--text-secondary)">This is the brute-force approach. Every single document in the collection gets scored against the query. Safe and correct, but extremely slow for large collections (millions of docs).</p>`,
+        champion: `<div class="formula-box" style="margin-bottom:0.75rem"><strong>Champion Lists:</strong> Pre-compute the top <strong>r=${r}</strong> highest-scoring docs for each term. At query time, only score docs in the champion set.<br>Only ${considered} docs scored instead of ${docs.length} — <strong>${savings}% savings!</strong></div><p style="font-size:0.85rem;color:var(--text-secondary)">For each term in the index, we pre-compute and store the r documents with the highest TF-IDF weight. At query time, we only consider the union of champion lists for query terms. This is <strong>unsafe</strong> — we might miss a relevant doc not in any champion list.</p>`,
+        elimination: `<div class="formula-box" style="margin-bottom:0.75rem"><strong>Index Elimination:</strong> Skip terms with low IDF and docs with low partial scores.<br>Only ${considered} docs scored instead of ${docs.length} — <strong>${savings}% savings!</strong></div><p style="font-size:0.85rem;color:var(--text-secondary)">Heuristic 1: Only consider terms with IDF above a threshold (skip common words).<br>Heuristic 2: Only consider documents containing multiple query terms. Documents matching just one low-IDF term are eliminated early.</p>`
+      };
+      document.getElementById('explanation').innerHTML = explanations[method];
+    }
+
+    generate();
+
+    showTutorial({
+      id: 'champion-lists',
+      icon: '🏆',
+      title: 'Champion Lists & Index Elimination',
+      subtitle: 'Speed up search without scoring every document.',
+      steps: [
+        'Start with <strong>Full Scoring</strong> — all documents get scored',
+        'Switch to <strong>Champion Lists</strong> — only pre-computed top-r docs are scored',
+        'Try <strong>Index Elimination</strong> — low-scoring docs are pruned early',
+        'Adjust <strong>r</strong> and <strong>K</strong> to see how they affect coverage vs. speed'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'Why is full scoring impractical for web-scale search?', options: ['It requires too much memory', 'Scoring all N documents is O(N) — too slow for billions of docs', 'The results are inaccurate', 'It only works with Boolean queries'], correct: 1, explanation: 'With billions of web pages, scoring every single one for every query would take far too long. We need heuristics to reduce the candidate set.' },
+      { question: 'What is a "champion list" for a term?', options: ['All documents containing the term', 'The top-r documents with the highest weight for that term', 'Documents sorted by PageRank', 'A list of synonyms'], correct: 1, explanation: 'For each term, we pre-compute and store the r documents with the highest TF-IDF scores. At query time, we only score documents appearing in at least one champion list.' },
+      { question: 'Champion lists are considered an "unsafe" optimization because:', options: ['They can return wrong documents', 'They might miss relevant documents not in the champion set', 'They are computationally expensive', 'They only work with single-term queries'], correct: 1, explanation: 'A document with moderate scores across multiple query terms might not appear in any individual champion list, but could still be highly relevant. This is the recall trade-off.' }
+    ]);
+  </script>
+</body>
+</html>

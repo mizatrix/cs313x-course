@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · Practice Quiz — CS313x Chapter 5</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 5</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Practice Quiz · Chapter 5</div>
+      <h1>Boolean & Vector Space Models Quiz</h1>
+      <p>Test your understanding of Boolean retrieval, query optimization, champion lists, and multi-field scoring with 15 questions and instant feedback.</p>
+    </header>
+
+    <div class="viz-container" style="max-width:800px;margin:0 auto">
+      <div class="glass-card no-hover">
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    showTutorial({
+      id: 'ch5-quiz',
+      icon: '📝',
+      title: 'Chapter 5 Practice Quiz',
+      subtitle: '15 questions covering all topics.',
+      steps: [
+        'Read each question carefully',
+        'Click your answer — you get <strong>instant feedback</strong>',
+        'Check the explanation to reinforce your understanding',
+        'Try to score 80%+ before moving on!'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'What is the key data structure used in Boolean retrieval?',
+        options: ['B+ Tree', 'Inverted Index', 'Adjacency List', 'Priority Queue'],
+        correct: 1,
+        explanation: 'The inverted index maps each term to a sorted list of document IDs (posting list) that contain the term. It enables efficient Boolean query processing.'
+      },
+      {
+        question: 'In a Boolean AND query, how are two sorted posting lists combined?',
+        options: ['Concatenation', 'Merge/Intersection using two pointers', 'Hash join', 'Nested loop join'],
+        correct: 1,
+        explanation: 'The merge algorithm walks through both sorted lists simultaneously with two pointers, adding matching DocIDs to the result. Time: O(m + n).'
+      },
+      {
+        question: 'What is the main limitation of Boolean retrieval?',
+        options: ['It is too slow', 'It has no ranking — results are either matched or not (feast or famine)', 'It cannot handle AND queries', 'It requires too much memory'],
+        correct: 1,
+        explanation: 'Boolean retrieval is binary: documents either match the query exactly or they don\'t. There is no partial matching or ranking by relevance, leading to the "feast or famine" problem.'
+      },
+      {
+        question: 'When optimizing a multi-term AND query, which term should be processed first?',
+        options: ['The most frequent term', 'The rarest term (lowest document frequency)', 'The longest term', 'Alphabetically first'],
+        correct: 1,
+        explanation: 'Process the rarest term first because the intersection result can never exceed the size of the smallest input list, cascading into smaller intermediate results.'
+      },
+      {
+        question: 'If Term A has df=100,000, Term B has df=50,000, and Term C has df=10, what is the optimal processing order for "A AND B AND C"?',
+        options: ['A, B, C', 'C, B, A', 'B, A, C', 'A, C, B'],
+        correct: 1,
+        explanation: 'Process in ascending df order: C (10) first, then B (50,000), then A (100,000). The first intersection produces at most 10 results, making all subsequent intersections trivial.'
+      },
+      {
+        question: 'What is a "champion list" for a term?',
+        options: ['All documents sorted by PageRank', 'The top-r documents with highest TF-IDF weight for that term', 'Documents matching multiple query terms', 'The most frequently queried terms'],
+        correct: 1,
+        explanation: 'For each term, we precompute the r documents with the highest scores. At query time, we only score the union of champion lists — much fewer docs to process.'
+      },
+      {
+        question: 'Champion lists are considered "unsafe" because:',
+        options: ['They use too much memory', 'They might miss relevant documents not in any champion list', 'They produce incorrect scores', 'They don\'t work with multi-term queries'],
+        correct: 1,
+        explanation: 'A document with moderate but consistent scores across multiple query terms might not appear in any individual champion list, yet could be highly relevant overall.'
+      },
+      {
+        question: 'In index elimination, what is the primary heuristic?',
+        options: ['Remove duplicate documents', 'Skip terms with low IDF (common terms)', 'Sort documents by length', 'Use only the first query term'],
+        correct: 1,
+        explanation: 'Common terms (low IDF) contribute little to discrimination between documents. By skipping them, we drastically reduce the number of documents to score.'
+      },
+      {
+        question: 'In multi-field scoring for e-commerce, why is the title weight typically higher than the description weight?',
+        options: ['Titles are always longer', 'A match in the title is a stronger signal of relevance', 'Descriptions are not indexed', 'It is required by the algorithm'],
+        correct: 1,
+        explanation: 'The title is the most focused summary of a product. A term match in the title is a much stronger relevance signal than a passing mention in a long description.'
+      },
+      {
+        question: 'Given weights w_title=1.0, w_category=0.8, w_desc=0.5, and similarities sim_title=0.9, sim_category=0.8, sim_desc=0.4, what is the total score?',
+        options: ['2.34', '1.74', '2.10', '1.94'],
+        correct: 1,
+        explanation: 'Score = 1.0×0.9 + 0.8×0.8 + 0.5×0.4 = 0.90 + 0.64 + 0.20 = 1.74'
+      },
+      {
+        question: 'What is the time complexity of intersecting two sorted posting lists?',
+        options: ['O(m × n)', 'O(m + n)', 'O(log(m+n))', 'O(1)'],
+        correct: 1,
+        explanation: 'The merge algorithm uses two pointers moving through sorted lists, resulting in linear O(m + n) time.'
+      },
+      {
+        question: 'In the "Bag of Words" model, what information is LOST?',
+        options: ['Term frequency', 'Document length', 'Word order and grammar', 'Vocabulary size'],
+        correct: 2,
+        explanation: 'The Bag of Words model treats a document as an unordered set of words, losing all information about word order, syntax, and grammar.'
+      },
+      {
+        question: 'News recommendation using the Vector Space Model works by:',
+        options: ['Showing the most recent articles', 'Computing cosine similarity between user profile vector and article vectors', 'Counting article page views', 'Using Boolean matching on headlines'],
+        correct: 1,
+        explanation: 'A user profile vector is built by averaging the TF-IDF vectors of articles they\'ve read. New articles are ranked by cosine similarity to this profile vector.'
+      },
+      {
+        question: 'What is the main advantage of ranked retrieval over Boolean retrieval?',
+        options: ['It is faster', 'It returns results in order of estimated relevance, allowing partial matching', 'It uses less memory', 'It is more precise'],
+        correct: 1,
+        explanation: 'Ranked retrieval assigns relevance scores (0.0 to 1.0) and returns the top-K results, supporting partial matching and eliminating the "feast or famine" problem.'
+      },
+      {
+        question: 'If a system uses champion lists with r=10, what is the maximum number of documents scored for a 3-term query?',
+        options: ['10', '30', '3', '10,000'],
+        correct: 1,
+        explanation: 'Each of the 3 query terms contributes at most r=10 champion documents. The union is at most 3 × 10 = 30 distinct documents to score.'
+      }
+    ]);
+  </script>
+</body>
+</html>

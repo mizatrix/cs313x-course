@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · E-Commerce Search — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .product-card { padding: 1rem; border-radius: var(--radius-md); background: rgba(108,92,231,0.04); border: 1px solid rgba(108,92,231,0.1); transition: var(--transition); position: relative; }
+    .product-card.top { background: rgba(0,184,148,0.06); border-color: rgba(0,184,148,0.2); }
+    .product-rank { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
+    .product-rank.gold { background: rgba(253,203,110,0.2); color: var(--warning); }
+    .product-rank.silver { background: rgba(108,92,231,0.15); color: var(--accent-violet); }
+    .product-name { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .product-cat { font-size: 0.7rem; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+    .product-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem; }
+    .score-breakdown { display: flex; flex-direction: column; gap: 0.3rem; }
+    .score-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+    .score-field { min-width: 70px; font-weight: 600; color: var(--text-secondary); }
+    .score-bar { flex: 1; height: 12px; border-radius: 3px; background: rgba(108,92,231,0.06); overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 3px; }
+    .score-bar-fill.title { background: linear-gradient(90deg, var(--accent-violet), #8b5cf6); }
+    .score-bar-fill.category { background: linear-gradient(90deg, var(--accent-teal), #00b894); }
+    .score-bar-fill.desc { background: linear-gradient(90deg, var(--accent-pink), #e84393); }
+    .score-val { font-weight: 700; color: var(--text-muted); min-width: 35px; text-align: right; }
+    .total-score { margin-top: 0.5rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); background: rgba(108,92,231,0.08); text-align: center; font-weight: 800; font-size: 0.9rem; color: var(--accent-violet); }
+    .weight-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .weight-item { display: flex; align-items: center; gap: 0.5rem; }
+    .weight-item label { font-size: 0.82rem; color: var(--text-secondary); min-width: 80px; }
+    .weight-item input[type=range] { width: 100px; accent-color: var(--accent-violet); }
+    .weight-item .wval { font-weight: 700; color: var(--accent-violet); min-width: 30px; }
+    .search-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-row input { flex: 1; padding: 0.6rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-main); font-size: 0.9rem; outline: none; }
+    .search-row input:focus { border-color: var(--accent-violet); }
+    .search-btn { padding: 0.6rem 1.2rem; background: linear-gradient(135deg, var(--accent-violet), #8b5cf6); border: none; border-radius: var(--radius-sm); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: var(--font-main); transition: var(--transition); }
+    .search-btn:hover { box-shadow: 0 0 20px rgba(108,92,231,0.4); }
+    .formula-inline { margin-top: 0.75rem; padding: 0.75rem; border-radius: var(--radius-sm); background: rgba(108,92,231,0.05); border: 1px solid rgba(108,92,231,0.1); font-size: 0.82rem; color: var(--text-secondary); }
+    .formula-inline code { color: var(--accent-violet); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 5</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Intermediate</div>
+      <h1>E-Commerce Search</h1>
+      <p>See how real product search engines use multi-field scoring with different weights for title, category, and description to rank products.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Experiment:</strong> Try searching "running shoes" and adjust the field weights. Notice how increasing the title weight changes which products rank highest!</div>
+    </div>
+
+    <div class="viz-container">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">🔍 Search Products</div>
+        <div class="search-row">
+          <input type="text" id="search-input" value="running shoes" placeholder="Search products..." onkeydown="if(event.key==='Enter')search()">
+          <button class="search-btn" onclick="search()">Search</button>
+        </div>
+
+        <div class="viz-section-title">⚖️ Field Weights</div>
+        <div class="weight-controls">
+          <div class="weight-item">
+            <label>Title (w₁):</label>
+            <input type="range" id="w-title" min="0" max="2" value="1.0" step="0.1" oninput="search()">
+            <span class="wval" id="wv-title">1.0</span>
+          </div>
+          <div class="weight-item">
+            <label>Category (w₂):</label>
+            <input type="range" id="w-cat" min="0" max="2" value="0.8" step="0.1" oninput="search()">
+            <span class="wval" id="wv-cat">0.8</span>
+          </div>
+          <div class="weight-item">
+            <label>Desc (w₃):</label>
+            <input type="range" id="w-desc" min="0" max="2" value="0.5" step="0.1" oninput="search()">
+            <span class="wval" id="wv-desc">0.5</span>
+          </div>
+        </div>
+
+        <div class="formula-inline">
+          <strong>Score =</strong> <code>w₁ × sim(query, title)</code> + <code>w₂ × sim(query, category)</code> + <code>w₃ × sim(query, description)</code>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover" style="margin-top:1.25rem">
+        <div class="viz-section-title">🏪 Search Results</div>
+        <div class="products-grid" id="results-grid"></div>
+      </div>
+
+      <div class="glass-card no-hover" style="margin-top:1.25rem">
+        <button class="hint-btn" onclick="toggleHint('hint1')">💡 Why use different weights for different fields?</button>
+        <div class="hint-box" id="hint1">
+          A match in the <strong>title</strong> is more meaningful than a match in a long description. Field weighting lets the search engine prioritize where the match occurs:<br><br>
+          • <strong>Title match</strong> (w=1.0): The product is specifically about those terms.<br>
+          • <strong>Category match</strong> (w=0.8): The product belongs to the right category.<br>
+          • <strong>Description match</strong> (w=0.5): The terms appear somewhere in the description — less specific.
+        </div>
+        <div id="quiz-container" style="margin-top:1.5rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const products = [
+      { name: 'Nike Air Zoom Pegasus 40', category: 'Running Shoes', desc: 'Lightweight running shoe with responsive cushioning for daily training and racing.' },
+      { name: 'Adidas Ultraboost 23', category: 'Running Shoes', desc: 'Premium running shoe with Boost midsole technology for incredible energy return.' },
+      { name: 'New Balance Fresh Foam', category: 'Running Shoes', desc: 'Plush comfort running shoe with Fresh Foam cushioning for long distance.' },
+      { name: 'Nike Air Force 1', category: 'Casual Shoes', desc: 'Classic basketball-inspired sneaker for everyday streetwear style.' },
+      { name: 'Running Shorts Pro', category: 'Athletic Clothing', desc: 'Moisture-wicking running shorts with built-in brief lining.' },
+      { name: 'Trail Running Backpack', category: 'Running Accessories', desc: 'Hydration-compatible backpack designed for trail running and hiking.' },
+      { name: 'Leather Oxford Shoes', category: 'Dress Shoes', desc: 'Elegant formal shoes crafted from premium Italian leather.' },
+      { name: 'Running Watch GPS', category: 'Running Accessories', desc: 'GPS-enabled sports watch with heart rate monitor and running metrics.' },
+      { name: 'Cross Training Shoes', category: 'Training Shoes', desc: 'Versatile shoes for gym workouts, crossfit, and light running.' },
+      { name: 'Rain Running Jacket', category: 'Athletic Clothing', desc: 'Waterproof breathable jacket for running in wet weather conditions.' },
+      { name: 'Compression Running Socks', category: 'Running Accessories', desc: 'Graduated compression socks to improve circulation during running.' },
+      { name: 'Basketball Shoes Pro', category: 'Basketball Shoes', desc: 'High-top shoes with ankle support for basketball and court sports.' },
+    ];
+
+    function similarity(query, text) {
+      const qTerms = query.toLowerCase().split(/\s+/);
+      const tTerms = text.toLowerCase().split(/\s+/);
+      let matches = 0;
+      qTerms.forEach(qt => { if (tTerms.some(tt => tt.includes(qt) || qt.includes(tt))) matches++; });
+      return qTerms.length > 0 ? Math.round((matches / qTerms.length) * 100) / 100 : 0;
+    }
+
+    function search() {
+      const query = document.getElementById('search-input').value.trim();
+      const wTitle = parseFloat(document.getElementById('w-title').value);
+      const wCat = parseFloat(document.getElementById('w-cat').value);
+      const wDesc = parseFloat(document.getElementById('w-desc').value);
+      document.getElementById('wv-title').textContent = wTitle.toFixed(1);
+      document.getElementById('wv-cat').textContent = wCat.toFixed(1);
+      document.getElementById('wv-desc').textContent = wDesc.toFixed(1);
+
+      if (!query) { document.getElementById('results-grid').innerHTML = '<p style="color:var(--text-muted)">Enter a search query above.</p>'; return; }
+
+      const scored = products.map(p => {
+        const sTi = similarity(query, p.name);
+        const sCa = similarity(query, p.category);
+        const sDe = similarity(query, p.desc);
+        const total = Math.round((wTitle * sTi + wCat * sCa + wDesc * sDe) * 100) / 100;
+        return { ...p, sTi, sCa, sDe, total };
+      }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
+
+      const maxTotal = scored.length > 0 ? scored[0].total : 1;
+
+      document.getElementById('results-grid').innerHTML = scored.length > 0 ? scored.map((p, i) => `
+        <div class="product-card ${i < 3 ? 'top' : ''}">
+          <div class="product-rank ${i === 0 ? 'gold' : 'silver'}">#${i + 1}</div>
+          <div class="product-name">${p.name}</div>
+          <div class="product-cat">${p.category}</div>
+          <div class="product-desc">${p.desc}</div>
+          <div class="score-breakdown">
+            <div class="score-row"><span class="score-field">Title:</span><div class="score-bar"><div class="score-bar-fill title" style="width:${p.sTi*100}%"></div></div><span class="score-val">${p.sTi.toFixed(2)}</span></div>
+            <div class="score-row"><span class="score-field">Category:</span><div class="score-bar"><div class="score-bar-fill category" style="width:${p.sCa*100}%"></div></div><span class="score-val">${p.sCa.toFixed(2)}</span></div>
+            <div class="score-row"><span class="score-field">Description:</span><div class="score-bar"><div class="score-bar-fill desc" style="width:${p.sDe*100}%"></div></div><span class="score-val">${p.sDe.toFixed(2)}</span></div>
+          </div>
+          <div class="total-score">Total: ${p.total.toFixed(2)}</div>
+        </div>
+      `).join('') : '<p style="color:var(--text-muted)">No matching products found.</p>';
+    }
+
+    search();
+
+    showTutorial({
+      id: 'ecommerce-search',
+      icon: '🏪',
+      title: 'E-Commerce Search Simulator',
+      subtitle: 'See how real product search works with multi-field scoring.',
+      steps: [
+        'Enter a <strong>product search query</strong> like "running shoes" or "leather"',
+        'Adjust the <strong>field weights</strong> — see how title vs. category vs. description matters',
+        'Watch the <strong>score breakdown</strong> on each product card',
+        'Try setting title weight to 0 — what happens to the rankings?'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'Why does the title field usually get the highest weight?', options: ['Titles are longer than descriptions', 'A match in the title strongly indicates the product is about those terms', 'Titles are indexed faster', 'It is required by the ranking algorithm'], correct: 1, explanation: 'The title is the most focused description of a product. A match there is a strong indicator of relevance, unlike a passing mention in a long description.' },
+      { question: 'If a product matches "shoes" in its category and "running" in its description, with weights w₁=1.0, w₂=0.8, w₃=0.5, what is the score for query "running shoes"?', options: ['1.3', '0.9', '0.8', '0.5'], correct: 1, explanation: 'Score = w₁×sim(title)=1.0×0 + w₂×sim(cat)=0.8×0.5 + w₃×sim(desc)=0.5×1.0 = 0.4 + 0.5 = 0.9.' },
+      { question: 'What is one disadvantage of multi-field scoring?', options: ['It always returns too many results', 'Choosing the right field weights requires tuning and experimentation', 'It cannot handle Boolean queries', 'It does not support fuzzy matching'], correct: 1, explanation: 'The field weights are hyperparameters that need to be tuned — different product catalogs may need different weights. This is typically done through A/B testing or learning to rank.' }
+    ]);
+  </script>
+</body>
+</html>

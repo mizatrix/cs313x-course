@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 · Query Optimization — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; }
+    @media(max-width:768px) { .comparison { grid-template-columns: 1fr; } }
+    .approach-card { padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-glass); }
+    .approach-card.naive { background: rgba(253,121,168,0.05); border-color: rgba(253,121,168,0.2); }
+    .approach-card.optimized { background: rgba(0,184,148,0.05); border-color: rgba(0,184,148,0.2); }
+    .approach-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .approach-title.naive { color: var(--accent-pink); }
+    .approach-title.optimized { color: var(--success); }
+    .merge-step { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; font-size: 0.82rem; }
+    .merge-step .op-label { font-weight: 700; min-width: 70px; }
+    .merge-step .op-cost { margin-left: auto; font-weight: 700; font-size: 0.75rem; }
+    .merge-step.s1 { background: rgba(108,92,231,0.08); }
+    .merge-step.s2 { background: rgba(0,206,201,0.08); }
+    .total-ops { margin-top: 0.75rem; padding: 0.6rem 1rem; border-radius: var(--radius-sm); font-size: 1rem; font-weight: 800; text-align: center; }
+    .total-ops.naive { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+    .total-ops.optimized { background: rgba(0,184,148,0.1); color: var(--success); }
+    .speedup { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm); text-align: center; background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.05)); border: 1px solid rgba(108,92,231,0.2); }
+    .speedup-num { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .speedup-label { font-size: 0.78rem; color: var(--text-secondary); }
+    .term-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
+    .term-name { font-weight: 700; color: var(--accent-violet); min-width: 100px; }
+    .term-df { font-size: 0.82rem; color: var(--text-secondary); min-width: 60px; }
+    .term-bar { flex: 1; height: 24px; border-radius: 4px; overflow: hidden; background: rgba(108,92,231,0.08); position: relative; }
+    .term-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); }
+    .term-bar-val { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; font-weight: 700; color: var(--text-primary); }
+    .slider-control { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .slider-control label { font-size: 0.82rem; color: var(--text-secondary); min-width: 100px; }
+    .slider-control input[type=range] { flex: 1; accent-color: var(--accent-violet); }
+    .slider-control .val { font-weight: 700; color: var(--accent-violet); min-width: 60px; text-align: right; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 5</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02 · Intermediate</div>
+      <h1>Query Optimization</h1>
+      <p>Learn why processing the smallest posting lists first dramatically reduces operations. Adjust document frequencies and watch the impact on computational cost.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>The Golden Rule:</strong> Always process terms in order of <strong>increasing document frequency</strong>. Start with the rarest term first!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">📊 Adjust Document Frequencies</div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem">Query: <strong>Term_A AND Term_B AND Term_C</strong></p>
+
+        <div class="slider-control">
+          <label>Term A (df):</label>
+          <input type="range" id="df-a" min="2" max="100000" value="50000" step="100" oninput="update()">
+          <span class="val" id="val-a">50,000</span>
+        </div>
+        <div class="slider-control">
+          <label>Term B (df):</label>
+          <input type="range" id="df-b" min="2" max="100000" value="60000" step="100" oninput="update()">
+          <span class="val" id="val-b">60,000</span>
+        </div>
+        <div class="slider-control">
+          <label>Term C (df):</label>
+          <input type="range" id="df-c" min="2" max="100000" value="5" step="1" oninput="update()">
+          <span class="val" id="val-c">5</span>
+        </div>
+
+        <div class="viz-section-title" style="margin-top:1.5rem">Posting List Sizes</div>
+        <div id="bars-display"></div>
+
+        <div class="speedup" id="speedup-display">
+          <div class="speedup-num" id="speedup-val">10,000×</div>
+          <div class="speedup-label">faster with optimization</div>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">⚡ Side-by-Side Comparison</div>
+        <div class="comparison" id="comparison-display"></div>
+
+        <button class="hint-btn" onclick="toggleHint('hint1')" style="margin-top:1rem">💡 Why does order matter so much?</button>
+        <div class="hint-box" id="hint1">
+          <strong>Key insight:</strong> The intersection of two lists can never be larger than the smaller list. By starting with the smallest list, every subsequent intersection is against a tiny intermediate result, not a huge posting list. This cascading effect can reduce operations by orders of magnitude!
+        </div>
+
+        <div id="quiz-container" style="margin-top:1.5rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    function fmt(n) { return n.toLocaleString(); }
+
+    function update() {
+      const dfA = parseInt(document.getElementById('df-a').value);
+      const dfB = parseInt(document.getElementById('df-b').value);
+      const dfC = parseInt(document.getElementById('df-c').value);
+      document.getElementById('val-a').textContent = fmt(dfA);
+      document.getElementById('val-b').textContent = fmt(dfB);
+      document.getElementById('val-c').textContent = fmt(dfC);
+
+      const maxDf = Math.max(dfA, dfB, dfC);
+      const terms = [
+        { name: 'Term A', df: dfA },
+        { name: 'Term B', df: dfB },
+        { name: 'Term C', df: dfC }
+      ];
+
+      // Bars
+      document.getElementById('bars-display').innerHTML = terms.map(t => `
+        <div class="term-row">
+          <span class="term-name">${t.name}</span>
+          <span class="term-df">df=${fmt(t.df)}</span>
+          <div class="term-bar"><div class="term-bar-fill" style="width:${(t.df/maxDf*100)}%"></div><span class="term-bar-val">${fmt(t.df)}</span></div>
+        </div>
+      `).join('');
+
+      // Naive: process in order A, B, C
+      const naive1 = dfA + dfB;
+      const naiveInter1 = Math.min(dfA, dfB);
+      const naive2 = naiveInter1 + dfC;
+      const naiveTotal = naive1 + naive2;
+
+      // Optimized: sort by df ascending
+      const sorted = [...terms].sort((a,b) => a.df - b.df);
+      const opt1 = sorted[0].df + sorted[1].df;
+      const optInter1 = Math.min(sorted[0].df, sorted[1].df);
+      const opt2 = optInter1 + sorted[2].df;
+      const optTotal = opt1 + opt2;
+
+      const speedup = naiveTotal > 0 ? (naiveTotal / Math.max(1, optTotal)) : 1;
+
+      document.getElementById('comparison-display').innerHTML = `
+        <div class="approach-card naive">
+          <div class="approach-title naive">❌ Naive Order (A → B → C)</div>
+          <div class="merge-step s1">
+            <span class="op-label">Step 1:</span>
+            <span>Merge ${terms[0].name} (${fmt(terms[0].df)}) ∩ ${terms[1].name} (${fmt(terms[1].df)})</span>
+            <span class="op-cost">~${fmt(naive1)} ops</span>
+          </div>
+          <div class="merge-step s2">
+            <span class="op-label">Step 2:</span>
+            <span>Merge result (≤${fmt(naiveInter1)}) ∩ ${terms[2].name} (${fmt(terms[2].df)})</span>
+            <span class="op-cost">~${fmt(naive2)} ops</span>
+          </div>
+          <div class="total-ops naive">Total: ~${fmt(naiveTotal)} operations</div>
+        </div>
+        <div class="approach-card optimized">
+          <div class="approach-title optimized">✅ Optimized (smallest first)</div>
+          <div class="merge-step s1">
+            <span class="op-label">Step 1:</span>
+            <span>Merge ${sorted[0].name} (${fmt(sorted[0].df)}) ∩ ${sorted[1].name} (${fmt(sorted[1].df)})</span>
+            <span class="op-cost">~${fmt(opt1)} ops</span>
+          </div>
+          <div class="merge-step s2">
+            <span class="op-label">Step 2:</span>
+            <span>Merge result (≤${fmt(optInter1)}) ∩ ${sorted[2].name} (${fmt(sorted[2].df)})</span>
+            <span class="op-cost">~${fmt(opt2)} ops</span>
+          </div>
+          <div class="total-ops optimized">Total: ~${fmt(optTotal)} operations</div>
+        </div>
+      `;
+
+      document.getElementById('speedup-val').textContent = speedup >= 10 ? fmt(Math.round(speedup)) + '×' : speedup.toFixed(1) + '×';
+    }
+
+    update();
+
+    showTutorial({
+      id: 'query-optimization',
+      icon: '⚡',
+      title: 'Query Optimization',
+      subtitle: 'Why processing order matters dramatically.',
+      steps: [
+        'Adjust the <strong>document frequency sliders</strong> for each term',
+        'Watch how the <strong>bar chart</strong> shows relative posting list sizes',
+        'Compare <strong>Naive vs. Optimized</strong> approaches side by side',
+        'Notice the <strong>speedup factor</strong> — it can be 10,000× or more!'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'When processing a multi-term AND query, which term should be processed first?', options: ['The most common term', 'The rarest term (lowest df)', 'Alphabetically first', 'Random order'], correct: 1, explanation: 'Process the rarest term first (lowest df) because the intersection result can never be larger than the smallest input list.' },
+      { question: 'If Term A has df=100,000 and Term B has df=5, what is the maximum size of their intersection?', options: ['100,000', '50,000', '5', '100,005'], correct: 2, explanation: 'The intersection can never be larger than the smaller list. At most 5 documents can appear in both lists.' },
+      { question: 'Why does query optimization not change the final result?', options: ['It uses a different algorithm', 'AND is commutative — order doesn\'t affect the result set', 'It approximates the result', 'It uses caching'], correct: 1, explanation: 'Set intersection (AND) is commutative and associative. A ∩ B ∩ C = C ∩ A ∩ B. The order only affects performance, not correctness.' }
+    ]);
+  </script>
+</body>
+</html>

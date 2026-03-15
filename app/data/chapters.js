@@ -293,13 +293,57 @@ export const chapters = {
   'chapter05': {
     title: 'Boolean & Vector Space Models',
     week: 5,
-    description: 'Deep dive into Boolean Retrieval and Vector Space Models — the mathematical foundations of ranked search.',
+    description: 'From exact matching to ranked retrieval — master Boolean query processing, query optimization, and efficient scoring heuristics.',
     pdf: '/static/chapter05/Week_5_Boolean_&_Vector_Space_Models.pdf',
-    isPdfOnly: true,
     categories: [
       { id: 'all', label: 'All Topics' },
+      { id: 'boolean', label: 'Boolean Retrieval' },
+      { id: 'efficiency', label: 'Efficiency' },
+      { id: 'applications', label: 'Applications' },
+      { id: 'practice', label: 'Practice' },
     ],
-    visualizations: []
+    visualizations: [
+      {
+        id: 1, title: 'Boolean Retrieval Simulator',
+        aim: 'Build an inverted index from scratch and process Boolean queries (AND, OR, NOT) with the step-by-step merge algorithm.',
+        use: 'When you need to understand how the fundamental search algorithm processes exact-match queries on posting lists.',
+        desc: 'Edit documents, build the inverted index, enter Boolean queries, and watch the merge algorithm execute step by step.',
+        href: '/static/chapter05/visualizations/01-boolean-retrieval.html',
+        diff: 'beginner', cat: 'boolean', hasQuiz: true, time: 12
+      },
+      {
+        id: 2, title: 'Query Optimization',
+        aim: 'Learn why processing terms in order of increasing document frequency dramatically reduces computational cost.',
+        use: 'When implementing multi-term AND queries — the golden rule of intersection that saves orders of magnitude of work.',
+        desc: 'Adjust document frequencies with sliders and compare naive vs. optimized query order with live speedup calculation.',
+        href: '/static/chapter05/visualizations/02-query-optimization.html',
+        diff: 'intermediate', cat: 'boolean', hasQuiz: true, time: 8
+      },
+      {
+        id: 3, title: 'Champion Lists & Index Elimination',
+        aim: 'Understand how search engines avoid scoring every document using pre-computed champion lists and index elimination heuristics.',
+        use: 'When building a web-scale search engine where full scoring is too slow — the speed vs. recall trade-off.',
+        desc: 'Toggle between full scoring, champion lists, and index elimination. See the computational savings vs. recall impact.',
+        href: '/static/chapter05/visualizations/03-champion-lists.html',
+        diff: 'intermediate', cat: 'efficiency', hasQuiz: true, time: 10
+      },
+      {
+        id: 4, title: 'E-Commerce Search',
+        aim: 'See how real product search engines use multi-field weighted scoring across title, category, and description.',
+        use: 'When designing search ranking for structured data — e-commerce, job boards, real estate, or any multi-field domain.',
+        desc: 'Search a product catalog with adjustable field weights. See per-product score breakdowns and how weights affect ranking.',
+        href: '/static/chapter05/visualizations/04-ecommerce-search.html',
+        diff: 'intermediate', cat: 'applications', hasQuiz: true, time: 10
+      },
+      {
+        id: 5, title: 'Practice Quiz',
+        aim: 'Test your understanding with 15 questions covering Boolean retrieval, query optimization, champion lists, and multi-field scoring.',
+        use: 'When you want to verify your mastery of Chapter 5 concepts with instant feedback and explanations.',
+        desc: '15 questions with instant feedback covering all Chapter 5 topics.',
+        href: '/static/chapter05/visualizations/05-practice-quiz.html',
+        diff: 'beginner', cat: 'practice', hasQuiz: true, time: 10
+      },
+    ]
   },
 };
 
