@@ -35,7 +35,7 @@ An interactive course website for **CS313x Information Retrieval**, featuring ha
 ### Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/cs313x-course.git
+git clone https://github.com/mizatrix/cs313x-course.git
 cd cs313x-course
 npm install
 ```
