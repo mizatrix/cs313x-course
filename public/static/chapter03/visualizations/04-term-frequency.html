@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · Term Frequency (TF) — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #51cf66, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        .card h3.green {
+            color: #51cf66;
+        }
+
+        .card h3.blue {
+            color: #00d4ff;
+        }
+
+        .card h3.yellow {
+            color: #ffd43b;
+        }
+
+        .card h3.red {
+            color: #ff6b6b;
+        }
+
+        canvas {
+            border-radius: 12px;
+            display: block;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .slider-section {
+            margin: 20px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .slider-label .value {
+            color: #51cf66;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #51cf66, #00d4ff);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(81, 207, 102, 0.4);
+        }
+
+        .formula-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin: 16px 0;
+        }
+
+        .formula-main {
+            font-family: 'Courier New', monospace;
+            font-size: 1.3rem;
+            color: #ddd;
+        }
+
+        .formula-result {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #51cf66;
+            margin-top: 8px;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: center;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .comparison-table th {
+            color: #aaa;
+            background: rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+        }
+
+        .bar-cell {
+            position: relative;
+        }
+
+        .bar-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            border-radius: 0 4px 4px 0;
+            transition: width 0.5s;
+        }
+
+        .bar-text {
+            position: relative;
+            z-index: 1;
+            font-weight: 600;
+        }
+
+        .insight {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(255, 212, 59, 0.05);
+            border: 1px solid rgba(255, 212, 59, 0.15);
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .insight strong {
+            color: #ffd43b;
+        }
+    
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 3</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Beginner</div>
+      <h1>Term Frequency (TF)</h1>
+    </header>
+
+<div class="header">
+        <h1>📈 Term Frequency (TF) Weighting</h1>
+        <p>Why raw frequency is misleading — and how log scaling fixes it</p>
+    </div>
+    <div class="container">
+        <div class="grid">
+            <!-- Chart -->
+            <div class="card">
+                <h3 class="green">📊 Raw TF vs. Log-Weighted TF</h3>
+                <canvas id="tfChart" width="500" height="380"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="card">
+                <h3 class="blue">🎛️ Interactive Calculator</h3>
+                <div class="slider-section">
+                    <div class="slider-label">
+                        <span>Raw Term Frequency (tf)</span>
+                        <span class="value" id="rawTfDisplay">10</span>
+                    </div>
+                    <input type="range" id="tfSlider" min="0" max="1000" value="10" oninput="updateTF()">
+                </div>
+
+                <div class="formula-display">
+                    <div class="formula-main" id="formulaText">w = 1 + log₁₀(10)</div>
+                    <div class="formula-result" id="resultText">= 2.000</div>
+                </div>
+
+                <div class="insight">
+                    <strong>💡 Key Insight:</strong> A term appearing <strong id="insightTf">10</strong> times
+                    gets a log-weight of only <strong id="insightWeight">2.0</strong> — not 10!
+                    The <em>diminishing returns</em> ensure that frequency alone doesn't dominate scoring.
+                </div>
+
+                <h3 class="yellow" style="margin-top:24px;">📋 Reference Table</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Raw TF</th>
+                            <th>Log Weight</th>
+                            <th>Visual</th>
+                        </tr>
+                    </thead>
+                    <tbody id="refTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Diminishing Returns -->
+        <div class="card" style="margin-top:30px;">
+            <h3 class="red">📉 Diminishing Returns — Each Additional Occurrence Matters Less</h3>
+            <canvas id="diminishChart" width="1100" height="300"></canvas>
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+    <script>
+        const tfSlider = document.getElementById('tfSlider');
+
+        function logTF(tf) {
+            return tf > 0 ? 1 + Math.log10(tf) : 0;
+        }
+
+        function updateTF() {
+            const tf = parseInt(tfSlider.value);
+            const w = logTF(tf);
+
+            document.getElementById('rawTfDisplay').textContent = tf;
+            document.getElementById('formulaText').innerHTML =
+                tf === 0 ? 'w = 0 &nbsp;(tf = 0)' : `w = 1 + log₁₀(${tf})`;
+            document.getElementById('resultText').textContent =
+                tf === 0 ? '= 0.000' : `= ${w.toFixed(3)}`;
+            document.getElementById('insightTf').textContent = tf;
+            document.getElementById('insightWeight').textContent = w.toFixed(1);
+
+            drawCharts(tf);
+            buildRefTable(tf);
+        }
+
+        function buildRefTable(highlight) {
+            const refs = [0, 1, 2, 5, 10, 50, 100, 500, 1000];
+            const tbody = document.getElementById('refTable');
+            let html = '';
+            refs.forEach(tf => {
+                const w = logTF(tf);
+                const maxW = logTF(1000);
+                const pct = (w / maxW) * 100;
+                const isHighlight = tf === highlight;
+                html += `<tr style="${isHighlight ? 'background:rgba(81,207,102,0.1);' : ''}">
+                    <td>${tf}</td>
+                    <td style="color:${isHighlight ? '#51cf66' : '#ddd'}; font-weight:${isHighlight ? '700' : '400'};">${w.toFixed(3)}</td>
+                    <td class="bar-cell">
+                        <div class="bar-inner" style="width:${pct}%; background:rgba(81,207,102,${isHighlight ? 0.4 : 0.15});"></div>
+                        <span class="bar-text" style="color:${isHighlight ? '#51cf66' : '#888'};">${pct.toFixed(0)}%</span>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function drawCharts(currentTf) {
+            // Main chart
+            const canvas = document.getElementById('tfChart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const ox = 60, oy = canvas.height - 45;
+            const w = canvas.width - 90, h = canvas.height - 80;
+            const maxTf = 100, maxW = logTF(maxTf);
+            const maxRaw = maxTf;
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath(); ctx.moveTo(ox + (w / 10) * i, 20); ctx.lineTo(ox + (w / 10) * i, oy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(ox, oy - (h / 10) * i); ctx.lineTo(ox + w, oy - (h / 10) * i); ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, 20); ctx.stroke();
+
+            ctx.fillStyle = '#888'; ctx.font = '12px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('Raw Term Frequency', ox + w / 2, oy + 35);
+            ctx.save(); ctx.translate(15, oy - h / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Weight', 0, 0); ctx.restore();
+
+            // Raw TF line (diagonal)
+            ctx.strokeStyle = 'rgba(255,107,107,0.5)'; ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            for (let tf = 0; tf <= maxTf; tf++) {
+                const x = ox + (tf / maxTf) * w;
+                const y = oy - (tf / maxRaw) * h;
+                tf === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Log TF curve
+            ctx.strokeStyle = '#51cf66'; ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let tf = 0; tf <= maxTf; tf++) {
+                const x = ox + (tf / maxTf) * w;
+                const lw = logTF(tf);
+                const y = oy - (lw / maxRaw) * h;
+                tf === 0 ? ctx.moveTo(x, oy) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Current TF marker
+            if (currentTf > 0 && currentTf <= maxTf) {
+                const cx = ox + (currentTf / maxTf) * w;
+                const cy = oy - (logTF(currentTf) / maxRaw) * h;
+                ctx.fillStyle = '#51cf66';
+                ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#51cf66'; ctx.font = 'bold 12px Inter';
+                ctx.fillText(`(${currentTf}, ${logTF(currentTf).toFixed(2)})`, cx + 10, cy - 10);
+            }
+
+            // Legend
+            ctx.font = '12px Inter';
+            ctx.fillStyle = '#ff6b6b'; ctx.fillText('— Raw TF (linear)', ox + w - 100, 35);
+            ctx.fillStyle = '#51cf66'; ctx.fillText('— Log TF', ox + w - 100, 55);
+
+            // Diminishing chart
+            const dc = document.getElementById('diminishChart');
+            const dctx = dc.getContext('2d');
+            dctx.clearRect(0, 0, dc.width, dc.height);
+
+            const dox = 60, doy = dc.height - 40;
+            const dw = dc.width - 90, dh = dc.height - 70;
+            const steps = 50;
+
+            dctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            dctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                dctx.beginPath(); dctx.moveTo(dox + (dw / 10) * i, 15); dctx.lineTo(dox + (dw / 10) * i, doy); dctx.stroke();
+            }
+
+            dctx.strokeStyle = 'rgba(255,255,255,0.25)'; dctx.lineWidth = 2;
+            dctx.beginPath(); dctx.moveTo(dox, doy); dctx.lineTo(dox + dw, doy); dctx.stroke();
+            dctx.beginPath(); dctx.moveTo(dox, doy); dctx.lineTo(dox, 15); dctx.stroke();
+
+            dctx.fillStyle = '#888'; dctx.font = '12px Inter'; dctx.textAlign = 'center';
+            dctx.fillText('Occurence #', dox + dw / 2, doy + 30);
+
+            // Marginal gain bars
+            const maxMarginal = 1;
+            for (let i = 1; i <= steps; i++) {
+                const marginal = logTF(i) - logTF(i - 1);
+                const barW = (dw / steps) - 2;
+                const barH = (marginal / maxMarginal) * dh;
+                const x = dox + ((i - 1) / steps) * dw + 1;
+
+                const gradient = dctx.createLinearGradient(x, doy - barH, x, doy);
+                gradient.addColorStop(0, `rgba(255,107,107,${0.3 + marginal * 0.7})`);
+                gradient.addColorStop(1, `rgba(255,107,107,0.05)`);
+                dctx.fillStyle = gradient;
+                dctx.fillRect(x, doy - barH, barW, barH);
+            }
+
+            dctx.fillStyle = '#ff6b6b'; dctx.font = 'bold 12px Inter'; dctx.textAlign = 'left';
+            dctx.fillText('Marginal gain per additional occurrence →  rapidly decreasing!', dox + 10, 28);
+        }
+
+        updateTF();
+    </script>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>07 · Vector Normalization (L2) — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a855f7, #7c7cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        canvas {
+            border-radius: 12px;
+            display: block;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .vector-info {
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            margin-bottom: 12px;
+            font-size: 0.88rem;
+        }
+
+        .vector-info .label {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .vector-info .values {
+            font-family: 'Courier New', monospace;
+            color: #aaa;
+        }
+
+        .vector-info .magnitude {
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #a855f7, #7c7cff);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #51cf66, #2ecc71);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+        }
+
+        .formula-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #ddd;
+            line-height: 1.8;
+        }
+
+        .formula-box .highlight {
+            color: #a855f7;
+            font-weight: 600;
+        }
+
+        .bias-demo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .bias-card {
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .bias-card h4 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .bias-card .score {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .bias-card .note {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 4px;
+        }
+    
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 3</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 07 · Intermediate</div>
+      <h1>Vector Normalization (L2)</h1>
+    </header>
+
+<div class="header">
+        <h1>⭕ Vector Normalization (L2 Norm)</h1>
+        <p>Projecting all vectors onto the unit circle for fair comparison</p>
+    </div>
+    <div class="container">
+        <div class="main-grid">
+            <div>
+                <div class="card">
+                    <h3 style="color:#a855f7;">📐 Before & After Normalization</h3>
+                    <canvas id="normCanvas" width="650" height="550"></canvas>
+                </div>
+
+                <div class="card">
+                    <h3 style="color:#ff6b6b;">⚠️ Length Bias Problem</h3>
+                    <p style="color:#aaa; font-size:0.9rem; margin-bottom:12px;">Without normalization, a long document
+                        with more words gets artificially higher similarity — even if a short doc is more relevant!</p>
+                    <div class="bias-demo">
+                        <div class="bias-card">
+                            <h4 style="color:#ff6b6b;">❌ Without Normalization</h4>
+                            <div class="score" style="color:#ff6b6b;" id="rawScore1">—</div>
+                            <div class="note">Long doc wins (unfairly!)</div>
+                        </div>
+                        <div class="bias-card">
+                            <h4 style="color:#51cf66;">✅ With Normalization</h4>
+                            <div class="score" style="color:#51cf66;" id="normScore1">—</div>
+                            <div class="note">Relevant short doc wins!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h3 style="color:#00d4ff;">📊 Vector Details</h3>
+                    <div id="vectorDetails"></div>
+                </div>
+
+                <button onclick="toggleNormalized()">🔄 Toggle Normalization</button>
+                <button class="secondary" onclick="resetVectors()">🔀 Randomize Vectors</button>
+                <button class="danger" onclick="showBiasProblem()">⚠️ Show Length Bias</button>
+
+                <div class="card" style="margin-top:10px;">
+                    <h3 style="color:#ffd43b;">📝 Formula</h3>
+                    <div class="formula-box">
+                        v̂ = v / ||v||<br><br>
+                        ||v|| = √(v₁² + v₂² + ... + vₙ²)<br><br>
+                        <span class="highlight">After normalization: ||v̂|| = 1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+    <script>
+        const canvas = document.getElementById('normCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+        const scale = 180;
+
+        let vectors = [
+            { x: 1.5, y: 0.8, color: '#ff6b6b', label: 'D1 (short)' },
+            { x: 0.6, y: 1.2, color: '#00d4ff', label: 'D2 (medium)' },
+            { x: 2.2, y: 1.8, color: '#ffd43b', label: 'D3 (long)' },
+            { x: 0.9, y: 0.5, color: '#51cf66', label: 'Query' },
+        ];
+        let normalized = false;
+        let animProgress = 0;
+        let animating = false;
+
+        function mag(v) { return Math.sqrt(v.x * v.x + v.y * v.y); }
+        function norm(v) { const m = mag(v); return { x: v.x / m, y: v.y / m }; }
+        function dot(a, b) { return a.x * b.x + a.y * b.y; }
+        function cosSim(a, b) { return dot(a, b) / (mag(a) * mag(b)); }
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 1;
+            for (let i = -3; i <= 3; i++) {
+                ctx.beginPath(); ctx.moveTo(cx + i * scale * 0.5, 0); ctx.lineTo(cx + i * scale * 0.5, H); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, cy + i * scale * 0.5); ctx.lineTo(W, cy + i * scale * 0.5); ctx.stroke();
+            }
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+
+            // Unit circle
+            ctx.strokeStyle = normalized ? 'rgba(168,85,247,0.5)' : 'rgba(168,85,247,0.15)';
+            ctx.lineWidth = normalized ? 2.5 : 1.5;
+            ctx.setLineDash(normalized ? [] : [6, 4]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, scale, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (normalized) {
+                ctx.fillStyle = 'rgba(168,85,247,0.05)';
+                ctx.beginPath();
+                ctx.arc(cx, cy, scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Label
+            ctx.fillStyle = '#a855f7';
+            ctx.font = '12px Inter';
+            ctx.fillText('Unit Circle (||v|| = 1)', cx + scale + 8, cy - 8);
+
+            // Draw vectors
+            vectors.forEach(v => {
+                const target = normalized ? norm(v) : v;
+                const drawX = cx + target.x * scale * animProgress;
+                const drawY = cy - target.y * scale * animProgress;
+
+                // Arrow
+                const angle = Math.atan2(-(target.y), target.x);
+                const headLen = 12;
+
+                ctx.strokeStyle = v.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(drawX, drawY);
+                ctx.stroke();
+
+                // Arrow head
+                ctx.fillStyle = v.color;
+                ctx.beginPath();
+                ctx.moveTo(drawX, drawY);
+                ctx.lineTo(drawX - headLen * Math.cos(angle - 0.4), drawY + headLen * Math.sin(angle - 0.4));
+                ctx.lineTo(drawX - headLen * Math.cos(angle + 0.4), drawY + headLen * Math.sin(angle + 0.4));
+                ctx.closePath();
+                ctx.fill();
+
+                // Glow dot
+                const glow = ctx.createRadialGradient(drawX, drawY, 0, drawX, drawY, 15);
+                glow.addColorStop(0, v.color + '60');
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(drawX, drawY, 15, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = v.color;
+                ctx.beginPath();
+                ctx.arc(drawX, drawY, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = v.color;
+                ctx.font = 'bold 12px Inter';
+                ctx.fillText(v.label, drawX + 10, drawY - 10);
+
+                // Magnitude label
+                const m = mag(target);
+                ctx.fillStyle = '#888';
+                ctx.font = '11px Inter';
+                ctx.fillText(`||v||=${m.toFixed(2)}`, drawX + 10, drawY + 6);
+            });
+
+            // Status
+            ctx.fillStyle = normalized ? '#a855f7' : '#888';
+            ctx.font = 'bold 14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(normalized ? '✅ NORMALIZED (all on unit circle)' : '❌ RAW VECTORS (different lengths)', W / 2, 30);
+            ctx.textAlign = 'left';
+        }
+
+        function updateDetails() {
+            const container = document.getElementById('vectorDetails');
+            container.innerHTML = vectors.map(v => {
+                const m = mag(v);
+                const n = norm(v);
+                const display = normalized ? n : v;
+                return `<div class="vector-info" style="border-left: 3px solid ${v.color};">
+                    <div class="label" style="color:${v.color};">${v.label}</div>
+                    <div class="values">Original: (${v.x.toFixed(2)}, ${v.y.toFixed(2)})</div>
+                    <div class="magnitude" style="color:#ffd43b;">||v|| = ${m.toFixed(3)}</div>
+                    ${normalized ? `<div class="values" style="color:#a855f7;">Normalized: (${n.x.toFixed(3)}, ${n.y.toFixed(3)})</div>
+                    <div class="magnitude" style="color:#51cf66;">||v̂|| = ${mag(n).toFixed(3)}</div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function animate() {
+            if (animProgress < 1) {
+                animProgress += 0.03;
+                draw();
+                requestAnimationFrame(animate);
+            } else {
+                animProgress = 1;
+                draw();
+            }
+        }
+
+        function toggleNormalized() {
+            normalized = !normalized;
+            animProgress = 0;
+            animate();
+            updateDetails();
+        }
+
+        function resetVectors() {
+            vectors[0] = { x: 0.5 + Math.random() * 2, y: 0.3 + Math.random() * 1.5, color: '#ff6b6b', label: 'D1' };
+            vectors[1] = { x: 0.3 + Math.random() * 1.5, y: 0.5 + Math.random() * 2, color: '#00d4ff', label: 'D2' };
+            vectors[2] = { x: 1 + Math.random() * 2, y: 1 + Math.random() * 2, color: '#ffd43b', label: 'D3' };
+            vectors[3] = { x: 0.3 + Math.random() * 1, y: 0.2 + Math.random() * 0.8, color: '#51cf66', label: 'Query' };
+            animProgress = 0;
+            animate();
+            updateDetails();
+        }
+
+        function showBiasProblem() {
+            // Short relevant doc vs long irrelevant doc
+            const query = { x: 1, y: 0.8 };
+            const shortDoc = { x: 0.9, y: 0.85 }; // very similar direction
+            const longDoc = { x: 3, y: 0.5 };  // different direction but huge magnitude
+
+            const rawDotShort = dot(shortDoc, query);
+            const rawDotLong = dot(longDoc, query);
+            const cosShort = cosSim(shortDoc, query);
+            const cosLong = cosSim(longDoc, query);
+
+            document.getElementById('rawScore1').textContent =
+                `Short: ${rawDotShort.toFixed(2)} < Long: ${rawDotLong.toFixed(2)}`;
+            document.getElementById('normScore1').textContent =
+                `Short: ${cosShort.toFixed(3)} > Long: ${cosLong.toFixed(3)}`;
+
+            vectors = [
+                { ...shortDoc, color: '#51cf66', label: 'Short (relevant)' },
+                { ...longDoc, color: '#ff6b6b', label: 'Long (irrelevant)' },
+                { ...query, color: '#ffd43b', label: 'Query' },
+            ];
+            normalized = false;
+            animProgress = 0;
+            animate();
+            updateDetails();
+        }
+
+        animProgress = 0;
+        animate();
+        updateDetails();
+    </script>
+</body>
+</html>

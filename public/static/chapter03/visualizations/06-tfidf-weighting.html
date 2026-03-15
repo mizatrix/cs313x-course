@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · TF-IDF Weighting — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c7cff, #00d4ff, #51cf66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            background: rgba(255, 212, 59, 0.15);
+            color: #ffd43b;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        .collection-setup {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .doc-entry {
+            margin-bottom: 12px;
+        }
+
+        .doc-entry label {
+            font-size: 0.85rem;
+            color: #aaa;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .doc-entry input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #e0e0f0;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .doc-entry input:focus {
+            border-color: rgba(124, 124, 255, 0.4);
+        }
+
+        .query-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 16px;
+        }
+
+        .query-row input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #e0e0f0;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        button {
+            background: linear-gradient(135deg, #7c7cff, #00d4ff);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(124, 124, 255, 0.3);
+        }
+
+        .heatmap-section {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            text-align: center;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #aaa;
+            background: rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        td.term-cell {
+            text-align: left;
+            color: #bbb;
+            font-weight: 500;
+        }
+
+        .step-walkthrough {
+            counter-reset: step;
+        }
+
+        .walk-step {
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 3px solid #7c7cff;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s;
+        }
+
+        .walk-step.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .walk-step .step-header {
+            font-weight: 600;
+            color: #7c7cff;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+
+        .walk-step .step-body {
+            color: #bbb;
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        .walk-step .step-body code {
+            background: rgba(124, 124, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #a0a0ff;
+        }
+
+        .scores-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .score-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        .score-card:hover {
+            background: rgba(124, 124, 255, 0.1);
+        }
+
+        .score-card .doc-name {
+            color: #aaa;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .score-card .score-val {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .score-card .rank {
+            margin-top: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+    
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 3</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Intermediate</div>
+      <h1>TF-IDF Weighting</h1>
+    </header>
+
+<div class="header">
+        <h1>⚡ TF-IDF Weighting Scheme</h1>
+        <p>The "Gold Standard" of Information Retrieval Scoring</p>
+        <div class="badge">✨ TF × IDF — Local Importance × Global Rarity</div>
+    </div>
+    <div class="container">
+        <!-- Input -->
+        <div class="card">
+            <h3 style="color:#7c7cff;">📝 Document Collection</h3>
+            <div class="collection-setup">
+                <div>
+                    <div class="doc-entry"><label>Document 1</label><input id="d1"
+                            value="information retrieval is the study of searching for information"></div>
+                    <div class="doc-entry"><label>Document 2</label><input id="d2"
+                            value="machine learning helps with information extraction tasks"></div>
+                </div>
+                <div>
+                    <div class="doc-entry"><label>Document 3</label><input id="d3"
+                            value="retrieval systems use indexing and searching techniques"></div>
+                    <div class="doc-entry"><label>Document 4</label><input id="d4"
+                            value="deep learning models process natural language data"></div>
+                </div>
+            </div>
+            <div class="query-row">
+                <input id="queryInput" value="information retrieval" placeholder="Enter query...">
+                <button onclick="compute()">⚡ Compute TF-IDF & Score</button>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="card">
+            <h3 style="color:#ffd43b;">🗂️ TF-IDF Heatmap (Term × Document Matrix)</h3>
+            <div class="heatmap-section" id="heatmapContainer"></div>
+        </div>
+
+        <!-- Walkthrough -->
+        <div class="card">
+            <h3 style="color:#51cf66;">🚶 Scoring Walkthrough — Step by Step</h3>
+            <div class="step-walkthrough" id="walkthrough"></div>
+        </div>
+
+        <!-- Final Scores -->
+        <div class="card">
+            <h3 style="color:#ff6b6b;">🏆 Final Rankings</h3>
+            <div class="scores-section" id="scoresSection"></div>
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+    <script>
+        function tokenize(text) {
+            return text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+        }
+
+        function compute() {
+            const docs = [
+                document.getElementById('d1').value,
+                document.getElementById('d2').value,
+                document.getElementById('d3').value,
+                document.getElementById('d4').value,
+            ];
+            const query = document.getElementById('queryInput').value;
+            const docTokens = docs.map(d => tokenize(d));
+            const queryTokens = tokenize(query);
+            const N = docs.length;
+
+            // Vocabulary
+            const vocabSet = new Set();
+            docTokens.forEach(dt => dt.forEach(t => vocabSet.add(t)));
+            queryTokens.forEach(t => vocabSet.add(t));
+            const vocab = [...vocabSet].sort();
+
+            // TF
+            function rawTF(tokens, term) { return tokens.filter(t => t === term).length; }
+            function logTF(tf) { return tf > 0 ? 1 + Math.log10(tf) : 0; }
+
+            // DF, IDF
+            function df(term) { return docTokens.filter(dt => dt.includes(term)).length; }
+            function idfVal(term) { const d = df(term); return d > 0 ? Math.log10(N / d) : 0; }
+
+            // TF-IDF
+            function tfidf(tokens, term) { return logTF(rawTF(tokens, term)) * idfVal(term); }
+
+            // Build heatmap
+            const container = document.getElementById('heatmapContainer');
+            let maxWeight = 0;
+            vocab.forEach(t => docTokens.forEach(dt => { const w = tfidf(dt, t); if (w > maxWeight) maxWeight = w; }));
+
+            let html = '<table><thead><tr><th>Term</th><th>df</th><th>IDF</th>';
+            for (let i = 0; i < N; i++) html += `<th>D${i + 1} TF-IDF</th>`;
+            html += '</tr></thead><tbody>';
+
+            vocab.forEach(term => {
+                const d = df(term);
+                const idv = idfVal(term);
+                html += `<tr><td class="term-cell">${term}</td><td style="color:#ffd43b;">${d}</td><td style="color:#ff9a56;">${idv.toFixed(3)}</td>`;
+                docTokens.forEach(dt => {
+                    const w = tfidf(dt, term);
+                    const intensity = maxWeight > 0 ? w / maxWeight : 0;
+                    const bg = `rgba(124,124,255,${intensity * 0.6})`;
+                    html += `<td style="background:${bg}; font-weight:${w > 0 ? 600 : 400}; color:${w > 0 ? '#ddd' : '#555'};">${w.toFixed(3)}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+            // Walkthrough
+            const walkContainer = document.getElementById('walkthrough');
+            walkContainer.innerHTML = '';
+            const steps = [];
+
+            queryTokens.forEach(qt => {
+                const d = df(qt);
+                const idv = idfVal(qt);
+                steps.push({
+                    header: `Query term: "${qt}"`,
+                    body: `df = ${d} documents contain "${qt}" → IDF = log₁₀(${N}/${d}) = <code>${idv.toFixed(3)}</code>`
+                });
+
+                docTokens.forEach((dt, i) => {
+                    const rtf = rawTF(dt, qt);
+                    const ltf = logTF(rtf);
+                    const w = ltf * idv;
+                    if (rtf > 0) {
+                        steps.push({
+                            header: `  D${i + 1} × "${qt}"`,
+                            body: `Raw TF = ${rtf} → Log TF = <code>${ltf.toFixed(3)}</code> → TF-IDF = ${ltf.toFixed(3)} × ${idv.toFixed(3)} = <code>${w.toFixed(3)}</code>`
+                        });
+                    }
+                });
+            });
+
+            // Compute scores
+            const scores = docTokens.map((dt, i) => {
+                let score = 0;
+                queryTokens.forEach(qt => {
+                    score += tfidf(dt, qt) * tfidf(queryTokens, qt);
+                });
+                return { doc: `D${i + 1}`, score };
+            });
+
+            scores.sort((a, b) => b.score - a.score);
+
+            steps.push({
+                header: '🏆 Final Ranking',
+                body: scores.map((s, i) => `#${i + 1}: ${s.doc} → Score: <code>${s.score.toFixed(4)}</code>`).join('<br>')
+            });
+
+            steps.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = 'walk-step';
+                div.innerHTML = `<div class="step-header">${s.header}</div><div class="step-body">${s.body}</div>`;
+                walkContainer.appendChild(div);
+                setTimeout(() => div.classList.add('visible'), i * 150);
+            });
+
+            // Score cards
+            const scoresSection = document.getElementById('scoresSection');
+            const colors = ['#51cf66', '#00d4ff', '#ffd43b', '#ff6b6b'];
+            scoresSection.innerHTML = scores.map((s, i) => `
+                <div class="score-card">
+                    <div class="doc-name">${s.doc}</div>
+                    <div class="score-val" style="color:${colors[i]};">${s.score.toFixed(4)}</div>
+                    <span class="rank" style="background:${colors[i]}20; color:${colors[i]};">Rank #${i + 1}</span>
+                </div>
+            `).join('');
+        }
+
+        setTimeout(compute, 300);
+    </script>
+</body>
+</html>

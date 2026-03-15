@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>10 · Evaluation Metrics — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e, #0d0d2b);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2)
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff6b6b, #ffd43b, #51cf66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px
+        }
+
+        .grid2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.05rem
+        }
+
+        canvas {
+            border-radius: 12px;
+            display: block;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2)
+        }
+
+        .big-num {
+            font-size: 2.8rem;
+            font-weight: 700;
+            text-align: center
+        }
+
+        .metric-label {
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 4px
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px
+        }
+
+        .metric-box {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            transition: all 0.3s
+        }
+
+        .metric-box:hover {
+            background: rgba(255, 255, 255, 0.05)
+        }
+
+        .metric-box .val {
+            font-size: 2rem;
+            font-weight: 700
+        }
+
+        .metric-box .lab {
+            color: #888;
+            font-size: 0.8rem;
+            margin-top: 4px
+        }
+
+        .confusion {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            max-width: 320px;
+            margin: 0 auto
+        }
+
+        .cm-cell {
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s
+        }
+
+        .cm-label {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+            padding: 8px
+        }
+
+        .slider-g {
+            margin: 16px 0
+        }
+
+        .slider-g label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 6px
+        }
+
+        .slider-g label .v {
+            font-weight: 700
+        }
+
+        input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b, #ffd43b);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.3)
+        }
+
+        .formula {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.8;
+            margin: 12px 0
+        }
+
+        .formula .hl {
+            color: #ffd43b;
+            font-weight: 600
+        }
+
+        .rank-list {
+            margin-top: 12px
+        }
+
+        .rank-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            cursor: grab;
+            transition: all 0.2s;
+            user-select: none
+        }
+
+        .rank-item:hover {
+            background: rgba(255, 255, 255, 0.05)
+        }
+
+        .rank-item.dragging {
+            opacity: 0.5;
+            background: rgba(124, 124, 255, 0.2)
+        }
+
+        .rank-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0
+        }
+
+        .rank-title {
+            flex: 1;
+            font-size: 0.88rem
+        }
+
+        .rank-rel {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600
+        }
+
+        .rel {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66
+        }
+
+        .nrel {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b
+        }
+
+        .ndcg-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 120px;
+            margin-top: 16px;
+            padding: 0 10px
+        }
+
+        .ndcg-bar {
+            flex: 1;
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: height 0.5s;
+            min-width: 30px
+        }
+
+        .ndcg-bar .bar-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #888
+        }
+
+        .ndcg-bar .bar-val {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            font-weight: 600
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff6b6b, #ffd43b);
+            color: #0a0a1a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3)
+        }
+    
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 3</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 10 · Intermediate</div>
+      <h1>Evaluation Metrics</h1>
+    </header>
+
+<div class="header">
+        <h1>📊 Evaluation Metrics</h1>
+        <p>Precision, Recall, F-Measure, MAP & NDCG</p>
+    </div>
+    <div class="container">
+
+        <!-- Precision & Recall Interactive -->
+        <div class="metrics-row">
+            <div class="metric-box">
+                <div class="val" style="color:#51cf66" id="pVal">0.00</div>
+                <div class="lab">Precision</div>
+            </div>
+            <div class="metric-box">
+                <div class="val" style="color:#00d4ff" id="rVal">0.00</div>
+                <div class="lab">Recall</div>
+            </div>
+            <div class="metric-box">
+                <div class="val" style="color:#ffd43b" id="f1Val">0.00</div>
+                <div class="lab">F₁ Score</div>
+            </div>
+            <div class="metric-box">
+                <div class="val" style="color:#a855f7" id="accVal">0.00</div>
+                <div class="lab">Accuracy</div>
+            </div>
+        </div>
+
+        <div class="grid2">
+            <!-- Confusion Matrix -->
+            <div class="card">
+                <h3 style="color:#ff6b6b">📋 Interactive Confusion Matrix</h3>
+                <div class="slider-g">
+                    <label>True Positives (TP) <span class="v" style="color:#51cf66" id="tpD">15</span></label>
+                    <input type="range" id="tpS" min="0" max="50" value="15" oninput="calc()">
+                </div>
+                <div class="slider-g">
+                    <label>False Positives (FP) <span class="v" style="color:#ff6b6b" id="fpD">5</span></label>
+                    <input type="range" id="fpS" min="0" max="50" value="5" oninput="calc()">
+                </div>
+                <div class="slider-g">
+                    <label>False Negatives (FN) <span class="v" style="color:#ff9a56" id="fnD">3</span></label>
+                    <input type="range" id="fnS" min="0" max="50" value="3" oninput="calc()">
+                </div>
+                <div class="slider-g">
+                    <label>True Negatives (TN) <span class="v" style="color:#00d4ff" id="tnD">77</span></label>
+                    <input type="range" id="tnS" min="0" max="100" value="77" oninput="calc()">
+                </div>
+                <div class="confusion" id="cm"></div>
+            </div>
+
+            <!-- Formulas -->
+            <div class="card">
+                <h3 style="color:#ffd43b">📝 Live Formulas</h3>
+                <div class="formula" id="pFormula"></div>
+                <div class="formula" id="rFormula"></div>
+                <div class="formula" id="f1Formula"></div>
+                <div
+                    style="margin-top:16px;padding:14px;border-radius:10px;background:rgba(255,212,59,0.05);border:1px solid rgba(255,212,59,0.15);font-size:0.85rem;color:#ccc;line-height:1.6">
+                    <strong style="color:#ffd43b">💡 Trade-off:</strong> Increasing Precision often decreases Recall and
+                    vice versa. The F₁ score balances both — it's only high when BOTH are high!
+                </div>
+                <!-- P-R Chart -->
+                <h3 style="color:#a855f7;margin-top:20px">📉 Precision-Recall Curve</h3>
+                <canvas id="prCanvas" width="400" height="250"></canvas>
+            </div>
+        </div>
+
+        <!-- MAP & NDCG -->
+        <div class="grid2">
+            <div class="card">
+                <h3 style="color:#51cf66">🏆 MAP — Drag to Reorder Rankings</h3>
+                <p style="color:#888;font-size:0.82rem;margin-bottom:8px">Drag documents up/down to see how ranking
+                    order affects Average Precision</p>
+                <div class="rank-list" id="rankList"></div>
+                <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+                    <div><span style="color:#888;font-size:0.85rem">Average Precision:</span> <strong
+                            style="color:#51cf66;font-size:1.4rem" id="apVal">0.00</strong></div>
+                    <button onclick="shuffleRanks()">🔀 Shuffle</button>
+                </div>
+                <div class="formula" id="apFormula"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="color:#00d4ff">📊 NDCG — Position Matters!</h3>
+                <p style="color:#888;font-size:0.82rem;margin-bottom:8px">Relevant documents ranked higher get more
+                    credit</p>
+                <div class="ndcg-bars" id="ndcgBars"></div>
+                <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+                    <div><span style="color:#888;font-size:0.8rem">DCG</span>
+                        <div style="font-size:1.3rem;font-weight:700;color:#00d4ff" id="dcgVal">0</div>
+                    </div>
+                    <div><span style="color:#888;font-size:0.8rem">IDCG</span>
+                        <div style="font-size:1.3rem;font-weight:700;color:#ffd43b" id="idcgVal">0</div>
+                    </div>
+                    <div><span style="color:#888;font-size:0.8rem">NDCG</span>
+                        <div style="font-size:1.3rem;font-weight:700;color:#51cf66" id="ndcgVal">0</div>
+                    </div>
+                </div>
+                <div class="formula">DCG = Σ <span class="hl">relᵢ / log₂(i + 1)</span><br>NDCG = DCG / IDCG
+                    &nbsp;(ideal ordering)</div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+    <script>
+        function calc() {
+            const tp = +document.getElementById('tpS').value, fp = +document.getElementById('fpS').value;
+            const fn = +document.getElementById('fnS').value, tn = +document.getElementById('tnS').value;
+            document.getElementById('tpD').textContent = tp; document.getElementById('fpD').textContent = fp;
+            document.getElementById('fnD').textContent = fn; document.getElementById('tnD').textContent = tn;
+            const P = tp + fp > 0 ? tp / (tp + fp) : 0, R = tp + fn > 0 ? tp / (tp + fn) : 0;
+            const F1 = P + R > 0 ? 2 * P * R / (P + R) : 0, Acc = (tp + fp + fn + tn) > 0 ? (tp + tn) / (tp + fp + fn + tn) : 0;
+            document.getElementById('pVal').textContent = P.toFixed(3);
+            document.getElementById('rVal').textContent = R.toFixed(3);
+            document.getElementById('f1Val').textContent = F1.toFixed(3);
+            document.getElementById('accVal').textContent = Acc.toFixed(3);
+            document.getElementById('cm').innerHTML = `
+        <div class="cm-label"></div><div class="cm-label" style="color:#51cf66">Predicted +</div>
+        <div class="cm-label" style="color:#51cf66">Actual +</div>
+        <div class="cm-cell" style="background:rgba(81,207,102,0.2);color:#51cf66">TP: ${tp}</div>
+        <div class="cm-label" style="color:#ff6b6b">Actual −</div>
+        <div class="cm-cell" style="background:rgba(255,107,107,0.2);color:#ff6b6b">FP: ${fp}</div>
+        <div class="cm-label"></div><div class="cm-label" style="color:#ff6b6b">Predicted −</div>
+        <div class="cm-label" style="color:#51cf66">Actual +</div>
+        <div class="cm-cell" style="background:rgba(255,154,86,0.2);color:#ff9a56">FN: ${fn}</div>
+        <div class="cm-label" style="color:#ff6b6b">Actual −</div>
+        <div class="cm-cell" style="background:rgba(0,212,255,0.2);color:#00d4ff">TN: ${tn}</div>`;
+            document.getElementById('pFormula').innerHTML = `<span class="hl">Precision</span> = TP/(TP+FP) = ${tp}/(${tp}+${fp}) = <span class="hl">${P.toFixed(3)}</span>`;
+            document.getElementById('rFormula').innerHTML = `<span class="hl">Recall</span> = TP/(TP+FN) = ${tp}/(${tp}+${fn}) = <span class="hl">${R.toFixed(3)}</span>`;
+            document.getElementById('f1Formula').innerHTML = `<span class="hl">F₁</span> = 2·P·R/(P+R) = 2·${P.toFixed(2)}·${R.toFixed(2)}/(${P.toFixed(2)}+${R.toFixed(2)}) = <span class="hl">${F1.toFixed(3)}</span>`;
+            drawPR(P, R);
+        }
+
+        function drawPR(cP, cR) {
+            const c = document.getElementById('prCanvas'), ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
+            const ox = 50, oy = c.height - 40, w = c.width - 70, h = c.height - 60;
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) { ctx.beginPath(); ctx.moveTo(ox + (w / 10) * i, 10); ctx.lineTo(ox + (w / 10) * i, oy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(ox, oy - (h / 10) * i); ctx.lineTo(ox + w, oy - (h / 10) * i); ctx.stroke() }
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, 10); ctx.stroke();
+            ctx.fillStyle = '#888'; ctx.font = '11px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('Recall', ox + w / 2, oy + 30);
+            ctx.save(); ctx.translate(15, oy - h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('Precision', 0, 0); ctx.restore();
+            // Curve
+            ctx.strokeStyle = 'rgba(168,85,247,0.5)'; ctx.lineWidth = 2; ctx.beginPath();
+            for (let r = 0; r <= 1; r += 0.01) { const p = Math.max(0, 1 - 0.6 * r - 0.3 * r * r + 0.15 * Math.sin(r * 6)); ctx.lineTo(ox + r * w, oy - p * h) }
+            ctx.stroke();
+            // Current point
+            const px = ox + cR * w, py = oy - cP * h;
+            ctx.fillStyle = '#ffd43b'; ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffd43b'; ctx.font = 'bold 11px Inter'; ctx.fillText(`(R=${cR.toFixed(2)}, P=${cP.toFixed(2)})`, px + 10, py - 10);
+        }
+
+        // MAP section
+        let rankItems = [
+            { title: 'IR Textbook Chapter 1', rel: true },
+            { title: 'Web Search Ads Guide', rel: false },
+            { title: 'Information Retrieval Methods', rel: true },
+            { title: 'Database Design Basics', rel: false },
+            { title: 'Search Engine Architecture', rel: true },
+            { title: 'Cloud Computing Overview', rel: false },
+            { title: 'Text Mining with TF-IDF', rel: true },
+            { title: 'Networking Fundamentals', rel: false },
+        ];
+        let dragIdx = null;
+
+        function renderRanks() {
+            const list = document.getElementById('rankList');
+            list.innerHTML = '';
+            rankItems.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'rank-item';
+                div.draggable = true;
+                div.innerHTML = `<div class="rank-num" style="background:${item.rel ? 'rgba(81,207,102,0.2)' : 'rgba(255,107,107,0.1)'};color:${item.rel ? '#51cf66' : '#ff6b6b'}">${i + 1}</div><div class="rank-title">${item.title}</div><span class="rank-rel ${item.rel ? 'rel' : 'nrel'}">${item.rel ? 'Relevant' : 'Not Rel.'}</span>`;
+                div.addEventListener('dragstart', () => { dragIdx = i; div.classList.add('dragging') });
+                div.addEventListener('dragend', () => { div.classList.remove('dragging') });
+                div.addEventListener('dragover', e => { e.preventDefault() });
+                div.addEventListener('drop', e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== i) { const moved = rankItems.splice(dragIdx, 1)[0]; rankItems.splice(i, 0, moved); renderRanks() } dragIdx = null });
+                list.appendChild(div);
+            });
+            calcAP();
+            calcNDCG();
+        }
+
+        function calcAP() {
+            let relCount = 0, sumP = 0, totalRel = rankItems.filter(x => x.rel).length;
+            const precisions = [];
+            rankItems.forEach((item, i) => {
+                if (item.rel) { relCount++; const p = relCount / (i + 1); sumP += p; precisions.push(`P@${i + 1}=${p.toFixed(2)}`) }
+            });
+            const ap = totalRel > 0 ? sumP / totalRel : 0;
+            document.getElementById('apVal').textContent = ap.toFixed(3);
+            document.getElementById('apFormula').innerHTML = `AP = (${precisions.join(' + ')}) / ${totalRel} = <span class="hl">${ap.toFixed(3)}</span>`;
+        }
+
+        function calcNDCG() {
+            const rels = rankItems.map(x => x.rel ? 1 : 0);
+            let dcg = 0;
+            rels.forEach((r, i) => { dcg += r / Math.log2(i + 2) });
+            const sorted = [...rels].sort((a, b) => b - a);
+            let idcg = 0;
+            sorted.forEach((r, i) => { idcg += r / Math.log2(i + 2) });
+            const ndcg = idcg > 0 ? dcg / idcg : 0;
+            document.getElementById('dcgVal').textContent = dcg.toFixed(3);
+            document.getElementById('idcgVal').textContent = idcg.toFixed(3);
+            document.getElementById('ndcgVal').textContent = ndcg.toFixed(3);
+            // Bars
+            const bars = document.getElementById('ndcgBars');
+            bars.innerHTML = '';
+            const maxGain = 1 / Math.log2(2);
+            rels.forEach((r, i) => {
+                const gain = r / Math.log2(i + 2);
+                const pct = (gain / maxGain) * 100;
+                const color = r ? '#00d4ff' : 'rgba(255,255,255,0.05)';
+                bars.innerHTML += `<div class="ndcg-bar" style="height:${Math.max(2, pct)}%;background:${color}"><div class="bar-val" style="color:${r ? '#00d4ff' : '#555'}">${gain.toFixed(2)}</div><div class="bar-label">#${i + 1}</div></div>`;
+            });
+        }
+
+        function shuffleRanks() {
+            for (let i = rankItems.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[rankItems[i], rankItems[j]] = [rankItems[j], rankItems[i]] }
+            renderRanks();
+        }
+
+        calc(); renderRanks();
+    </script>
+</body>
+</html>

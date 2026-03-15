@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · Inverse Document Frequency (IDF) — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2b 100%);
+            padding: 40px;
+            text-align: center;
+            border-bottom: 2px solid rgba(100, 100, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffd43b, #ff9a56);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .top-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        canvas {
+            border-radius: 12px;
+            display: block;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .slider-group {}
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .slider-label .val {
+            color: #ffd43b;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd43b, #ff9a56);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 212, 59, 0.4);
+        }
+
+        .big-formula {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .big-formula .main {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: #ddd;
+        }
+
+        .big-formula .result {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ffd43b;
+            margin-top: 8px;
+        }
+
+        .doc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+            gap: 6px;
+            margin-top: 16px;
+        }
+
+        .doc-cell {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            cursor: default;
+        }
+
+        .doc-cell.has-term {
+            background: rgba(255, 212, 59, 0.25);
+            color: #ffd43b;
+            border: 1px solid rgba(255, 212, 59, 0.3);
+        }
+
+        .doc-cell.no-term {
+            background: rgba(255, 255, 255, 0.03);
+            color: #555;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .terms-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .term-chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .term-chip:hover {
+            transform: translateY(-2px);
+        }
+
+        .term-chip.active {
+            border-color: #ffd43b;
+        }
+
+        .idf-meter {
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .meter-bar {
+            flex: 1;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.6s, background 0.6s;
+        }
+
+        .meter-label {
+            font-size: 0.85rem;
+            color: #aaa;
+            width: 120px;
+            text-align: right;
+        }
+
+        .meter-value {
+            font-size: 0.95rem;
+            font-weight: 700;
+            width: 60px;
+        }
+    
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand"><div class="brand-icon">IR</div><div class="brand-text">CS313x · <span>Chapter 3</span></div></a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 05 · Intermediate</div>
+      <h1>Inverse Document Frequency (IDF)</h1>
+    </header>
+
+<div class="header">
+        <h1>🌍 Inverse Document Frequency (IDF)</h1>
+        <p>How rare is a term across the entire collection?</p>
+    </div>
+    <div class="container">
+        <div class="top-grid">
+            <div class="card">
+                <h3 style="color:#ffd43b;">📉 IDF Curve — log₁₀(N / df)</h3>
+                <canvas id="idfChart" width="600" height="400"></canvas>
+            </div>
+            <div class="controls">
+                <div class="card">
+                    <h3 style="color:#00d4ff;">🎛️ Parameters</h3>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Total Documents (N)</span>
+                            <span class="val" id="nDisplay">100</span>
+                        </div>
+                        <input type="range" id="nSlider" min="10" max="10000" value="100" oninput="update()">
+                    </div>
+                    <div class="slider-group" style="margin-top:16px;">
+                        <div class="slider-label">
+                            <span>Document Frequency (df)</span>
+                            <span class="val" id="dfDisplay">5</span>
+                        </div>
+                        <input type="range" id="dfSlider" min="1" max="100" value="5" oninput="update()">
+                    </div>
+
+                    <div class="big-formula" style="margin-top:16px;">
+                        <div class="main" id="formulaText">idf = log₁₀(100 / 5)</div>
+                        <div class="result" id="resultText">= 1.301</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="color:#51cf66;">📊 Rarity Meter</h3>
+                    <div class="idf-meter">
+                        <span class="meter-label">Common</span>
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="rarityFill"></div>
+                        </div>
+                        <span class="meter-label" style="text-align:left;">Rare</span>
+                    </div>
+                    <div style="text-align:center; margin-top:10px;">
+                        <span class="meter-value" id="rarityText" style="color:#ffd43b;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Common vs Rare terms -->
+        <div class="card">
+            <h3 style="color:#ff9a56;">🔤 Common vs. Rare Terms — Click to Compare</h3>
+            <div class="terms-row" id="termsRow"></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                <div>
+                    <h4 style="color:#aaa; font-size: 0.9rem; margin-bottom: 10px;">📄 Collection View (100 documents)
+                    </h4>
+                    <div class="doc-grid" id="docGrid"></div>
+                </div>
+                <div>
+                    <div class="big-formula">
+                        <div style="color:#aaa; font-size:0.85rem; margin-bottom:8px;" id="termInfo"></div>
+                        <div class="main" id="termFormula"></div>
+                        <div class="result" id="termResult"></div>
+                    </div>
+                    <div
+                        style="margin-top:16px; padding:16px; background:rgba(255,212,59,0.05); border-radius:12px; border:1px solid rgba(255,212,59,0.15); font-size:0.88rem; color:#ccc; line-height:1.6;">
+                        <strong style="color:#ffd43b;">💡 Interpretation:</strong>
+                        <span id="interpretation"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+    <script>
+        const N_DISPLAY = 100;
+        const terms = [
+            { word: 'the', df: 98, color: '#ff6b6b' },
+            { word: 'is', df: 90, color: '#ff9a56' },
+            { word: 'data', df: 45, color: '#ffd43b' },
+            { word: 'retrieval', df: 15, color: '#51cf66' },
+            { word: 'vector', df: 8, color: '#00d4ff' },
+            { word: 'quantum', df: 2, color: '#7c7cff' },
+        ];
+        let selectedTerm = 0;
+
+        function idf(N, df) { return df > 0 ? Math.log10(N / df) : 0; }
+
+        function update() {
+            const N = parseInt(document.getElementById('nSlider').value);
+            let df = parseInt(document.getElementById('dfSlider').value);
+            if (df > N) { df = N; document.getElementById('dfSlider').value = N; }
+            document.getElementById('dfSlider').max = N;
+
+            document.getElementById('nDisplay').textContent = N;
+            document.getElementById('dfDisplay').textContent = df;
+
+            const val = idf(N, df);
+            document.getElementById('formulaText').innerHTML = `idf = log₁₀(${N} / ${df})`;
+            document.getElementById('resultText').textContent = `= ${val.toFixed(3)}`;
+
+            // Rarity
+            const maxIdf = Math.log10(N);
+            const pct = maxIdf > 0 ? (val / maxIdf) * 100 : 0;
+            const fill = document.getElementById('rarityFill');
+            fill.style.width = `${pct}%`;
+            const hue = pct * 1.2;
+            fill.style.background = `hsl(${hue}, 70%, 50%)`;
+            document.getElementById('rarityText').textContent =
+                pct > 80 ? '🔥 Very Rare!' : pct > 50 ? '⚡ Moderately Rare' : pct > 20 ? '📄 Fairly Common' : '🌊 Very Common';
+
+            drawChart(N, df);
+        }
+
+        function drawChart(N, currentDf) {
+            const c = document.getElementById('idfChart');
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
+
+            const ox = 60, oy = c.height - 50, w = c.width - 90, h = c.height - 80;
+            const maxIdf = Math.log10(N);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath(); ctx.moveTo(ox + (w / 10) * i, 20); ctx.lineTo(ox + (w / 10) * i, oy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(ox, oy - (h / 10) * i); ctx.lineTo(ox + w, oy - (h / 10) * i); ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, 20); ctx.stroke();
+
+            ctx.fillStyle = '#888'; ctx.font = '12px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('Document Frequency (df)', ox + w / 2, oy + 38);
+            ctx.save(); ctx.translate(15, oy - h / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('IDF Weight', 0, 0); ctx.restore();
+
+            // Curve
+            ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let df = 1; df <= N; df++) {
+                const x = ox + ((df - 1) / (N - 1)) * w;
+                const y = oy - (idf(N, df) / maxIdf) * h;
+                df === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Fill under curve
+            ctx.lineTo(ox + w, oy);
+            ctx.lineTo(ox, oy);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255,212,59,0.05)';
+            ctx.fill();
+
+            // Current point
+            const cx = ox + ((currentDf - 1) / (N - 1)) * w;
+            const cy = oy - (idf(N, currentDf) / maxIdf) * h;
+            ctx.fillStyle = '#ffd43b';
+            ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.font = 'bold 12px Inter';
+            ctx.fillText(`df=${currentDf}, idf=${idf(N, currentDf).toFixed(2)}`, cx + 12, cy - 12);
+
+            // df labels
+            ctx.fillStyle = '#666'; ctx.font = '11px Inter';
+            [1, Math.round(N / 4), Math.round(N / 2), Math.round(3 * N / 4), N].forEach(d => {
+                const x = ox + ((d - 1) / (N - 1)) * w;
+                ctx.fillText(d, x, oy + 18);
+            });
+        }
+
+        function buildTerms() {
+            const row = document.getElementById('termsRow');
+            row.innerHTML = '';
+            terms.forEach((t, i) => {
+                const chip = document.createElement('span');
+                chip.className = `term-chip ${i === selectedTerm ? 'active' : ''}`;
+                chip.style.background = `${t.color}20`;
+                chip.style.color = t.color;
+                chip.textContent = `"${t.word}" (df=${t.df})`;
+                chip.onclick = () => { selectedTerm = i; buildTerms(); showTermDetail(); };
+                row.appendChild(chip);
+            });
+        }
+
+        function showTermDetail() {
+            const t = terms[selectedTerm];
+            // Doc grid
+            const grid = document.getElementById('docGrid');
+            grid.innerHTML = '';
+            const docs = new Set();
+            while (docs.size < t.df) docs.add(Math.floor(Math.random() * N_DISPLAY));
+
+            for (let i = 0; i < N_DISPLAY; i++) {
+                const cell = document.createElement('div');
+                cell.className = `doc-cell ${docs.has(i) ? 'has-term' : 'no-term'}`;
+                cell.textContent = docs.has(i) ? '✓' : '';
+                cell.style.animationDelay = `${i * 10}ms`;
+                grid.appendChild(cell);
+            }
+
+            const val = idf(N_DISPLAY, t.df);
+            document.getElementById('termInfo').textContent = `Term: "${t.word}" appears in ${t.df} of ${N_DISPLAY} documents`;
+            document.getElementById('termFormula').innerHTML = `idf = log₁₀(${N_DISPLAY} / ${t.df})`;
+            document.getElementById('termResult').textContent = `= ${val.toFixed(3)}`;
+            document.getElementById('termResult').style.color = t.color;
+
+            let interp = '';
+            if (t.df > 80) interp = `"${t.word}" appears almost everywhere — it's useless for distinguishing documents. IDF gives it near-zero weight.`;
+            else if (t.df > 40) interp = `"${t.word}" is moderately common. It has some discriminating power but won't help much.`;
+            else if (t.df > 10) interp = `"${t.word}" appears in a meaningful subset of documents — it's a decent discriminator with moderate IDF.`;
+            else interp = `"${t.word}" is rare and highly informative! IDF rewards it with a high weight for being discriminating.`;
+            document.getElementById('interpretation').textContent = interp;
+        }
+
+        buildTerms();
+        showTermDetail();
+        update();
+    </script>
+</body>
+</html>

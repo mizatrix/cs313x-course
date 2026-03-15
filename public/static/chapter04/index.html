@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<canvas id="particles-canvas"></canvas>
+
 <!-- ═══ NAVIGATION ═══ -->
 <nav id="navbar">
   <div class="nav-brand">CS313x · Chapter 4</div>
@@ -682,6 +684,18 @@ graph TB
   <p>CS313x — Information Retrieval · Week 4: Index Construction &amp; Compression</p>
 </footer>
 
+<script>
+  // Inline particles init (same as Ch 6 shared.js)
+  (function(){
+    const c=document.getElementById('particles-canvas');
+    if(!c)return;
+    const x=c.getContext('2d');
+    let w,h,p=[];
+    function r(){w=c.width=window.innerWidth;h=c.height=window.innerHeight;p=[];for(let i=0;i<60;i++)p.push({x:Math.random()*w,y:Math.random()*h,s:Math.random()*2+0.5,dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3,o:Math.random()*0.4+0.1});}
+    function d(){x.clearRect(0,0,w,h);p.forEach(pt=>{pt.x+=pt.dx;pt.y+=pt.dy;if(pt.x<0||pt.x>w)pt.dx*=-1;if(pt.y<0||pt.y>h)pt.dy*=-1;x.beginPath();x.arc(pt.x,pt.y,pt.s,0,Math.PI*2);x.fillStyle='rgba(108,92,231,'+pt.o+')';x.fill();});requestAnimationFrame(d);}
+    r();d();window.addEventListener('resize',r);
+  })();
+</script>
 <script src="script.js"></script>
 <script src="simulators.js"></script>
 </body>

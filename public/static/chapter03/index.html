@@ -1,503 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS313x — Chapter 03: Vector Space Model & TF-IDF</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #07071a;
-            color: #e0e0f0;
-            min-height: 100vh;
-        }
-
-        /* Background effects */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background:
-                radial-gradient(ellipse at 20% 50%, rgba(124, 124, 255, 0.08) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 80%, rgba(81, 207, 102, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .hero {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            padding: 60px 20px 40px;
-        }
-
-        .hero .badge {
-            display: inline-block;
-            background: rgba(124, 124, 255, 0.15);
-            color: #a0a0ff;
-            padding: 6px 18px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-        }
-
-        .hero h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            line-height: 1.15;
-            background: linear-gradient(135deg, #7c7cff 0%, #00d4ff 40%, #51cf66 70%, #ffd43b 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .hero p {
-            color: #888;
-            font-size: 1.1rem;
-            margin-top: 12px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .hero .stats {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-top: 24px;
-        }
-
-        .stat {
-            text-align: center;
-        }
-
-        .stat .num {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #7c7cff;
-        }
-
-        .stat .lab {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 2px;
-        }
-
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 20px 20px 60px;
-        }
-
-        .concepts-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .concept-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 16px;
-            padding: 28px;
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .concept-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .concept-card:hover {
-            border-color: rgba(255, 255, 255, 0.12);
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .concept-card:hover::before {
-            opacity: 1;
-        }
-
-        .card-num {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .card-content {
-            flex: 1;
-        }
-
-        .card-content h3 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .card-content p {
-            color: #888;
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-
-        .card-content .features {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-
-        .feature {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.72rem;
-            font-weight: 500;
-            background: rgba(255, 255, 255, 0.04);
-            color: #aaa;
-        }
-
-        .arrow-icon {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.2rem;
-            color: #555;
-            transition: all 0.3s;
-        }
-
-        .concept-card:hover .arrow-icon {
-            color: #aaa;
-            transform: translateY(-50%) translateX(4px);
-        }
-
-        /* Color themes per card */
-        .c1::before {
-            background: linear-gradient(90deg, #7c7cff, #00d4ff);
-        }
-
-        .c1 .card-num {
-            background: rgba(124, 124, 255, 0.15);
-            color: #7c7cff;
-        }
-
-        .c2::before {
-            background: linear-gradient(90deg, #ff9a56, #ff6b6b);
-        }
-
-        .c2 .card-num {
-            background: rgba(255, 154, 86, 0.15);
-            color: #ff9a56;
-        }
-
-        .c3::before {
-            background: linear-gradient(90deg, #00d4ff, #7c7cff);
-        }
-
-        .c3 .card-num {
-            background: rgba(0, 212, 255, 0.15);
-            color: #00d4ff;
-        }
-
-        .c4::before {
-            background: linear-gradient(90deg, #51cf66, #00d4ff);
-        }
-
-        .c4 .card-num {
-            background: rgba(81, 207, 102, 0.15);
-            color: #51cf66;
-        }
-
-        .c5::before {
-            background: linear-gradient(90deg, #ffd43b, #ff9a56);
-        }
-
-        .c5 .card-num {
-            background: rgba(255, 212, 59, 0.15);
-            color: #ffd43b;
-        }
-
-        .c6::before {
-            background: linear-gradient(90deg, #7c7cff, #00d4ff, #51cf66);
-        }
-
-        .c6 .card-num {
-            background: rgba(124, 124, 255, 0.15);
-            color: #a0a0ff;
-        }
-
-        .c7::before {
-            background: linear-gradient(90deg, #a855f7, #7c7cff);
-        }
-
-        .c7 .card-num {
-            background: rgba(168, 85, 247, 0.15);
-            color: #a855f7;
-        }
-
-        .c8::before {
-            background: linear-gradient(90deg, #00d4ff, #51cf66);
-        }
-
-        .c8 .card-num {
-            background: rgba(0, 212, 255, 0.15);
-            color: #00d4ff;
-        }
-
-        .c9::before {
-            background: linear-gradient(90deg, #ff6b6b, #ffd43b);
-        }
-
-        .c9 .card-num {
-            background: rgba(255, 107, 107, 0.15);
-            color: #ff6b6b;
-        }
-
-        .c10::before {
-            background: linear-gradient(90deg, #ff6b6b, #ffd43b, #51cf66);
-        }
-
-        .c10 .card-num {
-            background: rgba(255, 212, 59, 0.15);
-            color: #ffd43b;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 40px;
-            color: #555;
-            font-size: 0.8rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        @media (max-width: 768px) {
-            .concepts-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive visualizations for Vector Space Model & TF-IDF Scoring — CS313x Chapter 3">
+  <title>Chapter 3 · Vector Space Model & TF-IDF — Interactive Visualizations</title>
+  <link rel="stylesheet" href="styles/shared.css">
+  <link rel="stylesheet" href="styles/student.css">
+  <style>
+    .welcome-bar {
+      display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.05));
+      border: 1px solid rgba(108,92,231,0.15); border-radius: var(--radius-lg);
+      margin-bottom: 2rem;
+    }
+    .welcome-bar .welcome-icon { font-size: 2rem; }
+    .welcome-bar .welcome-text { flex: 1; }
+    .welcome-bar .welcome-text h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .welcome-bar .welcome-text p { font-size: 0.82rem; color: var(--text-secondary); }
+    .welcome-bar .progress-info { text-align: right; }
+    .welcome-bar .progress-info .progress-count { font-size: 1.5rem; font-weight: 800; color: var(--accent-violet); }
+    .welcome-bar .progress-info .progress-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .overall-progress { height: 6px; border-radius: 3px; background: rgba(108,92,231,0.1); margin-top: 0.75rem; overflow: hidden; }
+    .overall-progress .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.6s ease; }
+    .learning-path { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .path-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .path-tag {
+      padding: 0.3rem 0.7rem; border-radius: 100px; font-size: 0.72rem; font-weight: 600;
+      border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer;
+      transition: var(--transition);
+    }
+    .path-tag:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+    .path-tag.active { background: var(--accent-violet); border-color: var(--accent-violet); color: #fff; }
+    .difficulty-badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 100px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em; margin-top: 0.5rem;
+    }
+    .diff-beginner { background: rgba(0,184,148,0.12); color: var(--success); }
+    .diff-intermediate { background: rgba(253,203,110,0.12); color: var(--warning); }
+    .diff-advanced { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+    .hub-card .card-check {
+      position: absolute; top: 12px; right: 12px;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; transition: var(--transition);
+    }
+    .hub-card { position: relative; }
+    .hub-card .card-check.done { background: rgba(0,184,148,0.2); color: var(--success); }
+    .hub-card .card-check.pending { background: rgba(108,92,231,0.08); color: var(--text-muted); }
+    .card-aim {
+      font-size: 0.78rem; color: var(--accent-teal); line-height: 1.5;
+      padding: 0.5rem 0.65rem; margin: 0.5rem 0 0.25rem;
+      background: rgba(0,206,201,0.06); border-left: 2px solid var(--accent-teal);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .card-use {
+      font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+      padding: 0.4rem 0.65rem; margin: 0.25rem 0 0.25rem;
+      background: rgba(108,92,231,0.05); border-left: 2px solid var(--accent-violet);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .card-use strong { color: var(--accent-violet); }
+    .recommended-tag {
+      position: absolute; top: -8px; left: 16px;
+      padding: 0.2rem 0.6rem; border-radius: 100px;
+      background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+      color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em;
+      box-shadow: 0 2px 10px rgba(108,92,231,0.3);
+    }
+  </style>
 </head>
-
 <body>
-    <div class="hero">
-        <div class="badge">CS313x — Information Retrieval</div>
-        <h1>Chapter 03: Vector Space Model & TF-IDF Scoring</h1>
-        <p>Interactive visual explorations of every concept — click any card to launch</p>
-        <div class="stats">
-            <div class="stat">
-                <div class="num">10</div>
-                <div class="lab">Concepts</div>
-            </div>
-            <div class="stat">
-                <div class="num">10</div>
-                <div class="lab">Interactive Demos</div>
-            </div>
-            <div class="stat">
-                <div class="num">45+</div>
-                <div class="lab">Quiz Questions</div>
-            </div>
-            <div class="stat">
-                <div class="num">58</div>
-                <div class="lab">PDF Pages Covered</div>
-            </div>
-        </div>
+  <canvas id="particles-canvas"></canvas>
+
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 3</span></div>
+    </a>
+    <button class="btn btn-sm" onclick="resetProgress()" style="font-size: 0.72rem;">Reset Progress</button>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Week 3 — Interactive Lab</div>
+      <h1>Vector Space Model & TF-IDF Scoring</h1>
+      <p>Interactive visual explorations of every concept in the Vector Space Model — from basic vectors to full TF-IDF scoring pipelines.</p>
+    </header>
+
+    <div class="welcome-bar" id="welcome-bar">
+      <div class="welcome-icon">🎓</div>
+      <div class="welcome-text">
+        <h3>Your Learning Journey</h3>
+        <p>Work through each visualization in order, or jump to any topic. Each includes a guided tutorial and practice quiz!</p>
+        <div class="overall-progress"><div class="fill" id="progress-fill" style="width: 0%"></div></div>
+      </div>
+      <div class="progress-info">
+        <div class="progress-count" id="progress-count">0/11</div>
+        <div class="progress-label">Explored</div>
+      </div>
     </div>
 
-    <div class="container">
-        <div class="concepts-grid">
-            <a class="concept-card c1" href="01_Vector_Space_Model_Introduction/index.html">
-                <div class="card-num">01</div>
-                <div class="card-content">
-                    <h3>📐 Vector Space Model — Intro</h3>
-                    <p>From Boolean Retrieval to Ranked Retrieval. See why ranking matters and how documents live in
-                        vector space.</p>
-                    <div class="features"><span class="feature">Boolean vs VSM</span><span class="feature">2D
-                            Plot</span><span class="feature">Animated</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c2" href="02_Document_and_Query_Vectors/index.html">
-                <div class="card-num">02</div>
-                <div class="card-content">
-                    <h3>📊 Document & Query Vectors</h3>
-                    <p>See how text becomes numbers. Build term-document matrices interactively from your own input.</p>
-                    <div class="features"><span class="feature">Custom Input</span><span class="feature">Matrix
-                            Heatmap</span><span class="feature">Step-by-Step</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c3" href="03_Cosine_Similarity/index.html">
-                <div class="card-num">03</div>
-                <div class="card-content">
-                    <h3>📐 Cosine Similarity</h3>
-                    <p>Drag vectors to see the angle and cosine score change in real-time. Compare with Euclidean
-                        distance.</p>
-                    <div class="features"><span class="feature">Draggable Vectors</span><span class="feature">Live
-                            Formula</span><span class="feature">Presets</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c4" href="04_Term_Frequency_TF_Weighting/index.html">
-                <div class="card-num">04</div>
-                <div class="card-content">
-                    <h3>📈 Term Frequency (TF)</h3>
-                    <p>Slide raw frequency to see log-weighted TF. Understand diminishing returns visually.</p>
-                    <div class="features"><span class="feature">Interactive Slider</span><span class="feature">Raw vs
-                            Log</span><span class="feature">Marginal Gain</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c5" href="05_Inverse_Document_Frequency_IDF/index.html">
-                <div class="card-num">05</div>
-                <div class="card-content">
-                    <h3>🌍 Inverse Document Frequency (IDF)</h3>
-                    <p>Explore term rarity. Click terms to see how IDF rewards rare, discriminating words.</p>
-                    <div class="features"><span class="feature">IDF Curve</span><span class="feature">Rarity
-                            Meter</span><span class="feature">Doc Grid</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c6" href="06_TF-IDF_Weighting_Scheme/index.html">
-                <div class="card-num">06</div>
-                <div class="card-content">
-                    <h3>⚡ TF-IDF Weighting</h3>
-                    <p>The Gold Standard! Full scoring pipeline with heatmap, walkthrough, and final rankings.</p>
-                    <div class="features"><span class="feature">Full Pipeline</span><span
-                            class="feature">Heatmap</span><span class="feature">Rankings</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c7" href="07_Vector_Normalization_L2_Norm/index.html">
-                <div class="card-num">07</div>
-                <div class="card-content">
-                    <h3>⭕ Vector Normalization (L2)</h3>
-                    <p>Watch vectors project onto the unit circle. Understand why length bias is a problem.</p>
-                    <div class="features"><span class="feature">Unit Circle</span><span
-                            class="feature">Animation</span><span class="feature">Bias Demo</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c8" href="08_Vector_Space_Retrieval_Algorithm/index.html">
-                <div class="card-num">08</div>
-                <div class="card-content">
-                    <h3>⚙️ CosineScore Algorithm</h3>
-                    <p>Step through the retrieval algorithm with code highlighting and live accumulator scoreboard.</p>
-                    <div class="features"><span class="feature">Step-by-Step</span><span class="feature">Code
-                            Highlight</span><span class="feature">Auto Play</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c9" href="09_Polysemy_and_Synonymy/index.html">
-                <div class="card-num">09</div>
-                <div class="card-content">
-                    <h3>🔤 Polysemy & Synonymy</h3>
-                    <p>See how one word → many meanings and many words → one meaning break exact matching.</p>
-                    <div class="features"><span class="feature">Word Diagrams</span><span class="feature">Search
-                            Demo</span><span class="feature">Examples</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-
-            <a class="concept-card c10" href="10_Evaluation_Metrics_Precision_Recall_MAP_NDCG/index.html">
-                <div class="card-num">10</div>
-                <div class="card-content">
-                    <h3>📊 Evaluation Metrics</h3>
-                    <p>Interactive confusion matrix, P-R curve, drag-and-drop MAP calculator, and NDCG visualizer.</p>
-                    <div class="features"><span class="feature">P/R/F1</span><span class="feature">MAP</span><span
-                            class="feature">NDCG</span><span class="feature">Drag & Drop</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-            <a class="concept-card c1" href="practice-quiz/index.html"
-                style="grid-column: 1 / -1; background: rgba(108, 99, 255, 0.06); border-color: rgba(108, 99, 255, 0.2);">
-                <div class="card-num" style="background: rgba(108, 99, 255, 0.2); color: #a0a0ff; font-size: 1.2rem;">🧠
-                </div>
-                <div class="card-content">
-                    <h3>Practice Quiz — Test Your Knowledge!</h3>
-                    <p>45+ questions covering every concept with step-by-step algorithm traces and detailed
-                        explanations.</p>
-                    <div class="features"><span class="feature">Cosine Sim</span><span
-                            class="feature">TF-IDF</span><span class="feature">P/R/F1</span><span
-                            class="feature">MAP</span><span class="feature">NDCG</span><span
-                            class="feature">Step-by-Step</span></div>
-                </div>
-                <span class="arrow-icon">→</span>
-            </a>
-        </div>
+    <div class="learning-path">
+      <span class="path-label">Filter:</span>
+      <span class="path-tag active" onclick="filterCards('all')">All Topics</span>
+      <span class="path-tag" onclick="filterCards('fundamentals')">Fundamentals</span>
+      <span class="path-tag" onclick="filterCards('weighting')">Weighting Schemes</span>
+      <span class="path-tag" onclick="filterCards('advanced')">Advanced</span>
+      <span class="path-tag" onclick="filterCards('practice')">Practice</span>
     </div>
 
-    <div class="footer">
-        CS313x — Information Retrieval &bull; Week 3: Vector Space Model & TF-IDF Scoring &bull; 10 Interactive
-        Visualizations
-    </div>
+    <div class="hub-grid" id="hub-grid"></div>
+  </div>
 
-    <script>
-        // Stagger animation on load
-        document.querySelectorAll('.concept-card').forEach((card, i) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                card.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 100 + i * 80);
-        });
-    </script>
+  <script src="js/shared.js"></script>
+  <script src="js/student.js"></script>
+  <script>
+    const TOTAL = 11;
+    const cards = [
+      { id: 1, title: 'Vector Space Model — Intro', aim: 'Understand the transition from Boolean Retrieval to Ranked Retrieval and why ranking matters.', use: 'When you need to understand why modern search engines return ranked results instead of just matching documents.', desc: 'From Boolean Retrieval to Ranked Retrieval. See why ranking matters and how documents live in vector space.', href: 'visualizations/01-vector-space-intro.html', diff: 'beginner', cat: 'fundamentals', hasQuiz: true },
+      { id: 2, title: 'Document & Query Vectors', aim: 'Learn how text is transformed into numerical vectors by building term-document matrices interactively.', use: 'When you need to represent documents mathematically for similarity computation.', desc: 'See how text becomes numbers. Build term-document matrices interactively from your own input.', href: 'visualizations/02-document-query-vectors.html', diff: 'beginner', cat: 'fundamentals', hasQuiz: true },
+      { id: 3, title: 'Cosine Similarity', aim: 'Understand how cosine similarity measures the angle between vectors, independent of document length.', use: 'When you need a length-independent measure of document similarity.', desc: 'Drag vectors to see the angle and cosine score change in real-time.', href: 'visualizations/03-cosine-similarity.html', diff: 'beginner', cat: 'fundamentals', hasQuiz: true },
+      { id: 4, title: 'Term Frequency (TF)', aim: 'Learn how TF weights are computed and why log-weighted TF provides diminishing returns for repeated terms.', use: 'When computing term importance within a single document.', desc: 'Slide raw frequency to see log-weighted TF and understand diminishing returns.', href: 'visualizations/04-term-frequency.html', diff: 'beginner', cat: 'weighting', hasQuiz: true },
+      { id: 5, title: 'Inverse Document Frequency (IDF)', aim: 'Understand how IDF rewards rare, discriminating words and penalizes common ones across a collection.', use: 'When you need to measure how informative a term is across the entire document collection.', desc: 'Explore term rarity. Click terms to see how IDF rewards rare words.', href: 'visualizations/05-inverse-document-frequency.html', diff: 'intermediate', cat: 'weighting', hasQuiz: true },
+      { id: 6, title: 'TF-IDF Weighting', aim: 'Master the full TF-IDF scoring pipeline combining term frequency and inverse document frequency.', use: 'When implementing the gold-standard term weighting scheme used by virtually every search engine.', desc: 'The Gold Standard! Full scoring pipeline with heatmap, walkthrough, and final rankings.', href: 'visualizations/06-tfidf-weighting.html', diff: 'intermediate', cat: 'weighting', hasQuiz: true },
+      { id: 7, title: 'Vector Normalization (L2)', aim: 'Understand why length bias is a problem and how L2 normalization projects vectors onto the unit circle.', use: 'When comparing documents of very different lengths so that longer documents are not unfairly favored.', desc: 'Watch vectors project onto the unit circle. Understand why length bias is a problem.', href: 'visualizations/07-vector-normalization.html', diff: 'intermediate', cat: 'advanced', hasQuiz: true },
+      { id: 8, title: 'CosineScore Algorithm', aim: 'Step through the vector space retrieval algorithm with code highlighting and live accumulator scoreboard.', use: 'When you need to understand how a search engine computes and ranks similarity scores.', desc: 'Step through the retrieval algorithm with code highlighting and live accumulator scoreboard.', href: 'visualizations/08-cosinescore-algorithm.html', diff: 'advanced', cat: 'advanced', hasQuiz: true },
+      { id: 9, title: 'Polysemy & Synonymy', aim: 'Learn how one word with multiple meanings and many words with the same meaning break exact matching.', use: 'When understanding the fundamental limitations of keyword-based retrieval.', desc: 'See how one word → many meanings and many words → one meaning break exact matching.', href: 'visualizations/09-polysemy-synonymy.html', diff: 'beginner', cat: 'advanced', hasQuiz: true },
+      { id: 10, title: 'Evaluation Metrics', aim: 'Understand Precision, Recall, F1, MAP, and NDCG through interactive confusion matrices and drag-and-drop.', use: 'When evaluating the quality of a retrieval system across multiple queries.', desc: 'Interactive confusion matrix, P-R curve, drag-and-drop MAP calculator, and NDCG visualizer.', href: 'visualizations/10-evaluation-metrics.html', diff: 'intermediate', cat: 'advanced', hasQuiz: true },
+      { id: 11, title: 'Practice Quiz', aim: 'Test your understanding with 45+ questions covering every concept with step-by-step explanations.', use: 'When you want to verify your mastery of Chapter 3 concepts with detailed algorithm traces.', desc: '45+ questions covering Cosine Similarity, TF-IDF, P/R/F1, MAP, NDCG.', href: 'visualizations/11-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true },
+    ];
+
+    let activeFilter = 'all';
+
+    function filterCards(cat) {
+      activeFilter = cat;
+      document.querySelectorAll('.path-tag').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderCards();
+    }
+
+    function renderCards() {
+      const visited = getVisited();
+      const grid = document.getElementById('hub-grid');
+      const filtered = activeFilter === 'all' ? cards : cards.filter(c => c.cat === activeFilter);
+
+      grid.innerHTML = filtered.map((c, idx) => {
+        const done = visited.includes(c.id);
+        const isNext = !done && (idx === 0 || visited.includes(filtered[Math.max(0, idx - 1)].id));
+        return `
+          <a href="${c.href}" class="glass-card hub-card ${done ? 'visited' : ''}" id="card-${c.id}">
+            ${isNext && !done ? '<div class="recommended-tag">START HERE</div>' : ''}
+            <div class="card-check ${done ? 'done' : 'pending'}">${done ? '✓' : ''}</div>
+            <div class="card-number">${String(c.id).padStart(2, '0')}</div>
+            <h3>${c.title}</h3>
+            <div class="card-aim">🎯 ${c.aim}</div>
+            <div class="card-use">🔧 <strong>When to use:</strong> ${c.use}</div>
+            <p>${c.desc}</p>
+            <div class="difficulty-badge diff-${c.diff}">${c.diff}</div>
+            <div class="card-arrow">${done ? 'Review →' : 'Explore →'}</div>
+          </a>
+        `;
+      }).join('');
+
+      document.getElementById('progress-count').textContent = `${visited.length}/${TOTAL}`;
+      document.getElementById('progress-fill').style.width = `${(visited.length / TOTAL) * 100}%`;
+    }
+
+    function resetProgress() {
+      localStorage.removeItem('ch3_visited');
+      renderCards();
+    }
+
+    renderCards();
+  </script>
 </body>
-
 </html>

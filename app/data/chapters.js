@@ -29,7 +29,7 @@ export const chapters = {
         aim: 'Understand how skip pointers speed up posting list intersection by allowing the algorithm to skip over non-matching blocks.',
         use: 'When you need to efficiently intersect two sorted posting lists in an inverted index.',
         desc: 'Watch how skip pointers speed up posting list intersection. Step through the algorithm and see when skips succeed vs fail.',
-        href: '/static/chapter02/skip-pointers/index.html',
+        href: '/static/chapter02/visualizations/01-skip-pointers.html',
         diff: 'beginner', cat: 'core', hasQuiz: true, time: 8
       },
       {
@@ -37,7 +37,7 @@ export const chapters = {
         aim: 'Learn how the Levenshtein distance DP matrix measures the minimum number of single-character edits between two strings.',
         use: 'When implementing spell correction, fuzzy matching, or approximate string search.',
         desc: 'Visualize the Levenshtein distance DP matrix filling cell-by-cell with color-coded operations and backtracing.',
-        href: '/static/chapter02/edit-distance/index.html',
+        href: '/static/chapter02/visualizations/02-edit-distance.html',
         diff: 'intermediate', cat: 'core', hasQuiz: true, time: 12
       },
       {
@@ -45,7 +45,7 @@ export const chapters = {
         aim: 'Follow the 5-stage phonetic encoding pipeline and understand how Soundex groups similar-sounding names together.',
         use: 'When matching names that sound alike but are spelled differently (e.g., "Smith" and "Smyth").',
         desc: 'Follow the 5-stage phonetic encoding pipeline. Compare two names to see if they sound alike.',
-        href: '/static/chapter02/soundex/index.html',
+        href: '/static/chapter02/visualizations/03-soundex.html',
         diff: 'beginner', cat: 'core', hasQuiz: true, time: 7
       },
       {
@@ -53,7 +53,7 @@ export const chapters = {
         aim: 'Compare rule-based stemming against dictionary-based lemmatization and understand their tradeoffs.',
         use: 'When deciding how to normalize words in your IR pipeline to improve recall.',
         desc: 'Compare Porter Stemmer rules against dictionary-based lemmatization side by side.',
-        href: '/static/chapter02/stemming-vs-lemmatization/index.html',
+        href: '/static/chapter02/visualizations/04-stemming-vs-lemmatization.html',
         diff: 'intermediate', cat: 'core', hasQuiz: true, time: 10
       },
       {
@@ -61,7 +61,7 @@ export const chapters = {
         aim: 'Learn how to handle real-world tokenization edge cases: punctuation, hyphens, numbers, apostrophes, and clitics.',
         use: 'When building or evaluating a tokenizer that must handle messy, real-world text input.',
         desc: 'Tokenize real-world text interactively — handle punctuation, hyphens, numbers, and more.',
-        href: '/static/chapter02/tokenization/index.html',
+        href: '/static/chapter02/visualizations/05-tokenization.html',
         diff: 'intermediate', cat: 'deep-dive', hasQuiz: true, time: 10
       },
       {
@@ -69,7 +69,7 @@ export const chapters = {
         aim: 'Explore all 5 steps of the Porter algorithm with vowel/consonant pattern visualization (CVC) and measure m(word).',
         use: 'When you need a detailed understanding of the most widely-used stemming algorithm.',
         desc: 'Explore all 5 steps of the Porter algorithm with vowel/consonant pattern visualization.',
-        href: '/static/chapter02/porter-stemmer/index.html',
+        href: '/static/chapter02/visualizations/06-porter-stemmer.html',
         diff: 'advanced', cat: 'deep-dive', hasQuiz: true, time: 15
       },
       {
@@ -77,7 +77,7 @@ export const chapters = {
         aim: 'Test your understanding with auto-generated questions on edit distance, Soundex, stemming, and tokenization.',
         use: 'When you want to verify your mastery of Chapter 2 concepts with instant feedback.',
         desc: 'Auto-generated questions with instant feedback and scoring.',
-        href: '/static/chapter02/practice-quiz/index.html',
+        href: '/static/chapter02/visualizations/07-practice-quiz.html',
         diff: 'beginner', cat: 'practice', hasQuiz: true, time: 10
       },
     ]
@@ -101,7 +101,7 @@ export const chapters = {
         aim: 'Understand the transition from Boolean Retrieval to Ranked Retrieval and why ranking matters.',
         use: 'When you need to understand why modern search engines return ranked results instead of just matching documents.',
         desc: 'From Boolean Retrieval to Ranked Retrieval. See why ranking matters and how documents live in vector space.',
-        href: '/static/chapter03/01_Vector_Space_Model_Introduction/index.html',
+        href: '/static/chapter03/visualizations/01-vector-space-intro.html',
         diff: 'beginner', cat: 'fundamentals', hasQuiz: true, time: 8
       },
       {
@@ -109,7 +109,7 @@ export const chapters = {
         aim: 'Learn how text is transformed into numerical vectors by building term-document matrices interactively.',
         use: 'When you need to represent documents mathematically for similarity computation.',
         desc: 'See how text becomes numbers. Build term-document matrices interactively from your own input.',
-        href: '/static/chapter03/02_Document_and_Query_Vectors/index.html',
+        href: '/static/chapter03/visualizations/02-document-query-vectors.html',
         diff: 'beginner', cat: 'fundamentals', hasQuiz: true, time: 10
       },
       {
@@ -117,7 +117,7 @@ export const chapters = {
         aim: 'Understand how cosine similarity measures the angle between vectors, independent of document length.',
         use: 'When you need a length-independent measure of document similarity.',
         desc: 'Drag vectors to see the angle and cosine score change in real-time.',
-        href: '/static/chapter03/03_Cosine_Similarity/index.html',
+        href: '/static/chapter03/visualizations/03-cosine-similarity.html',
         diff: 'beginner', cat: 'fundamentals', hasQuiz: true, time: 8
       },
       {
@@ -125,7 +125,7 @@ export const chapters = {
         aim: 'Learn how TF weights are computed and why log-weighted TF provides diminishing returns for repeated terms.',
         use: 'When computing term importance within a single document.',
         desc: 'Slide raw frequency to see log-weighted TF and understand diminishing returns.',
-        href: '/static/chapter03/04_Term_Frequency_TF_Weighting/index.html',
+        href: '/static/chapter03/visualizations/04-term-frequency.html',
         diff: 'beginner', cat: 'weighting', hasQuiz: true, time: 7
       },
       {
@@ -133,7 +133,7 @@ export const chapters = {
         aim: 'Understand how IDF rewards rare, discriminating words and penalizes common ones across a collection.',
         use: 'When you need to measure how informative a term is across the entire document collection.',
         desc: 'Explore term rarity. Click terms to see how IDF rewards rare words.',
-        href: '/static/chapter03/05_Inverse_Document_Frequency_IDF/index.html',
+        href: '/static/chapter03/visualizations/05-inverse-document-frequency.html',
         diff: 'intermediate', cat: 'weighting', hasQuiz: true, time: 8
       },
       {
@@ -141,7 +141,7 @@ export const chapters = {
         aim: 'Master the full TF-IDF scoring pipeline combining term frequency and inverse document frequency.',
         use: 'When implementing the gold-standard term weighting scheme used by virtually every search engine.',
         desc: 'The Gold Standard! Full scoring pipeline with heatmap, walkthrough, and final rankings.',
-        href: '/static/chapter03/06_TF-IDF_Weighting_Scheme/index.html',
+        href: '/static/chapter03/visualizations/06-tfidf-weighting.html',
         diff: 'intermediate', cat: 'weighting', hasQuiz: true, time: 15
       },
       {
@@ -149,7 +149,7 @@ export const chapters = {
         aim: 'Understand why length bias is a problem and how L2 normalization projects vectors onto the unit circle.',
         use: 'When comparing documents of very different lengths so that longer documents are not unfairly favored.',
         desc: 'Watch vectors project onto the unit circle. Understand why length bias is a problem.',
-        href: '/static/chapter03/07_Vector_Normalization_L2_Norm/index.html',
+        href: '/static/chapter03/visualizations/07-vector-normalization.html',
         diff: 'intermediate', cat: 'advanced', hasQuiz: true, time: 10
       },
       {
@@ -157,7 +157,7 @@ export const chapters = {
         aim: 'Step through the vector space retrieval algorithm with code highlighting and live accumulator scoreboard.',
         use: 'When you need to understand how a search engine computes and ranks similarity scores.',
         desc: 'Step through the retrieval algorithm with code highlighting and live accumulator scoreboard.',
-        href: '/static/chapter03/08_Vector_Space_Retrieval_Algorithm/index.html',
+        href: '/static/chapter03/visualizations/08-cosinescore-algorithm.html',
         diff: 'advanced', cat: 'advanced', hasQuiz: true, time: 15
       },
       {
@@ -165,7 +165,7 @@ export const chapters = {
         aim: 'Learn how one word with multiple meanings and many words with the same meaning break exact matching.',
         use: 'When understanding the fundamental limitations of keyword-based retrieval.',
         desc: 'See how one word → many meanings and many words → one meaning break exact matching.',
-        href: '/static/chapter03/09_Polysemy_and_Synonymy/index.html',
+        href: '/static/chapter03/visualizations/09-polysemy-synonymy.html',
         diff: 'beginner', cat: 'advanced', hasQuiz: true, time: 5
       },
       {
@@ -173,7 +173,7 @@ export const chapters = {
         aim: 'Understand Precision, Recall, F1, MAP, and NDCG through interactive confusion matrices and drag-and-drop.',
         use: 'When evaluating the quality of a retrieval system across multiple queries.',
         desc: 'Interactive confusion matrix, P-R curve, drag-and-drop MAP calculator, and NDCG visualizer.',
-        href: '/static/chapter03/10_Evaluation_Metrics_Precision_Recall_MAP_NDCG/index.html',
+        href: '/static/chapter03/visualizations/10-evaluation-metrics.html',
         diff: 'intermediate', cat: 'advanced', hasQuiz: true, time: 20
       },
       {
@@ -181,7 +181,7 @@ export const chapters = {
         aim: 'Test your understanding with 45+ questions covering every concept with step-by-step explanations.',
         use: 'When you want to verify your mastery of Chapter 3 concepts with detailed algorithm traces.',
         desc: '45+ questions covering Cosine Similarity, TF-IDF, P/R/F1, MAP, NDCG.',
-        href: '/static/chapter03/practice-quiz/index.html',
+        href: '/static/chapter03/visualizations/11-practice-quiz.html',
         diff: 'beginner', cat: 'practice', hasQuiz: true, time: 15
       },
     ]
