@@ -100,6 +100,7 @@ export default function ChapterHub({ chapterId, chapter }) {
               <p>{viz.desc}</p>
               <div className="difficulty-badge" data-diff={viz.diff}>
                 <span className={`difficulty-badge diff-${viz.diff}`}>{viz.diff}</span>
+                {viz.time && <span className="time-badge">⏱ ~{viz.time}min</span>}
               </div>
               <div className="card-arrow">{done ? 'Review →' : 'Explore →'}</div>
             </Link>

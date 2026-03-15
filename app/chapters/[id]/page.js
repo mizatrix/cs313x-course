@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import ParticleCanvas from '../../components/ParticleCanvas';
 import Navbar from '../../components/Navbar';
+import SearchBar from '../../components/SearchBar';
 import ChapterHub from '../../components/ChapterHub';
 import { chapters } from '../../data/chapters';
 
@@ -30,6 +31,7 @@ export default async function ChapterPage({ params }) {
         brandLabel={`Chapter ${chapter.week}`}
         backHref="/"
         backLabel="Home"
+        rightContent={<SearchBar />}
       />
 
       <div className="page-container">

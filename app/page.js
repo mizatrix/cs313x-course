@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import ParticleCanvas from './components/ParticleCanvas';
 import Navbar from './components/Navbar';
+import SearchBar from './components/SearchBar';
+import AnnouncementBar from './components/AnnouncementBar';
+import CourseProgress from './components/CourseProgress';
 import { chapters, chapterOrder } from './data/chapters';
 
 export default function HomePage() {
   return (
     <>
       <ParticleCanvas />
-      <Navbar brandLabel="Course Hub" />
+      <AnnouncementBar />
+      <Navbar
+        brandLabel="Course Hub"
+        rightContent={<SearchBar />}
+      />
 
       <div className="page-container">
         <header className="page-header">
@@ -18,7 +25,7 @@ export default function HomePage() {
           </p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <div className="stat-num">4</div>
+              <div className="stat-num">6</div>
               <div className="stat-label">Chapters</div>
             </div>
             <div className="hero-stat">
@@ -32,13 +39,21 @@ export default function HomePage() {
           </div>
         </header>
 
-        <div className="hub-grid">
+        {/* Course Progress Dashboard + Last Visited */}
+        <CourseProgress />
+
+        {/* Chapter Cards */}
+        <div className="hub-grid" style={{ marginTop: '2rem' }}>
           {chapterOrder.map((id, idx) => {
             const ch = chapters[id];
+            const totalTime = ch.visualizations.reduce((sum, v) => sum + (v.time || 5), 0);
+            const href = ch.isPdfOnly ? ch.pdf : `/chapters/${id}`;
+            const target = ch.isPdfOnly ? '_blank' : undefined;
             return (
               <Link
                 key={id}
-                href={`/chapters/${id}`}
+                href={href}
+                target={target}
                 className="glass-card hub-card chapter-card animate-in"
                 style={{ animationDelay: `${idx * 0.1}s` }}
               >
@@ -49,14 +64,20 @@ export default function HomePage() {
                 <h3>{ch.title}</h3>
                 <p>{ch.description}</p>
                 <div className="chapter-stats">
-                  <div className="stat">
-                    <strong>{ch.visualizations.length}</strong> visualizations
-                  </div>
-                  <div className="stat">
-                    <strong>{ch.categories.length - 1}</strong> topics
-                  </div>
+                  {ch.isPdfOnly ? (
+                    <div className="stat">📄 <strong>PDF</strong> Lecture Slides</div>
+                  ) : (
+                    <>
+                      <div className="stat">
+                        <strong>{ch.visualizations.length}</strong> visualizations
+                      </div>
+                      <div className="stat">
+                        <strong>~{totalTime}</strong> min
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="card-arrow">Explore Chapter →</div>
+                <div className="card-arrow">{ch.isPdfOnly ? 'Download PDF →' : 'Explore Chapter →'}</div>
               </Link>
             );
           })}

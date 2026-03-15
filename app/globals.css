@@ -473,6 +473,142 @@ a { color: inherit; text-decoration: none; }
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* ── Announcement Bar ──────────────────────────── */
+.announcement-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center; gap: 1rem;
+  padding: 0.6rem 2rem;
+  background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+  color: #fff; font-size: 0.8rem; font-weight: 500;
+}
+.announcement-bar ~ .navbar { top: 36px; }
+.announcement-bar ~ .navbar ~ .page-container { padding-top: 8.5rem; }
+.announcement-text { flex: 1; text-align: center; }
+.announcement-close {
+  background: none; border: none; color: rgba(255,255,255,0.8); cursor: pointer;
+  font-size: 1rem; padding: 0 0.5rem; transition: var(--transition);
+}
+.announcement-close:hover { color: #fff; }
+
+/* ── Search Trigger ────────────────────────────── */
+.search-trigger {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--bg-card); border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-main);
+}
+.search-trigger:hover { border-color: var(--accent-violet); }
+.search-icon { font-size: 0.8rem; }
+.search-placeholder { font-size: 0.78rem; color: var(--text-muted); }
+.search-kbd {
+  display: inline-block; padding: 0.1rem 0.35rem;
+  background: rgba(108,92,231,0.1); border: 1px solid var(--border-glass);
+  border-radius: 4px; font-size: 0.65rem; color: var(--text-muted);
+  font-family: var(--font-main);
+}
+
+/* ── Search Overlay ────────────────────────────── */
+.search-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 300; background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px); display: flex;
+  align-items: flex-start; justify-content: center; padding-top: 15vh;
+}
+.search-modal {
+  width: 90%; max-width: 560px;
+  background: rgba(18,18,31,0.95); border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.search-input-wrap {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-glass);
+}
+.search-input-icon { font-size: 1.1rem; }
+.search-input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text-primary); font-size: 1rem; font-family: var(--font-main);
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-esc {
+  padding: 0.15rem 0.4rem; background: rgba(108,92,231,0.1);
+  border: 1px solid var(--border-glass); border-radius: 4px;
+  font-size: 0.65rem; color: var(--text-muted); cursor: pointer;
+  font-family: var(--font-main);
+}
+.search-results { max-height: 400px; overflow-y: auto; }
+.search-result-item {
+  display: block; padding: 0.85rem 1.25rem; text-decoration: none;
+  border-bottom: 1px solid rgba(108,92,231,0.06); transition: var(--transition);
+  color: var(--text-primary);
+}
+.search-result-item:hover { background: rgba(108,92,231,0.08); }
+.search-result-chapter {
+  font-size: 0.65rem; font-weight: 600; color: var(--accent-teal);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;
+}
+.search-result-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.15rem; }
+.search-result-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; }
+.search-no-results {
+  padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;
+}
+
+/* ── Course Progress Dashboard ─────────────────── */
+.course-progress-section {
+  display: grid; grid-template-columns: 1fr; gap: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.course-progress-card { padding: 1.5rem; }
+.progress-header {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.progress-header h3 { font-size: 1rem; font-weight: 700; }
+.progress-subtitle { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem; }
+.progress-pct {
+  font-size: 2rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.chapter-progress-bars { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.25rem; }
+.chapter-progress-item { }
+.chapter-progress-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.3rem;
+}
+.chapter-progress-count { font-weight: 700; color: var(--text-muted); }
+.chapter-progress-count.complete { color: var(--success); }
+
+/* ── Last Visited Card ─────────────────────────── */
+.last-visited-card {
+  display: block; text-decoration: none; color: var(--text-primary);
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,206,201,0.05));
+  border: 1px solid rgba(108,92,231,0.2);
+}
+.last-visited-label {
+  font-size: 0.72rem; font-weight: 600; color: var(--accent-teal);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;
+}
+.last-visited-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.2rem; }
+.last-visited-chapter { font-size: 0.78rem; color: var(--text-secondary); }
+
+/* ── Viz Navigation Controls ───────────────────── */
+.viz-nav-controls {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.viz-counter {
+  font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+  padding: 0.3rem 0.5rem;
+}
+
+/* ── Estimated Time Badge ──────────────────────── */
+.time-badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.68rem; color: var(--text-muted); margin-top: 0.3rem;
+}
+
 /* ── Responsive ────────────────────────────────── */
 @media (max-width: 768px) {
   .navbar { padding: 0.75rem 1rem; }
@@ -482,4 +618,9 @@ a { color: inherit; text-decoration: none; }
   .welcome-bar .progress-info { text-align: center; }
   .hero-stats { gap: 1.5rem; }
   .hero-stats .hero-stat .stat-num { font-size: 1.5rem; }
+  .search-trigger .search-placeholder { display: none; }
+  .search-trigger .search-kbd { display: none; }
+  .viz-nav-controls { gap: 0.25rem; }
+  .announcement-bar { font-size: 0.72rem; padding: 0.5rem 1rem; }
+  .course-progress-section { grid-template-columns: 1fr; }
 }
