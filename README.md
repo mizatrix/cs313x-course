@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CS313x — Interactive Information Retrieval Course
 
-## Getting Started
+An interactive course website for **CS313x Information Retrieval**, featuring hands-on visualizations, step-by-step tutorials, and practice quizzes designed for deep understanding.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000?logo=vercel)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+## ✨ Features
+
+- **37 Interactive Visualizations** — Learn by doing with real-time parameter manipulation
+- **4 Comprehensive Chapters** covering core IR topics
+- **Progress Tracking** — Track your learning journey with localStorage-based progress
+- **Category Filtering** — Filter visualizations by topic area
+- **Practice Quizzes** — 100+ questions with instant feedback
+- **PDF Lecture Slides** — Downloadable for each chapter
+- **Responsive Design** — Works on desktop, tablet, and mobile
+- **Glassmorphism UI** — Modern dark theme with particle background animation
+
+## 📚 Chapters
+
+| Chapter | Topic | Visualizations |
+|---------|-------|:-:| 
+| Week 2 | Text Processing & Tokenization | 7 |
+| Week 3 | Vector Space Model & TF-IDF Scoring | 11 |
+| Week 4 | Index Construction & Compression | 7 |
+| Week 6 | Evaluation in Information Retrieval | 12 |
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm
+
+### Installation
+
+```bash
+git clone https://github.com/YOUR_USERNAME/cs313x-course.git
+cd cs313x-course
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## 🌐 Deployment
 
-To learn more about Next.js, take a look at the following resources:
+This project is optimized for **Vercel**:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Push to GitHub
+2. Import the repo on [vercel.com](https://vercel.com)
+3. Vercel auto-detects Next.js — click Deploy
+4. Share the URL with your students!
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Tech Stack
 
-## Deploy on Vercel
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Styling**: Vanilla CSS with custom design tokens
+- **Font**: [Inter](https://fonts.google.com/specimen/Inter)
+- **Deployment**: [Vercel](https://vercel.com)
+- **Visualizations**: Standalone HTML/JS embedded via iframe
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+cs313x-web/
+├── app/
+│   ├── globals.css              # Design system (glassmorphism tokens)
+│   ├── layout.js                # Root layout + SEO metadata
+│   ├── page.js                  # Homepage
+│   ├── data/chapters.js         # Chapter & visualization data
+│   ├── components/
+│   │   ├── ParticleCanvas.js    # Animated particle background
+│   │   ├── Navbar.js            # Sticky glassmorphism navbar
+│   │   └── ChapterHub.js       # Hub with cards, filters, progress
+│   └── chapters/[id]/
+│       ├── page.js              # Chapter hub page (SSG)
+│       ├── viz/[vizId]/page.js  # Visualization iframe page
+│       └── fullpage/page.js     # Full-page iframe
+└── public/static/               # Original chapter HTML/CSS/JS/PDF
+```
+
+## 👨‍🏫 For Instructors
+
+To add a new chapter:
+
+1. Add the chapter's HTML files to `public/static/chapterXX/`
+2. Add the chapter data to `app/data/chapters.js`
+3. The hub page and visualization routes are generated automatically
+
+---
+
+Made with ❤️ for CS313x students
