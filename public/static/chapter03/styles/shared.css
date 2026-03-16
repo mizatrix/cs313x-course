@@ -46,14 +46,108 @@
 
   --text-primary:   #1a1a2e;
   --text-secondary: #555580;
-  --text-muted:     #8888a8;
+  --text-muted:     #6a6a8a;
 
   --shadow-glow: 0 0 30px rgba(108, 92, 231, 0.1);
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .navbar {
-  background: rgba(240, 240, 248, 0.85);
+  background: rgba(240, 240, 248, 0.88);
+}
+
+[data-theme="light"] .nav-back {
+  color: #444466;
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .nav-back:hover {
+  color: var(--accent-violet);
+  background: rgba(108, 92, 231, 0.08);
+}
+
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .glass-card:hover {
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.12);
+}
+
+[data-theme="light"] .btn {
+  color: #333355;
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .btn:hover {
+  color: var(--accent-violet);
+  background: rgba(108, 92, 231, 0.08);
+}
+[data-theme="light"] .btn-primary,
+[data-theme="light"] .btn-primary:hover,
+[data-theme="light"] .btn-teal,
+[data-theme="light"] .btn-teal:hover {
+  color: #fff;
+}
+
+[data-theme="light"] .step-log {
+  background: rgba(240, 240, 248, 0.6);
+}
+[data-theme="light"] .step-log .step-entry {
+  border-bottom-color: rgba(108, 92, 231, 0.06);
+}
+
+[data-theme="light"] .canvas-container {
+  background: rgba(240, 240, 248, 0.4);
+}
+
+[data-theme="light"] .metric-box {
+  background: rgba(108, 92, 231, 0.04);
+  border-color: rgba(108, 92, 231, 0.1);
+}
+
+[data-theme="light"] .formula-box {
+  background: rgba(0, 206, 201, 0.05);
+  border-color: rgba(0, 206, 201, 0.12);
+}
+
+[data-theme="light"] .rank-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+[data-theme="light"] .rank-item.relevant {
+  background: rgba(0, 184, 148, 0.05);
+}
+[data-theme="light"] .rank-item.not-relevant {
+  background: rgba(214, 48, 49, 0.04);
+}
+
+[data-theme="light"] input[type="number"],
+[data-theme="light"] input[type="text"] {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1a1a2e;
+}
+
+[data-theme="light"] input[type="range"] {
+  background: rgba(108, 92, 231, 0.12);
+}
+
+[data-theme="light"] .toggle-group {
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .toggle-group .toggle-opt {
+  color: #555580;
+}
+[data-theme="light"] .toggle-group .toggle-opt.active {
+  color: #fff;
+}
+
+[data-theme="light"] .page-header .badge {
+  background: rgba(108, 92, 231, 0.08);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(108, 92, 231, 0.2);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(108, 92, 231, 0.35);
 }
 
 /* ── Theme Toggle Button ───────────────────────────── */
