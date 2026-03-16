@@ -47,22 +47,142 @@
 
   --text-primary:   #1a1a2e;
   --text-secondary: #555580;
-  --text-muted:     #8888a8;
+  --text-muted:     #6a6a8a;
 
   --shadow-glow: 0 0 30px rgba(108, 92, 231, 0.1);
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
+/* Navbar */
 [data-theme="light"] .navbar {
-  background: rgba(240, 240, 248, 0.85);
+  background: rgba(240, 240, 248, 0.88);
+  border-bottom-color: rgba(108, 92, 231, 0.12);
 }
 
+/* Nav back button */
+[data-theme="light"] .nav-back {
+  color: #444466;
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .nav-back:hover {
+  color: var(--accent-violet);
+  background: rgba(108, 92, 231, 0.08);
+}
+
+/* Buttons */
+[data-theme="light"] .btn {
+  color: #333355;
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .btn:hover {
+  color: var(--accent-violet);
+  background: rgba(108, 92, 231, 0.08);
+  border-color: var(--accent-violet);
+}
+[data-theme="light"] .btn-primary {
+  color: #fff;
+}
+[data-theme="light"] .btn-primary:hover {
+  color: #fff;
+}
+
+/* Search trigger */
+[data-theme="light"] .search-trigger {
+  background: rgba(255, 255, 255, 0.8);
+  color: #555580;
+}
+[data-theme="light"] .search-trigger:hover {
+  border-color: var(--accent-violet);
+}
+[data-theme="light"] .search-kbd {
+  background: rgba(108, 92, 231, 0.08);
+  border-color: rgba(108, 92, 231, 0.15);
+  color: #6a6a8a;
+}
+
+/* Search modal */
 [data-theme="light"] .search-modal {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .search-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .search-result-item:hover {
+  background: rgba(108, 92, 231, 0.06);
 }
 
+/* Welcome bar */
+[data-theme="light"] .welcome-bar {
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.06), rgba(0, 206, 201, 0.04));
+  border-color: rgba(108, 92, 231, 0.12);
+}
+
+/* Cards */
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .glass-card:hover {
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.12);
+}
+
+/* Card aim & use */
+[data-theme="light"] .card-aim {
+  background: rgba(0, 206, 201, 0.06);
+  color: #008080;
+}
+[data-theme="light"] .card-use {
+  background: rgba(108, 92, 231, 0.05);
+  color: #555580;
+}
+[data-theme="light"] .card-use strong {
+  color: var(--accent-violet);
+}
+
+/* Filter tags */
+[data-theme="light"] .path-tag {
+  color: #555580;
+  background: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .path-tag:hover {
+  color: var(--accent-violet);
+  border-color: var(--accent-violet);
+}
+[data-theme="light"] .path-tag.active {
+  color: #fff;
+}
+
+/* PDF download */
+[data-theme="light"] .pdf-download {
+  background: rgba(108, 92, 231, 0.06);
+  color: var(--accent-violet);
+}
+[data-theme="light"] .pdf-download:hover {
+  background: rgba(108, 92, 231, 0.12);
+}
+
+/* Last visited card */
+[data-theme="light"] .last-visited-card {
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), rgba(0, 206, 201, 0.04));
+}
+
+/* Difficulty badges */
+[data-theme="light"] .diff-beginner { background: rgba(0, 184, 148, 0.1); }
+[data-theme="light"] .diff-intermediate { background: rgba(253, 203, 110, 0.15); }
+[data-theme="light"] .diff-advanced { background: rgba(253, 121, 168, 0.1); }
+
+/* Announcement bar stays vibrant */
 [data-theme="light"] .announcement-bar {
   box-shadow: 0 2px 8px rgba(108, 92, 231, 0.15);
+}
+
+/* Scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(108, 92, 231, 0.2);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(108, 92, 231, 0.35);
 }
 
 /* ── Reset & Base ──────────────────────────────────── */
