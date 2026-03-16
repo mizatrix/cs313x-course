@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar({ brandLabel, backHref, backLabel, rightContent }) {
   return (
@@ -9,6 +10,7 @@ export default function Navbar({ brandLabel, backHref, backLabel, rightContent }
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         {rightContent}
+        <ThemeToggle />
         {backHref && (
           <Link href={backHref} className="nav-back">
             ← {backLabel || 'Back'}
@@ -18,3 +20,4 @@ export default function Navbar({ brandLabel, backHref, backLabel, rightContent }
     </nav>
   );
 }
+
