@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IR History Timeline — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <style>
+    .timeline { position: relative; padding: 1rem 0; }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 0; bottom: 0;
+      width: 3px;
+      background: linear-gradient(to bottom, var(--accent-violet), var(--accent-teal));
+      transform: translateX(-50%);
+      border-radius: 2px;
+    }
+    .tl-item {
+      position: relative;
+      width: 45%;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      cursor: pointer;
+    }
+    .tl-item:nth-child(odd) { margin-left: 5%; }
+    .tl-item:nth-child(even) { margin-left: 50%; }
+    .tl-item::after {
+      content: '';
+      position: absolute;
+      top: 1.5rem;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent-violet);
+      border: 3px solid var(--bg-primary);
+      z-index: 2;
+      transition: var(--transition);
+    }
+    .tl-item:nth-child(odd)::after { right: -7px; transform: translateX(50%); }
+    .tl-item:nth-child(even)::after { left: -7px; transform: translateX(-50%); }
+    .tl-item.active::after { background: var(--accent-teal); box-shadow: 0 0 12px var(--accent-teal); }
+    .tl-item.active { border-color: var(--accent-teal); }
+    .tl-decade {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-violet);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.3rem;
+    }
+    .tl-item h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+    .tl-item p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
+    .tl-details {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-glass);
+      display: none;
+    }
+    .tl-item.active .tl-details { display: block; }
+    .tl-key-point {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .tl-key-point .icon { flex-shrink: 0; }
+    @media (max-width: 768px) {
+      .timeline::before { left: 20px; }
+      .tl-item { width: calc(100% - 50px); margin-left: 50px !important; }
+      .tl-item::after { left: -30px !important; right: auto !important; transform: translateX(0) !important; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="../index.html" class="navbar-brand">
+        <div class="brand-icon">IR</div>
+        <div class="brand-text">CS313x · <span>Visualization</span></div>
+      </a>
+    </div>
+    <div class="navbar-right">
+      <button class="theme-toggle" aria-label="Toggle theme">☀️</button>
+      <a href="../index.html" class="nav-back">← Chapter 1</a>
+    </div>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02</div>
+      <h1>History of Information Retrieval</h1>
+      <p>Click on any era to explore the key innovations that shaped modern search engines.</p>
+    </header>
+
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script>
+    const ERAS = [
+      {
+        decade: "Pre-1950s", title: "Manual Indexing & Card Catalogs",
+        summary: "Librarians read books and assigned keywords manually. Physical card catalogs organized by Author, Title, and Subject.",
+        details: [
+          { icon: "📚", text: "Dewey Decimal System — hierarchical classification for physical books" },
+          { icon: "🗂️", text: "Card catalogs served as the original 'metadata database'" },
+          { icon: "⚠️", text: "No full-text search — you could only find a book by exact title or assigned category" }
+        ]
+      },
+      {
+        decade: "1950s", title: "H.P. Luhn & Auto-Indexing",
+        summary: "Pioneered the idea that word frequency encodes content. Shifted from manual cataloging to automated statistical analysis.",
+        details: [
+          { icon: "💡", text: "Key Hypothesis: Frequent words (after removing stopwords) describe document content" },
+          { icon: "🔢", text: "Term Frequency (TF) — counting word occurrences as a relevance signal" },
+          { icon: "🏢", text: "Luhn worked at IBM and published his seminal paper in 1958" }
+        ]
+      },
+      {
+        decade: "1960s", title: "Gerard Salton & SMART System",
+        summary: "The 'Father of IR' developed the SMART system at Cornell — the first Vector Space Model implementation.",
+        details: [
+          { icon: "📐", text: "Vector Space Model — represent documents and queries as vectors" },
+          { icon: "📊", text: "TF-IDF Weighting: wt,d = tf × log(N/df) — still used today" },
+          { icon: "🔄", text: "Relevance Feedback (Rocchio) — users refine results interactively" },
+          { icon: "📏", text: "Cosine Similarity for computing document-query relevance" }
+        ]
+      },
+      {
+        decade: "1970s", title: "Probabilistic Models & Commercial Systems",
+        summary: "Robertson & Sparck Jones developed the Probabilistic Ranking Principle. Commercial search systems appeared.",
+        details: [
+          { icon: "📈", text: "Probabilistic Ranking Principle: rank by P(Relevant | Document, Query)" },
+          { icon: "⚖️", text: "IDF weighting foundations by Karen Sparck Jones" },
+          { icon: "💰", text: "Dialog & LexisNexis — first commercial search (expensive, experts only)" },
+          { icon: "🔗", text: "This era laid the foundation for BM25, the standard ranking function today" }
+        ]
+      },
+      {
+        decade: "1990s", title: "The Web & Rise of Search Engines",
+        summary: "The World Wide Web exploded. AltaVista, Yahoo, and Google transformed search from expert tool to everyday utility.",
+        details: [
+          { icon: "🌐", text: "Web scale: billions of documents, spam, and SEO manipulation" },
+          { icon: "🔗", text: "Link analysis — hyperlinks as 'votes' for page quality" },
+          { icon: "🏆", text: "Google's PageRank (1998) — ranking by web graph structure" }
+        ]
+      },
+      {
+        decade: "2000s", title: "Modern Search & Learning-to-Rank",
+        summary: "Machine Learning enters IR. Systems combine hundreds of signals including user behavior.",
+        details: [
+          { icon: "🤖", text: "Learning-to-Rank: ML models (RankNet, LambdaMART) combine content, link, and user signals" },
+          { icon: "👆", text: "User Signals: clicks, dwell time, bounce rate used for ranking" },
+          { icon: "📊", text: "PageRank + BM25 + user features = modern search ranking" }
+        ]
+      },
+      {
+        decade: "2020s", title: "Neural IR & Large Language Models",
+        summary: "BERT, dense retrieval, and RAG transform search from keyword matching to semantic understanding.",
+        details: [
+          { icon: "🧠", text: "BERT & Transformers — contextual understanding ('bank' in 'river bank' vs 'bank account')" },
+          { icon: "🎯", text: "Dense Retrieval — encode queries and docs as vectors in shared space" },
+          { icon: "💬", text: "RAG (Retrieval-Augmented Generation) — LLMs read documents and synthesize answers" },
+          { icon: "🔮", text: "Solves vocabulary mismatch: matching 'car' to 'automobile' semantically" }
+        ]
+      }
+    ];
+
+    const container = document.getElementById('timeline');
+    ERAS.forEach((era, i) => {
+      const div = document.createElement('div');
+      div.className = 'glass-card tl-item animate-in';
+      div.style.animationDelay = `${i * 0.1}s`;
+      div.innerHTML = `
+        <div class="tl-decade">${era.decade}</div>
+        <h3>${era.title}</h3>
+        <p>${era.summary}</p>
+        <div class="tl-details">
+          ${era.details.map(d => `
+            <div class="tl-key-point">
+              <span class="icon">${d.icon}</span>
+              <span>${d.text}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      div.addEventListener('click', () => {
+        const wasActive = div.classList.contains('active');
+        document.querySelectorAll('.tl-item').forEach(el => el.classList.remove('active'));
+        if (!wasActive) div.classList.add('active');
+      });
+      container.appendChild(div);
+    });
+  </script>
+</body>
+</html>

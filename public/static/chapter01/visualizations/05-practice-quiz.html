@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practice Quiz — Chapter 1 — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .quiz-card { margin-bottom: 1.25rem; }
+    .q-number {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--accent-teal); margin-bottom: 0.5rem;
+    }
+    .q-text { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; line-height: 1.5; }
+    .q-options { display: flex; flex-direction: column; gap: 0.5rem; }
+    .q-opt {
+      display: flex; align-items: flex-start; gap: 0.75rem;
+      padding: 0.75rem 1rem; border-radius: var(--radius-sm);
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      cursor: pointer; transition: var(--transition); font-size: 0.88rem;
+    }
+    .q-opt:hover { border-color: var(--accent-violet); background: var(--bg-card-hover); }
+    .q-opt.selected { border-color: var(--accent-violet); background: rgba(108,92,231,0.1); }
+    .q-opt.correct { border-color: var(--success); background: rgba(0,184,148,0.1); }
+    .q-opt.incorrect { border-color: var(--error); background: rgba(214,48,49,0.08); }
+    .q-opt .opt-letter {
+      width: 26px; height: 26px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 0.78rem;
+      font-weight: 700; background: rgba(108,92,231,0.12); color: var(--accent-violet);
+      flex-shrink: 0;
+    }
+    .q-opt.correct .opt-letter { background: rgba(0,184,148,0.2); color: var(--success); }
+    .q-opt.incorrect .opt-letter { background: rgba(214,48,49,0.15); color: var(--error); }
+    .q-explanation {
+      margin-top: 0.75rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm);
+      background: rgba(0,206,201,0.06); border: 1px solid rgba(0,206,201,0.15);
+      font-size: 0.82rem; color: var(--text-secondary); display: none; line-height: 1.5;
+    }
+    .q-explanation.show { display: block; }
+    .quiz-progress {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 1.5rem; font-size: 0.85rem;
+    }
+    .quiz-progress .bar-bg {
+      flex: 1; height: 8px; border-radius: 4px;
+      background: rgba(108,92,231,0.15);
+    }
+    .quiz-progress .bar-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+      transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="../index.html" class="navbar-brand">
+        <div class="brand-icon">IR</div>
+        <div class="brand-text">CS313x · <span>Quiz</span></div>
+      </a>
+    </div>
+    <div class="navbar-right">
+      <button class="theme-toggle" aria-label="Toggle theme">☀️</button>
+      <a href="../index.html" class="nav-back">← Chapter 1</a>
+    </div>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Practice Quiz</div>
+      <h1>Chapter 1 — Foundations of IR</h1>
+      <p>Test your understanding of IR fundamentals, Boolean logic, inverted indexes, and text processing.</p>
+    </header>
+
+    <div class="quiz-progress">
+      <span id="progress-label">0 / 15</span>
+      <div class="bar-bg"><div class="bar-fill" id="progress-bar" style="width:0%"></div></div>
+      <span id="score-label" style="color:var(--accent-teal);font-weight:700">Score: 0</span>
+    </div>
+
+    <div id="quiz-container"></div>
+
+    <div class="glass-card no-hover" id="results-card" style="display:none;text-align:center;margin-top:2rem">
+      <h2 style="margin-bottom:0.5rem">Quiz Complete!</h2>
+      <div class="metric-grid" style="margin-top:1rem">
+        <div class="metric-box">
+          <div class="metric-value" id="final-score">0</div>
+          <div class="metric-label">Correct</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" id="final-total">15</div>
+          <div class="metric-label">Total</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" id="final-pct">0%</div>
+          <div class="metric-label">Percentage</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:1.5rem" onclick="resetQuiz()">🔄 Retake Quiz</button>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script>
+    const QUESTIONS = [
+      { q: "What is the formal definition of Information Retrieval?", opts: ["Finding structured data in SQL databases", "Finding unstructured material that satisfies an information need from large collections", "Implementing machine learning algorithms for data analysis", "Building web scrapers to collect online data"], ans: 1, exp: "IR deals with finding unstructured material (usually text) from large collections to satisfy an information need." },
+      { q: "How do IR systems differ from databases in their results?", opts: ["Both return exact matches", "IR returns unordered sets, databases return ranked lists", "IR returns ranked results by relevance, databases return exact matches", "Databases use probabilistic methods, IR uses deterministic methods"], ans: 2, exp: "IR returns results ranked by relevance score (best to worst) while SQL databases return unordered exact matches." },
+      { q: "Who is known as the 'Father of Information Retrieval'?", opts: ["H.P. Luhn", "Gerard Salton", "Stephen Robertson", "Tim Berners-Lee"], ans: 1, exp: "Gerard Salton developed the SMART system at Cornell and pioneered the Vector Space Model, TF-IDF, and cosine similarity." },
+      { q: "What is a 'token' in IR terminology?", opts: ["A unique entry in the vocabulary", "An instance of a sequence of characters grouped as a semantic unit", "A special search operator", "A document identifier"], ans: 1, exp: "A token is an instance of a character sequence grouped as a useful semantic unit. A 'type' is a unique entry in the vocabulary." },
+      { q: "Given 'to be or not to be', how many tokens and types are there?", opts: ["4 tokens, 4 types", "6 tokens, 6 types", "6 tokens, 4 types", "4 tokens, 6 types"], ans: 2, exp: "Tokens (instances): 6 (to, be, or, not, to, be). Types (unique): 4 (to, be, or, not)." },
+      { q: "What is the main problem with naive whitespace tokenization?", opts: ["It's too slow for large documents", "It breaks abbreviations, names with apostrophes, and contractions", "It produces too few tokens", "It only works in English"], ans: 1, exp: "Naive splitting breaks 'O'Neill' into 'O' and 'Neill', loses negation in 'isn't', and splits 'U.S.A.' into three letters." },
+      { q: "What is Zipf's Law?", opts: ["All words appear with equal frequency", "Word frequency is proportional to the square of its rank", "Word frequency is inversely proportional to its rank", "Only the top 10 words matter in a document"], ans: 2, exp: "Zipf's Law: Frequency ∝ 1/Rank. Rank × Frequency ≈ Constant. A few words appear very often, while most words are rare." },
+      { q: "What is the core purpose of an inverted index?", opts: ["Store documents in chronological order", "Map terms to the documents containing them for fast lookup", "Compress all documents into a single file", "Sort documents by their word count"], ans: 1, exp: "The inverted index maps Terms → Documents (postings lists), enabling O(1) lookup instead of O(N×L) sequential scan." },
+      { q: "In an inverted index, what do postings lists contain?", opts: ["The full text of each document", "Only the term frequencies", "Sorted document IDs where the term appears", "The position of every character"], ans: 2, exp: "Postings lists contain sorted Document IDs. Modern systems also store term frequency and positions for phrase queries." },
+      { q: "What does the Boolean AND operation do?", opts: ["Returns the union of two result sets", "Returns the intersection of two result sets", "Removes documents from the results", "Ranks documents by relevance"], ans: 1, exp: "AND = Intersection. Both terms must be present in a document for it to be included in results." },
+      { q: "What is the time complexity of the AND (intersection) merge algorithm?", opts: ["O(N²)", "O(N × M)", "O(x + y) where x and y are list lengths", "O(log N)"], ans: 2, exp: "The merge algorithm walks through both sorted lists exactly once, so complexity is O(x + y) — linear in the total list length." },
+      { q: "Why are skip pointers used in postings lists?", opts: ["To sort the list alphabetically", "To compress the data", "To skip over non-matching entries during merge operations", "To store additional metadata"], ans: 2, exp: "Skip pointers allow the merge algorithm to jump over multiple entries when the other list is far ahead, improving performance." },
+      { q: "What is the heuristic for placing skip pointers?", opts: ["Every 2 items", "Every √L items for a list of length L", "At every prime-numbered position", "Only at the beginning and end"], ans: 1, exp: "The standard heuristic: for a list of length L, place skip pointers every √L items. This balances storage overhead vs scan savings." },
+      { q: "What is required for phrase queries like 'angels fear'?", opts: ["Binary incidence matrix", "Term frequency matrix", "Positional index storing word offsets", "Skip pointers only"], ans: 2, exp: "Phrase queries need positions to verify that words appear adjacent to each other: pos(B) - pos(A) == 1." },
+      { q: "What problem did H.P. Luhn's 1958 work solve?", opts: ["Web page ranking", "Shifting from manual keyword assignment to automated statistical analysis of text", "Creating the first search engine", "Inventing the hyperlink"], ans: 1, exp: "Luhn pioneered the idea that word frequency encodes content, shifting from librarians manually assigning keywords to statistical text analysis." }
+    ];
+
+    let answered = 0;
+    let score = 0;
+
+    function renderQuiz() {
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+      QUESTIONS.forEach((q, i) => {
+        const card = document.createElement('div');
+        card.className = 'glass-card no-hover quiz-card';
+        card.id = `q-${i}`;
+        card.innerHTML = `
+          <div class="q-number">Question ${i + 1} of ${QUESTIONS.length}</div>
+          <div class="q-text">${q.q}</div>
+          <div class="q-options">
+            ${q.opts.map((opt, j) => `
+              <div class="q-opt" data-qi="${i}" data-oi="${j}" onclick="selectAnswer(${i}, ${j})">
+                <span class="opt-letter">${String.fromCharCode(65 + j)}</span>
+                <span>${opt}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="q-explanation" id="exp-${i}">💡 ${q.exp}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectAnswer(qi, oi) {
+      const card = document.getElementById(`q-${qi}`);
+      if (card.dataset.answered) return;
+      card.dataset.answered = 'true';
+
+      const opts = card.querySelectorAll('.q-opt');
+      opts.forEach(o => o.style.pointerEvents = 'none');
+
+      const correct = QUESTIONS[qi].ans;
+      opts[oi].classList.add(oi === correct ? 'correct' : 'incorrect');
+      if (oi !== correct) opts[correct].classList.add('correct');
+
+      if (oi === correct) score++;
+      answered++;
+
+      document.getElementById(`exp-${qi}`).classList.add('show');
+      updateProgress();
+
+      if (answered === QUESTIONS.length) {
+        setTimeout(() => {
+          document.getElementById('results-card').style.display = 'block';
+          document.getElementById('final-score').textContent = score;
+          document.getElementById('final-total').textContent = QUESTIONS.length;
+          document.getElementById('final-pct').textContent = Math.round((score / QUESTIONS.length) * 100) + '%';
+          document.getElementById('results-card').scrollIntoView({ behavior: 'smooth' });
+        }, 600);
+      }
+    }
+
+    function updateProgress() {
+      document.getElementById('progress-label').textContent = `${answered} / ${QUESTIONS.length}`;
+      document.getElementById('progress-bar').style.width = `${(answered / QUESTIONS.length) * 100}%`;
+      document.getElementById('score-label').textContent = `Score: ${score}`;
+    }
+
+    function resetQuiz() {
+      answered = 0;
+      score = 0;
+      document.getElementById('results-card').style.display = 'none';
+      updateProgress();
+      renderQuiz();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    renderQuiz();
+  </script>
+</body>
+</html>

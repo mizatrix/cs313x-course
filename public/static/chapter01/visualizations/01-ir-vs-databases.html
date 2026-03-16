@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IR vs Database Systems — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="../index.html" class="navbar-brand">
+        <div class="brand-icon">IR</div>
+        <div class="brand-text">CS313x · <span>Visualization</span></div>
+      </a>
+    </div>
+    <div class="navbar-right">
+      <button class="theme-toggle" aria-label="Toggle theme">☀️</button>
+      <a href="../index.html" class="nav-back">← Chapter 1</a>
+    </div>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01</div>
+      <h1>IR vs Database Systems</h1>
+      <p>See how the same query is handled differently by a structured database (SQL) versus an Information Retrieval system.</p>
+    </header>
+
+    <div class="viz-container two-col">
+      <!-- SQL Side -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">🗄️ Database (SQL)</div>
+        <div class="formula-box" style="font-size:0.82rem; text-align:left; font-family:monospace;">
+          SELECT * FROM docs<br>WHERE body LIKE '%<span id="sql-term">smartphone</span>%';
+        </div>
+        <div style="margin-top:1rem">
+          <div class="viz-section-title">Properties</div>
+          <div class="step-log" id="sql-props">
+            <div class="step-entry">📋 <span class="step-highlight">Data Format:</span> Structured (tables, columns, types)</div>
+            <div class="step-entry">🔍 <span class="step-highlight">Query Type:</span> Exact & Formal (SQL syntax)</div>
+            <div class="step-entry">📊 <span class="step-highlight">Results:</span> Unordered set of exact matches</div>
+            <div class="step-entry">✅ <span class="step-highlight">Correctness:</span> Deterministic (right or wrong)</div>
+            <div class="step-entry">⚡ <span class="step-highlight">Complexity:</span> O(N × L) — sequential scan</div>
+            <div class="step-entry">⏱️ <span class="step-highlight">Speed:</span> Slow (seconds for large datasets)</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <div class="viz-section-title">Results</div>
+          <div id="sql-results" class="ranked-list"></div>
+        </div>
+      </div>
+
+      <!-- IR Side -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">🔎 Information Retrieval</div>
+        <div class="formula-box" style="font-size:0.82rem; text-align:left;">
+          Query: "<span id="ir-term">best smartphone 2024</span>"<br>
+          → Tokenize → Match Index → Rank by TF-IDF
+        </div>
+        <div style="margin-top:1rem">
+          <div class="viz-section-title">Properties</div>
+          <div class="step-log" id="ir-props">
+            <div class="step-entry">📋 <span class="step-highlight">Data Format:</span> Unstructured (free text, any length)</div>
+            <div class="step-entry">🔍 <span class="step-highlight">Query Type:</span> Natural language, vague intent</div>
+            <div class="step-entry">📊 <span class="step-highlight">Results:</span> Ranked list (best → worst)</div>
+            <div class="step-entry">✅ <span class="step-highlight">Correctness:</span> Probabilistic (relevant or not)</div>
+            <div class="step-entry">⚡ <span class="step-highlight">Complexity:</span> O(1)* — index lookup</div>
+            <div class="step-entry">⏱️ <span class="step-highlight">Speed:</span> Fast (milliseconds)</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <div class="viz-section-title">Ranked Results</div>
+          <div id="ir-results" class="ranked-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Query -->
+    <div class="glass-card no-hover" style="margin-top:1.5rem">
+      <div class="viz-section-title">🎯 Try a Query</div>
+      <div class="control-row">
+        <input type="text" id="query-input" value="best smartphone 2024" placeholder="Type your query..." style="flex:1">
+        <button class="btn btn-primary" onclick="runQuery()">Search Both →</button>
+      </div>
+      <div class="metric-grid" style="margin-top:1rem">
+        <div class="metric-box">
+          <div class="metric-value" id="m-sql-count">0</div>
+          <div class="metric-label">SQL Matches</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" id="m-ir-count">0</div>
+          <div class="metric-label">IR Results</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" id="m-sql-time">0ms</div>
+          <div class="metric-label">SQL Time</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" id="m-ir-time">0ms</div>
+          <div class="metric-label">IR Time</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script>
+    const DOCS = [
+      { id: 1, title: "iPhone 16 Pro Review", body: "The best smartphone of 2024 features an advanced camera system, A18 chip, and stunning titanium design." },
+      { id: 2, title: "Samsung Galaxy S24 Ultra", body: "Samsung's flagship smartphone brings AI-powered features and the best display technology in 2024." },
+      { id: 3, title: "Pixel 9 Pro Camera Test", body: "Google's smartphone excels in computational photography with the Tensor G4 chip." },
+      { id: 4, title: "Budget Phones Under $300", body: "The best affordable smartphone options for 2024 include several surprising entries." },
+      { id: 5, title: "Laptop Buying Guide 2024", body: "Everything you need to know about buying a laptop this year. Performance, battery, and portability compared." },
+      { id: 6, title: "Smartwatch Comparison", body: "Apple Watch vs Galaxy Watch vs Pixel Watch. Which wearable is the best for fitness tracking?" },
+      { id: 7, title: "Wireless Earbuds 2024", body: "Top wireless earbuds reviewed: AirPods Pro 3, Galaxy Buds, and Sony WF-1000XM6." },
+      { id: 8, title: "OnePlus 13 First Look", body: "OnePlus returns with a premium smartphone featuring Snapdragon 8 Elite and 100W charging." }
+    ];
+
+    function sqlSearch(query) {
+      const term = query.toLowerCase().split(/\s+/)[0];
+      return DOCS.filter(d => d.body.toLowerCase().includes(term) || d.title.toLowerCase().includes(term));
+    }
+
+    function irSearch(query) {
+      const terms = query.toLowerCase().split(/\s+/).filter(t => !['the','a','an','is','of','for','and','or','in','to'].includes(t));
+      const scored = DOCS.map(d => {
+        const text = (d.title + ' ' + d.body).toLowerCase();
+        let score = 0;
+        terms.forEach(t => {
+          const matches = (text.match(new RegExp(t, 'gi')) || []).length;
+          if (matches > 0) score += matches * (1 + Math.log(DOCS.length / DOCS.filter(dd => (dd.title+' '+dd.body).toLowerCase().includes(t)).length));
+        });
+        return { ...d, score: Math.round(score * 100) / 100 };
+      }).filter(d => d.score > 0).sort((a, b) => b.score - a.score);
+      return scored;
+    }
+
+    function renderResults(container, results, isIR) {
+      container.innerHTML = '';
+      if (results.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem">No results found.</div>';
+        return;
+      }
+      results.forEach((doc, i) => {
+        const div = document.createElement('div');
+        div.className = 'rank-item relevant';
+        div.innerHTML = `
+          <div class="rank-num">${isIR ? i + 1 : '='}</div>
+          <div class="doc-name">
+            <strong>${doc.title}</strong>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">${doc.body.substring(0, 60)}...</div>
+          </div>
+          ${isIR ? `<div style="font-size:0.78rem;font-weight:700;color:var(--accent-teal)">${doc.score}</div>` : ''}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function runQuery() {
+      const query = document.getElementById('query-input').value;
+      document.getElementById('sql-term').textContent = query.split(/\s+/)[0];
+      document.getElementById('ir-term').textContent = query;
+
+      const t1 = performance.now();
+      const sqlR = sqlSearch(query);
+      const sqlTime = performance.now() - t1;
+
+      const t2 = performance.now();
+      const irR = irSearch(query);
+      const irTime = performance.now() - t2;
+
+      renderResults(document.getElementById('sql-results'), sqlR, false);
+      renderResults(document.getElementById('ir-results'), irR, true);
+
+      document.getElementById('m-sql-count').textContent = sqlR.length;
+      document.getElementById('m-ir-count').textContent = irR.length;
+      document.getElementById('m-sql-time').textContent = (sqlTime * 100).toFixed(0) + 'ms';
+      document.getElementById('m-ir-time').textContent = irTime.toFixed(1) + 'ms';
+    }
+
+    document.getElementById('query-input').addEventListener('keypress', e => { if (e.key === 'Enter') runQuery(); });
+    runQuery();
+  </script>
+</body>
+</html>

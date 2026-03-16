@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zipf's Law Explorer — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <style>
+    .chart-area {
+      width: 100%;
+      height: 360px;
+      position: relative;
+    }
+    .chart-area canvas { width: 100% !important; height: 100% !important; }
+    .word-cloud { display: flex; flex-wrap: wrap; gap: 0.4rem; max-height: 300px; overflow-y: auto; padding: 0.5rem; }
+    .wc-word {
+      padding: 0.2rem 0.55rem;
+      border-radius: 100px;
+      font-weight: 600;
+      background: rgba(108, 92, 231, 0.08);
+      border: 1px solid rgba(108, 92, 231, 0.15);
+      cursor: default;
+      transition: var(--transition);
+    }
+    .wc-word:hover { border-color: var(--accent-violet); background: rgba(108, 92, 231, 0.15); }
+    .freq-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.82rem;
+    }
+    .freq-table th {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-teal);
+      border-bottom: 2px solid var(--border-glass);
+    }
+    .freq-table td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    [data-theme="light"] .freq-table td { border-bottom-color: rgba(0,0,0,0.06); }
+    .bar-cell { display: flex; align-items: center; gap: 0.5rem; }
+    .freq-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+      transition: width 0.6s ease;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="../index.html" class="navbar-brand">
+        <div class="brand-icon">IR</div>
+        <div class="brand-text">CS313x · <span>Visualization</span></div>
+      </a>
+    </div>
+    <div class="navbar-right">
+      <button class="theme-toggle" aria-label="Toggle theme">☀️</button>
+      <a href="../index.html" class="nav-back">← Chapter 1</a>
+    </div>
+  </nav>
+
+  <div class="page-container wide">
+    <header class="page-header">
+      <div class="badge">Visualization 04</div>
+      <h1>Zipf's Law Explorer</h1>
+      <p>Paste any text and see the word frequency distribution form the classic power-law curve. Zipf's Law states: Frequency ∝ 1/Rank.</p>
+    </header>
+
+    <div class="formula-box">Frequency × Rank ≈ Constant &nbsp; | &nbsp; f(r) ∝ 1/r</div>
+
+    <div class="viz-container two-col" style="margin-top:1.5rem">
+      <!-- Input -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">📝 Input Text</div>
+        <textarea id="text-input" rows="8" placeholder="Paste or type text here...">Data mining is the process of discovering patterns in large data sets. Data mining involves methods at the intersection of machine learning, statistics, and database systems. Data mining is an interdisciplinary subfield of computer science and statistics with the overall goal to extract information from a data set and transform the information into a comprehensible structure for further use. Data mining is the analysis step of the knowledge discovery in databases process.</textarea>
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="analyze()">Analyze Text →</button>
+          <button class="btn btn-sm" onclick="loadSample('shakespeare')">📜 Shakespeare</button>
+          <button class="btn btn-sm" onclick="loadSample('ir')">🔍 IR Textbook</button>
+        </div>
+
+        <div class="metric-grid" style="margin-top:1.25rem">
+          <div class="metric-box">
+            <div class="metric-value" id="m-total">0</div>
+            <div class="metric-label">Total Tokens</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-unique">0</div>
+            <div class="metric-label">Unique Types</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-ratio">0</div>
+            <div class="metric-label">Type/Token Ratio</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-hapax">0</div>
+            <div class="metric-label">Hapax (freq=1)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">📊 Frequency vs Rank (Log Scale)</div>
+        <div class="chart-area">
+          <canvas id="freq-chart"></canvas>
+        </div>
+        <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted); text-align:center;">
+          A straight line on log-log scale = Zipf's Law holds. The steeper the line, the more skewed the distribution.
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="viz-container two-col" style="margin-top:1.25rem">
+      <!-- Top Words Table -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">🏆 Top 20 Words</div>
+        <div style="max-height:400px; overflow-y:auto;">
+          <table class="freq-table">
+            <thead><tr><th>#</th><th>Word</th><th>Freq</th><th>r × f</th><th>Distribution</th></tr></thead>
+            <tbody id="freq-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Word Cloud -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">☁️ Word Cloud</div>
+        <div class="word-cloud" id="word-cloud"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script>
+    const SAMPLES = {
+      shakespeare: "To be or not to be that is the question whether tis nobler in the mind to suffer the slings and arrows of outrageous fortune or to take arms against a sea of troubles and by opposing end them to die to sleep no more and by a sleep to say we end the heartache and the thousand natural shocks that flesh is heir to tis a consummation devoutly to be wished to die to sleep to sleep perchance to dream ay there is the rub for in that sleep of death what dreams may come when we have shuffled off this mortal coil must give us pause",
+      ir: "Information retrieval is finding material usually documents of an unstructured nature usually text that satisfies an information need from within large collections. The inverted index is the core data structure of information retrieval systems. An inverted index maps terms to the documents that contain them using a dictionary and postings lists. Boolean retrieval uses set operations like intersection union and complement to find documents matching Boolean queries. The vector space model represents documents and queries as vectors and uses cosine similarity to rank documents. Term frequency and inverse document frequency are combined into the TF-IDF weighting scheme which is the foundation of modern information retrieval scoring. Precision measures the fraction of retrieved documents that are relevant while recall measures the fraction of relevant documents that are retrieved."
+    };
+
+    let chart = null;
+
+    function tokenize(text) {
+      return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(t => t.length > 0);
+    }
+
+    function analyze() {
+      const text = document.getElementById('text-input').value;
+      const tokens = tokenize(text);
+      const freq = {};
+      tokens.forEach(t => freq[t] = (freq[t] || 0) + 1);
+
+      const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+      const total = tokens.length;
+      const unique = sorted.length;
+      const hapax = sorted.filter(([w, f]) => f === 1).length;
+
+      // Metrics
+      document.getElementById('m-total').textContent = total;
+      document.getElementById('m-unique').textContent = unique;
+      document.getElementById('m-ratio').textContent = (unique / total).toFixed(3);
+      document.getElementById('m-hapax').textContent = hapax;
+
+      // Table
+      const tbody = document.getElementById('freq-body');
+      tbody.innerHTML = '';
+      const maxFreq = sorted[0]?.[1] || 1;
+      sorted.slice(0, 20).forEach(([word, f], i) => {
+        const rank = i + 1;
+        const rxf = (rank * f).toFixed(1);
+        const pct = (f / maxFreq * 100).toFixed(0);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:var(--accent-violet);font-weight:700">${rank}</td>
+          <td><strong>${word}</strong></td>
+          <td>${f}</td>
+          <td style="color:var(--text-muted)">${rxf}</td>
+          <td><div class="bar-cell"><div class="freq-bar" style="width:${pct}%"></div><span style="font-size:0.72rem;color:var(--text-muted)">${((f/total)*100).toFixed(1)}%</span></div></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Word Cloud
+      const cloud = document.getElementById('word-cloud');
+      cloud.innerHTML = '';
+      sorted.slice(0, 50).forEach(([word, f]) => {
+        const size = Math.max(0.65, Math.min(2.2, 0.65 + (f / maxFreq) * 1.6));
+        const span = document.createElement('span');
+        span.className = 'wc-word';
+        span.textContent = word;
+        span.style.fontSize = size + 'rem';
+        span.style.opacity = 0.5 + (f / maxFreq) * 0.5;
+        cloud.appendChild(span);
+      });
+
+      // Chart
+      drawChart(sorted);
+    }
+
+    function drawChart(sorted) {
+      const canvas = document.getElementById('freq-chart');
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (sorted.length === 0) return;
+
+      const maxRank = sorted.length;
+      const maxFreq = sorted[0][1];
+      const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+      const pw = w - padding.left - padding.right;
+      const ph = h - padding.top - padding.bottom;
+
+      const logMaxR = Math.log10(maxRank);
+      const logMaxF = Math.log10(maxFreq);
+
+      // Grid
+      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (ph / 4) * i;
+        ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(w - padding.right, y); ctx.stroke();
+        const x = padding.left + (pw / 4) * i;
+        ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, h - padding.bottom); ctx.stroke();
+      }
+
+      // Data points
+      const gradient = ctx.createLinearGradient(padding.left, 0, w - padding.right, 0);
+      gradient.addColorStop(0, '#6c5ce7');
+      gradient.addColorStop(1, '#00cec9');
+
+      ctx.fillStyle = gradient;
+      sorted.forEach(([word, freq], i) => {
+        const rank = i + 1;
+        const x = padding.left + (Math.log10(rank) / logMaxR) * pw;
+        const y = padding.top + (1 - Math.log10(freq) / logMaxF) * ph;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Ideal Zipf line
+      ctx.strokeStyle = 'rgba(253, 121, 168, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      const c = sorted[0][1];
+      for (let r = 1; r <= maxRank; r++) {
+        const idealF = c / r;
+        if (idealF < 1) break;
+        const x = padding.left + (Math.log10(r) / logMaxR) * pw;
+        const y = padding.top + (1 - Math.log10(idealF) / logMaxF) * ph;
+        r === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Axis labels
+      ctx.fillStyle = isDark ? '#9a9ab8' : '#555580';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Rank (log)', w / 2, h - 5);
+      ctx.save();
+      ctx.translate(12, h / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Frequency (log)', 0, 0);
+      ctx.restore();
+
+      // Legend
+      ctx.fillStyle = '#fd79a8';
+      ctx.fillRect(w - 140, 8, 20, 2);
+      ctx.fillStyle = isDark ? '#9a9ab8' : '#555580';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Ideal Zipf (f=c/r)', w - 115, 12);
+    }
+
+    function loadSample(key) {
+      document.getElementById('text-input').value = SAMPLES[key];
+      analyze();
+    }
+
+    analyze();
+  </script>
+</body>
+</html>

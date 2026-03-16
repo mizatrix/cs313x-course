@@ -3,13 +3,56 @@ export const chapters = {
   'chapter01': {
     title: 'Introduction to Information Retrieval',
     week: 1,
-    description: 'An overview of Information Retrieval — what it is, why it matters, and the core concepts that underpin modern search engines.',
+    description: 'Explore the foundations of search engines — from Boolean logic and inverted indexes to Zipf\'s Law and the history of IR.',
     pdf: '/static/chapter01/Week1_Introduction_to_Information_Retrieval_V3.pdf',
-    isPdfOnly: true,
     categories: [
       { id: 'all', label: 'All Topics' },
+      { id: 'fundamentals', label: 'Fundamentals' },
+      { id: 'indexing', label: 'Indexing' },
+      { id: 'quiz', label: 'Quiz' },
     ],
-    visualizations: []
+    visualizations: [
+      {
+        id: 'ir-vs-databases',
+        title: 'IR vs Database Systems',
+        description: 'Compare how SQL databases and IR systems handle the same query — see structured vs unstructured search side by side.',
+        category: 'fundamentals',
+        href: '/static/chapter01/visualizations/01-ir-vs-databases.html',
+        time: 5,
+      },
+      {
+        id: 'ir-history-timeline',
+        title: 'IR History Timeline',
+        description: 'Journey through 70+ years of Information Retrieval — from Luhn\'s auto-indexing to modern neural search and LLMs.',
+        category: 'fundamentals',
+        href: '/static/chapter01/visualizations/02-ir-history-timeline.html',
+        time: 5,
+      },
+      {
+        id: 'inverted-index-builder',
+        title: 'Inverted Index Builder',
+        description: 'Type documents and watch the system tokenize, sort, and construct an inverted index step-by-step with postings lists.',
+        category: 'indexing',
+        href: '/static/chapter01/visualizations/03-inverted-index-builder.html',
+        time: 8,
+      },
+      {
+        id: 'zipfs-law-explorer',
+        title: 'Zipf\'s Law Explorer',
+        description: 'Paste any text and watch the word frequency distribution form the classic power-law curve in real time.',
+        category: 'fundamentals',
+        href: '/static/chapter01/visualizations/04-zipfs-law-explorer.html',
+        time: 5,
+      },
+      {
+        id: 'practice-quiz',
+        title: 'Practice Quiz',
+        description: 'Test your understanding of IR fundamentals, Boolean retrieval, inverted indexes, and text processing concepts.',
+        category: 'quiz',
+        href: '/static/chapter01/visualizations/05-practice-quiz.html',
+        time: 10,
+      },
+    ]
   },
 
   'chapter02': {

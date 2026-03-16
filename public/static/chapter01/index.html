@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 1 — Introduction to Information Retrieval</title>
+  <link rel="stylesheet" href="styles/shared.css">
+  <link rel="stylesheet" href="styles/student.css">
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="/" class="navbar-brand">
+        <div class="brand-icon">IR</div>
+        <div class="brand-text">CS313x · <span>Chapter 1</span></div>
+      </a>
+    </div>
+    <div class="navbar-right">
+      <button class="theme-toggle" aria-label="Toggle theme">☀️</button>
+      <a href="/" class="nav-back">← Home</a>
+    </div>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Week 1 — Introduction</div>
+      <h1>Introduction to Information Retrieval</h1>
+      <p>Explore the foundations of search engines — from Boolean logic and inverted indexes to Zipf's Law and the history of IR.</p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="stat-num">5</div>
+          <div class="stat-label">Visualizations</div>
+        </div>
+        <div class="hero-stat">
+          <div class="stat-num">3</div>
+          <div class="stat-label">Topics</div>
+        </div>
+        <div class="hero-stat">
+          <div class="stat-num">15+</div>
+          <div class="stat-label">Quiz Questions</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Welcome Bar -->
+    <div class="glass-card no-hover welcome-bar">
+      <div class="wb-left">
+        <h2>📚 Your Progress</h2>
+        <p id="progress-text">0 of 5 completed</p>
+      </div>
+      <div class="wb-right">
+        <svg class="progress-ring" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(108,92,231,0.15)" stroke-width="4"/>
+          <circle id="progress-arc" cx="26" cy="26" r="22" fill="none" stroke="var(--accent-violet)" stroke-width="4" stroke-linecap="round"
+            stroke-dasharray="138.23" stroke-dashoffset="138.23" transform="rotate(-90 26 26)"/>
+        </svg>
+        <a href="Week1_Introduction_to_Information_Retrieval_V3.pdf" target="_blank" class="btn btn-sm">📄 Lecture PDF</a>
+      </div>
+    </div>
+
+    <!-- Filter Tags -->
+    <div class="filter-bar">
+      <button class="filter-tag active" data-filter="all">All</button>
+      <button class="filter-tag" data-filter="fundamentals">Fundamentals</button>
+      <button class="filter-tag" data-filter="indexing">Indexing</button>
+      <button class="filter-tag" data-filter="quiz">Quiz</button>
+    </div>
+
+    <!-- Visualization Cards -->
+    <div class="hub-grid" id="viz-grid">
+
+      <a href="visualizations/01-ir-vs-databases.html" class="glass-card hub-card animate-in" data-cat="fundamentals" style="animation-delay:0s">
+        <div class="card-number">01</div>
+        <h3>IR vs Database Systems</h3>
+        <p>Compare how SQL databases and IR systems handle the same query — see structured vs unstructured search side by side.</p>
+        <div class="card-meta">
+          <span>⏱ ~5 min</span>
+          <span>🏷️ Fundamentals</span>
+        </div>
+        <div class="card-arrow">Explore →</div>
+      </a>
+
+      <a href="visualizations/02-ir-history-timeline.html" class="glass-card hub-card animate-in" data-cat="fundamentals" style="animation-delay:0.1s">
+        <div class="card-number">02</div>
+        <h3>IR History Timeline</h3>
+        <p>Journey through 70+ years of Information Retrieval — from Luhn's auto-indexing to modern neural search and LLMs.</p>
+        <div class="card-meta">
+          <span>⏱ ~5 min</span>
+          <span>🏷️ Fundamentals</span>
+        </div>
+        <div class="card-arrow">Explore →</div>
+      </a>
+
+      <a href="visualizations/03-inverted-index-builder.html" class="glass-card hub-card animate-in" data-cat="indexing" style="animation-delay:0.2s">
+        <div class="card-number">03</div>
+        <h3>Inverted Index Builder</h3>
+        <p>Type documents and watch the system tokenize, sort, and construct an inverted index step-by-step with postings lists.</p>
+        <div class="card-meta">
+          <span>⏱ ~8 min</span>
+          <span>🏷️ Indexing</span>
+        </div>
+        <div class="card-arrow">Explore →</div>
+      </a>
+
+      <a href="visualizations/04-zipfs-law-explorer.html" class="glass-card hub-card animate-in" data-cat="fundamentals" style="animation-delay:0.3s">
+        <div class="card-number">04</div>
+        <h3>Zipf's Law Explorer</h3>
+        <p>Paste any text and watch the word frequency distribution form the classic power-law curve in real time.</p>
+        <div class="card-meta">
+          <span>⏱ ~5 min</span>
+          <span>🏷️ Fundamentals</span>
+        </div>
+        <div class="card-arrow">Explore →</div>
+      </a>
+
+      <a href="visualizations/05-practice-quiz.html" class="glass-card hub-card animate-in" data-cat="quiz" style="animation-delay:0.4s">
+        <div class="card-number">05</div>
+        <h3>Practice Quiz</h3>
+        <p>Test your understanding of IR fundamentals, Boolean retrieval, inverted indexes, and text processing concepts.</p>
+        <div class="card-meta">
+          <span>⏱ ~10 min</span>
+          <span>🏷️ Quiz</span>
+        </div>
+        <div class="card-arrow">Start Quiz →</div>
+      </a>
+
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    // Filter tags
+    document.querySelectorAll('.filter-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+        tag.classList.add('active');
+        const filter = tag.dataset.filter;
+        document.querySelectorAll('.hub-card').forEach(card => {
+          card.style.display = (filter === 'all' || card.dataset.cat === filter) ? '' : 'none';
+        });
+      });
+    });
+
+    // Progress tracking
+    const STORAGE_KEY = 'ch1_visited';
+    const visited = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const total = document.querySelectorAll('.hub-card').length;
+    const done = visited.length;
+    document.getElementById('progress-text').textContent = `${done} of ${total} completed`;
+    const arc = document.getElementById('progress-arc');
+    if (arc) {
+      const circumference = 2 * Math.PI * 22;
+      arc.style.strokeDashoffset = circumference - (done / total) * circumference;
+    }
+
+    // Mark visited on click
+    document.querySelectorAll('.hub-card').forEach(card => {
+      const href = card.getAttribute('href');
+      if (visited.includes(href)) {
+        card.style.borderColor = 'rgba(0, 184, 148, 0.3)';
+      }
+      card.addEventListener('click', () => {
+        if (!visited.includes(href)) {
+          visited.push(href);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(visited));
+        }
+      });
+    });
+  </script>
+</body>
+</html>
