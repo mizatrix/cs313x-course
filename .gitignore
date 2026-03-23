@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Exam & quiz source files (do NOT upload)
+CS313x_Midterm_Exam_Spring_2026.docx
+CS313x_Quiz_Ch1_Ch3_Aiken.txt
+CS313x slides/
