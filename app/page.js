@@ -42,6 +42,22 @@ export default function HomePage() {
         {/* Course Progress Dashboard + Last Visited */}
         <CourseProgress />
 
+        {/* Review Zone CTA */}
+        <Link href="/review" className="review-zone-card animate-in">
+          <div className="review-zone-icon">🎯</div>
+          <div className="review-zone-content">
+            <h3>
+              Midterm Review Zone
+              <span className="review-zone-badge">NEW</span>
+            </h3>
+            <p>
+              100 practice questions across all topics — MCQs with instant grading and
+              problem-solving with step-by-step solutions. Randomized on every visit.
+            </p>
+          </div>
+          <div className="review-zone-arrow">Start Practice →</div>
+        </Link>
+
         {/* Chapter Cards */}
         <div className="hub-grid" style={{ marginTop: '2rem' }}>
           {chapterOrder.map((id, idx) => {
