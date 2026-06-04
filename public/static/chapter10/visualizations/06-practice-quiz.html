@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · Practice Quiz — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .topic-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem; margin-top: 0.5rem;
+    }
+    .topic-pill {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 0.75rem; border-radius: var(--radius-sm);
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;
+    }
+    .topic-pill .dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-violet);
+    }
+    .topic-pill .dot.teal { background: var(--accent-teal); }
+    .topic-pill .dot.pink { background: var(--accent-pink); }
+    .topic-pill .dot.green { background: var(--success); }
+    .topic-pill .dot.warn { background: var(--warning); }
+    .intro-note {
+      font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7; margin-top: 0.8rem;
+    }
+    .intro-note strong { color: var(--accent-teal); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 10</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Beginner</div>
+      <h1>Practice Quiz</h1>
+      <p>Ten questions covering everything from <strong>Chapter 10 — Recommender Systems</strong>: the rating matrix, collaborative filtering (user–user &amp; item–item), content-based methods, the cold-start problem, and matrix factorization.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🧠</div>
+      <div class="challenge-text"><strong>Try This:</strong> Answer all 10 without peeking at the other visualizations first. Aim for a perfect score — then revisit any topic whose question you missed. Each answer comes with an explanation, so wrong answers are learning moments!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">What this quiz covers</div>
+        <div class="topic-grid">
+          <div class="topic-pill"><span class="dot"></span>Rating matrix &amp; sparsity</div>
+          <div class="topic-pill"><span class="dot teal"></span>User–user CF</div>
+          <div class="topic-pill"><span class="dot teal"></span>Item–item CF</div>
+          <div class="topic-pill"><span class="dot pink"></span>Content-based filtering</div>
+          <div class="topic-pill"><span class="dot warn"></span>Cold-start problem</div>
+          <div class="topic-pill"><span class="dot green"></span>Matrix factorization</div>
+        </div>
+
+        <p class="intro-note">
+          Recommender systems predict the <strong>missing entries</strong> of a sparse user–item matrix.
+          <strong>Collaborative filtering</strong> uses the wisdom of similar users or items;
+          <strong>content-based</strong> methods match item features to a user's profile;
+          <strong>matrix factorization</strong> learns hidden latent factors. Each approach has its own strengths
+          and its own version of the <strong>cold-start</strong> headache.
+        </p>
+
+        <div class="formula-box" style="margin-top:1.2rem;">
+          10 questions · multiple choice · instant feedback
+        </div>
+
+        <p class="intro-note" style="margin-top:1rem;">
+          Use the <strong>progress dots</strong> below to track which questions you have answered correctly.
+          Click <em>Try Again</em> on the results screen to reshuffle your memory and aim higher.
+        </p>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Quiz</div>
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    showTutorial({ id: 'c10v6', icon: '🎓', title: 'Chapter 10 Practice Quiz', subtitle: 'Check your understanding of recommender systems.',
+      steps: [
+        'Read each question and click the option you think is <strong>correct</strong>',
+        'You get <strong>instant feedback</strong> plus an explanation — right or wrong',
+        'The <strong>progress dots</strong> show green for correct, red for missed',
+        'Finish all 10, see your score, and hit <strong>Try Again</strong> to retry'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      // ── Rating matrix ──
+      { question: 'In a user–item rating matrix, why are most cells typically blank?',
+        options: [
+          'The data was lost during collection',
+          'No single user has rated (or interacted with) most items',
+          'Blank cells always mean a rating of 0',
+          'The matrix is stored in compressed form'],
+        correct: 1,
+        explanation: 'Real matrices are extremely sparse (often >99% blank) because each user only rates a tiny fraction of all available items. A blank means "unknown," not zero.' },
+
+      { question: 'A catalog has 10,000 users and 5,000 items, with 2.5 million ratings recorded. What is the matrix sparsity?',
+        options: ['5%', '50%', '95%', '99.5%'],
+        correct: 2,
+        explanation: 'Total cells = 10,000 × 5,000 = 50,000,000. Density = 2,500,000 / 50,000,000 = 5%, so sparsity = 1 − 0.05 = 95%.' },
+
+      // ── User–user CF ──
+      { question: 'User–user collaborative filtering predicts a rating by:',
+        options: [
+          'Matching item descriptions to the user\'s past likes',
+          'Averaging ratings from users who are similar to the target user',
+          'Counting how many items the user has bought',
+          'Learning latent factors with gradient descent'],
+        correct: 1,
+        explanation: 'User–user CF finds "neighbors" — users with similar rating patterns — and combines their ratings (usually a similarity-weighted average) to predict what the target user would give.' },
+
+      { question: 'Which similarity measure is most commonly used to compare two users in collaborative filtering?',
+        options: ['Edit distance', 'Cosine similarity or Pearson correlation', 'TF-IDF weight', 'Jaccard index on user IDs'],
+        correct: 1,
+        explanation: 'Cosine similarity and Pearson correlation are the standard measures. Pearson is essentially mean-centered cosine, which corrects for users who rate generally high or low.' },
+
+      // ── Item–item CF ──
+      { question: 'Why is item–item collaborative filtering often preferred over user–user CF in large production systems?',
+        options: [
+          'It requires no rating data at all',
+          'Item–item similarities are more stable and can be precomputed offline',
+          'It completely eliminates the cold-start problem',
+          'It only works when there are more items than users'],
+        correct: 1,
+        explanation: 'Item relationships change slowly, so item–item similarities can be precomputed and cached. With usually fewer items than users (and more stable tastes per item), it scales better — this is what Amazon famously used.' },
+
+      // ── Content-based ──
+      { question: 'Content-based filtering recommends items by:',
+        options: [
+          'Finding users with similar tastes and copying their ratings',
+          'Matching item attributes/features to a profile of what the user has liked before',
+          'Factoring the rating matrix into latent vectors',
+          'Recommending whatever is most globally popular'],
+        correct: 1,
+        explanation: 'Content-based methods build a profile from the features (genre, keywords, actors, etc.) of items the user liked, then recommend new items whose features match that profile — no other users needed.' },
+
+      { question: 'A key limitation of content-based filtering is that it tends to:',
+        options: [
+          'Need millions of users before it works',
+          'Over-specialize, recommending only items very similar to past ones (low serendipity)',
+          'Ignore item features entirely',
+          'Require a fully dense rating matrix'],
+        correct: 1,
+        explanation: 'Because it only matches known features of past likes, content-based filtering struggles to surprise the user with novel, different items — a problem called over-specialization or filter-bubble.' },
+
+      // ── Cold start ──
+      { question: 'The "cold-start" problem in recommender systems refers to:',
+        options: [
+          'Servers being slow to boot up in the morning',
+          'Difficulty making recommendations for brand-new users or brand-new items with little/no data',
+          'Ratings that are too old to be useful',
+          'The matrix being too dense to factorize'],
+        correct: 1,
+        explanation: 'Cold start happens when a new user has no ratings yet (user cold start) or a new item has not been rated by anyone (item cold start), so collaborative methods have nothing to work with.' },
+
+      { question: 'Which approach best helps with the NEW-ITEM cold-start problem?',
+        options: [
+          'User–user collaborative filtering',
+          'Content-based filtering, since it uses item features instead of ratings',
+          'Waiting until the matrix becomes sparser',
+          'Removing the new item from the catalog'],
+        correct: 1,
+        explanation: 'A brand-new item has no ratings, so CF cannot place it. Content-based filtering can still recommend it immediately because it relies on the item\'s features, not on existing ratings.' },
+
+      // ── Matrix factorization ──
+      { question: 'In matrix factorization, the rating matrix R is approximated as the product of:',
+        options: [
+          'Two sparse identity matrices',
+          'A user-factor matrix and an item-factor matrix (R ≈ P × Qᵀ)',
+          'A single diagonal matrix of averages',
+          'The transpose of itself'],
+        correct: 1,
+        explanation: 'Matrix factorization learns a low-dimensional user-factor matrix P and item-factor matrix Q so that R ≈ P · Qᵀ. A predicted rating is the dot product of a user\'s latent vector and an item\'s latent vector.' }
+    ]);
+  </script>
+</body>
+</html>

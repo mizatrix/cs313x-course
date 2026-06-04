@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · Practice Quiz — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .quiz-intro-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem; margin-top: 1rem;
+    }
+    .topic-chip {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.7rem 0.85rem; background: var(--bg-card);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      font-size: 0.85rem; color: var(--text-secondary); transition: var(--transition);
+    }
+    .topic-chip:hover { border-color: var(--accent-violet); color: var(--text-primary); }
+    .topic-chip .t-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-violet);
+    }
+    .topic-chip:nth-child(2n) .t-dot { background: var(--accent-teal); }
+    .topic-chip:nth-child(3n) .t-dot { background: var(--accent-pink); }
+    .quiz-single { max-width: 760px; margin: 0 auto; }
+    .intro-formula { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 7</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Beginner</div>
+      <h1>Practice Quiz</h1>
+      <p>Test yourself across the whole chapter: the web graph, PageRank, the damping factor, dangling nodes, and HITS hubs &amp; authorities.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🎯</div>
+      <div class="challenge-text"><strong>Try This:</strong> Aim for a perfect score! Answer all 10 questions, read every explanation, and revisit the earlier visualizations for any topic you miss.</div>
+    </div>
+
+    <div class="viz-container quiz-single">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">What This Quiz Covers</div>
+        <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7;">
+          Chapter 7 is about <strong style="color: var(--accent-violet);">link analysis</strong> — using the structure of the web's
+          hyperlink graph to rank pages by importance. The two flagship algorithms are
+          <strong style="color: var(--accent-violet);">PageRank</strong> (query-independent, used by Google) and
+          <strong style="color: var(--accent-teal);">HITS</strong> (query-dependent hubs &amp; authorities).
+        </p>
+        <div class="formula-box intro-formula">PR(p) = (1−d)/N + d · Σ<sub>q→p</sub> PR(q)/L(q)</div>
+        <div class="quiz-intro-grid">
+          <div class="topic-chip"><span class="t-dot"></span>Web graph &amp; links</div>
+          <div class="topic-chip"><span class="t-dot"></span>PageRank formula</div>
+          <div class="topic-chip"><span class="t-dot"></span>Damping factor d</div>
+          <div class="topic-chip"><span class="t-dot"></span>Dangling nodes</div>
+          <div class="topic-chip"><span class="t-dot"></span>Power iteration</div>
+          <div class="topic-chip"><span class="t-dot"></span>HITS hubs</div>
+          <div class="topic-chip"><span class="t-dot"></span>HITS authorities</div>
+          <div class="topic-chip"><span class="t-dot"></span>PageRank vs HITS</div>
+        </div>
+      </div>
+
+      <div id="quiz-container"></div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    showTutorial({
+      id: 'c7v6', icon: '📝', title: 'Chapter 7 Practice Quiz',
+      subtitle: 'Ten questions covering every major idea in link analysis.',
+      steps: [
+        'Read each question and pick the answer you think is correct',
+        'After answering you\'ll see the <strong>correct option</strong> highlighted with an explanation',
+        'Use <strong>Previous / Next</strong> to move between questions and review',
+        'Hit <strong>See Results</strong> at the end — score 100% to unlock the celebration! 🏆'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In link analysis, what does a hyperlink from page A to page B most naturally represent?',
+        options: [
+          'A guarantee that B copied content from A',
+          'A vote or endorsement of B by A',
+          'That A and B were authored by the same person',
+          'That B is older than A'
+        ],
+        correct: 1,
+        explanation: 'A link from A to B is treated as an implicit vote: A is endorsing or recommending B. Pages that receive many such votes (especially from important pages) are considered more authoritative.'
+      },
+      {
+        question: 'PageRank is best described as which kind of importance score?',
+        options: [
+          'Query-dependent — recomputed for every search query',
+          'Query-independent — a single global score per page',
+          'Computed only from the page\'s text content',
+          'Based purely on how recently a page was crawled'
+        ],
+        correct: 1,
+        explanation: 'PageRank is query-independent: each page gets one global importance score from the link graph, computed offline. (HITS, by contrast, is query-dependent.)'
+      },
+      {
+        question: 'In the PageRank formula PR(p) = (1−d)/N + d·Σ PR(q)/L(q), what does L(q) denote?',
+        options: [
+          'The total number of pages on the web',
+          'The number of outgoing links (out-degree) of page q',
+          'The number of incoming links to page q',
+          'The length of page q\'s text'
+        ],
+        correct: 1,
+        explanation: 'L(q) is the out-degree of q — the number of outbound links. Page q splits its rank equally among the L(q) pages it links to, so each receives PR(q)/L(q).'
+      },
+      {
+        question: 'The damping factor d (typically about 0.85) models which behaviour of the "random surfer"?',
+        options: [
+          'The probability of clicking the back button',
+          'The probability of continuing to click a link rather than jumping to a random page',
+          'The fraction of pages that are spam',
+          'The rate at which the web grows'
+        ],
+        correct: 1,
+        explanation: 'd is the probability the surfer follows an outgoing link. With probability (1−d) they "teleport" to a random page. d ≈ 0.85 means roughly an 85% chance of following a link each step.'
+      },
+      {
+        question: 'What is the purpose of the (1−d)/N teleportation term in PageRank?',
+        options: [
+          'It makes popular pages even more dominant',
+          'It guarantees convergence and gives every page a minimum rank, avoiding rank sinks',
+          'It counts the number of words on each page',
+          'It removes dangling nodes from the graph'
+        ],
+        correct: 1,
+        explanation: 'The teleportation term injects a small constant rank into every page each iteration. This keeps the random walk from getting trapped, ensures the process converges to a unique solution, and gives even unlinked pages a nonzero rank.'
+      },
+      {
+        question: 'A "dangling node" in the web graph is a page that...',
+        options: [
+          'Has no incoming links',
+          'Has no outgoing links (a dead end / sink)',
+          'Links only to itself',
+          'Has been removed from the index'
+        ],
+        correct: 1,
+        explanation: 'A dangling node has out-degree zero — e.g. a PDF or image with no links out. Because it has nowhere to send its rank, it acts as a rank sink and must be handled specially (e.g. redistribute its rank uniformly to all pages).'
+      },
+      {
+        question: 'PageRank is most commonly computed using which iterative method?',
+        options: [
+          'Power iteration (repeatedly applying the update until ranks converge)',
+          'Binary search over page IDs',
+          'A single closed-form matrix inversion that is always cheap',
+          'Sorting pages alphabetically'
+        ],
+        correct: 0,
+        explanation: 'PageRank is the dominant eigenvector of the link matrix and is found via power iteration: start with uniform ranks and repeatedly apply the update rule until the values stop changing (converge).'
+      },
+      {
+        question: 'In the HITS algorithm, a good "hub" is a page that...',
+        options: [
+          'Is pointed to by many authoritative pages',
+          'Points to many good authority pages',
+          'Has the most text on the topic',
+          'Has the highest PageRank'
+        ],
+        correct: 1,
+        explanation: 'In HITS, a hub points to many good authorities (think a curated list of links), while an authority is pointed to by many good hubs. Hub and authority scores reinforce each other and are updated together.'
+      },
+      {
+        question: 'How do hub and authority scores reinforce each other in HITS?',
+        options: [
+          'A page\'s authority score is the sum of the hub scores of pages linking to it; its hub score is the sum of authority scores of pages it links to',
+          'Hub and authority scores are completely independent',
+          'Authority equals out-degree and hub equals in-degree',
+          'Both scores are fixed once and never updated'
+        ],
+        correct: 0,
+        explanation: 'HITS uses mutual reinforcement: authority(p) = Σ hub(q) over pages q→p, and hub(p) = Σ authority(q) over pages p→q. The two are iterated and normalized until they converge.'
+      },
+      {
+        question: 'Which statement best captures a key difference between PageRank and HITS?',
+        options: [
+          'PageRank is query-dependent; HITS is query-independent',
+          'PageRank gives one global, query-independent score; HITS computes query-dependent hub and authority scores on a focused subgraph',
+          'PageRank ignores links entirely; HITS uses only text',
+          'They are identical algorithms with different names'
+        ],
+        correct: 1,
+        explanation: 'PageRank produces a single query-independent score for the whole web, computed offline. HITS is run per query on a topic-focused subgraph and yields two scores — hub and authority — making it query-dependent.'
+      }
+    ]);
+  </script>
+</body>
+</html>

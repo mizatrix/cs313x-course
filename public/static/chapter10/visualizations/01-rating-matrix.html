@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · User–Item Rating Matrix — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .matrix-wrap { overflow-x: auto; padding-bottom: 0.5rem; }
+    table.rating-matrix { border-collapse: separate; border-spacing: 6px; margin: 0 auto; }
+    table.rating-matrix th {
+      font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);
+      padding: 4px 6px; text-align: center;
+    }
+    table.rating-matrix th.corner { color: var(--accent-violet); }
+    table.rating-matrix th.uhead { color: var(--accent-teal); text-align: right; padding-right: 10px; }
+    .cell {
+      width: 46px; height: 46px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 800; cursor: pointer; user-select: none;
+      border: 2px solid var(--border-glass); transition: var(--transition);
+    }
+    .cell.filled { background: rgba(108,92,231,0.18); color: var(--accent-violet); border-color: rgba(108,92,231,0.4); }
+    .cell.r1 { background: rgba(214,48,49,0.16);  color: var(--error);   border-color: rgba(214,48,49,0.4); }
+    .cell.r2 { background: rgba(225,112,85,0.16); color: #e17055;        border-color: rgba(225,112,85,0.4); }
+    .cell.r3 { background: rgba(253,203,110,0.18);color: #d6a217;        border-color: rgba(253,203,110,0.5); }
+    .cell.r4 { background: rgba(0,206,201,0.16);  color: var(--accent-teal); border-color: rgba(0,206,201,0.4); }
+    .cell.r5 { background: rgba(0,184,148,0.18);  color: var(--success); border-color: rgba(0,184,148,0.45); }
+    .cell.empty { background: var(--bg-card); color: var(--text-muted); border-style: dashed; opacity: 0.65; }
+    .cell.empty::after { content: '·'; font-size: 1.4rem; line-height: 0; }
+    .cell.target {
+      border-color: var(--accent-pink); border-style: solid;
+      box-shadow: 0 0 0 2px rgba(253,121,168,0.35), 0 0 14px rgba(253,121,168,0.3);
+      color: var(--accent-pink); background: rgba(253,121,168,0.12);
+    }
+    .cell:hover { transform: scale(1.08); }
+    .avg-cell {
+      width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.82rem; font-weight: 800; color: var(--accent-teal);
+    }
+    .avg-head { color: var(--accent-teal); font-size: 0.72rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .legend .lg { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-secondary); }
+    .legend .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border-glass); }
+    .density-bar { height: 14px; border-radius: 7px; background: var(--bg-card); border: 1px solid var(--border-glass); overflow: hidden; margin-top: 0.4rem; }
+    .density-fill { height: 100%; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.35s ease; }
+    .hint-paint { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.6rem; line-height: 1.6; }
+    .paint-pick { display: inline-flex; gap: 4px; margin-left: 6px; }
+    .pchip { width: 26px; height: 26px; border-radius: 6px; display:flex; align-items:center; justify-content:center;
+             font-weight:800; font-size:0.8rem; cursor:pointer; border:2px solid transparent; }
+    .pchip.sel { outline: 2px solid var(--accent-violet); outline-offset: 1px; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 10</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>User–Item Rating Matrix</h1>
+      <p>The starting point of every recommender system: a grid of <strong>users × items</strong> filled with explicit ratings. Most cells are <strong>blank</strong> — that sparsity is exactly what we must learn to fill in.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Pick a rating (1–5) above, then click cells to fill them. Clear cells back to blank and watch <strong>density</strong> drop. The pink <strong>?</strong> cell is the rating we want to <em>predict</em> in later visualizations — leave it empty!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Ratings (1–5) — click to edit</div>
+
+        <div class="hint-paint">
+          Brush:
+          <span class="paint-pick" id="paint-pick"></span>
+          <span style="margin-left:0.4rem;">(then click cells). Click a cell again with the same value to clear it.</span>
+        </div>
+
+        <div class="matrix-wrap" style="margin-top:0.9rem;">
+          <table class="rating-matrix" id="matrix"></table>
+        </div>
+
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:rgba(214,48,49,0.4)"></span>1 dislike</span>
+          <span class="lg"><span class="sw" style="background:rgba(253,203,110,0.6)"></span>3 neutral</span>
+          <span class="lg"><span class="sw" style="background:rgba(0,184,148,0.5)"></span>5 love</span>
+          <span class="lg"><span class="sw" style="background:var(--bg-card);border-style:dashed"></span>blank (unrated)</span>
+          <span class="lg"><span class="sw" style="background:rgba(253,121,168,0.4);border-color:var(--accent-pink)"></span>? target to predict</span>
+        </div>
+
+        <div class="control-row" style="margin-top: 1.2rem;">
+          <button class="btn btn-primary" onclick="randomize()">Randomize</button>
+          <button class="btn btn-teal" onclick="fillAll()">Fill All</button>
+          <button class="btn" onclick="clearAll()">Clear</button>
+          <button class="btn" onclick="reset()">Reset</button>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Matrix Statistics</div>
+        <div class="metric-grid" style="margin-bottom: 1.2rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-density">0%</div>
+            <div class="metric-label">Density (filled)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-sparsity">0%</div>
+            <div class="metric-label">Sparsity (blank)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-filled">0</div>
+            <div class="metric-label">Ratings entered</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-mean">—</div>
+            <div class="metric-label">Global mean rating</div>
+          </div>
+        </div>
+
+        <div class="density-bar"><div class="density-fill" id="density-fill" style="width:0%"></div></div>
+
+        <div class="formula-box" style="margin-top:1.2rem;">
+          density = filled / (users × items) &nbsp;·&nbsp; sparsity = 1 − density
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.4rem;">Per-user & per-item averages</div>
+        <div id="avg-log" class="step-log"></div>
+
+        <div style="margin-top: 1.4rem;">
+          <div class="viz-section-title">Why this matters</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            Real rating matrices are <strong style="color: var(--accent-violet);">extremely sparse</strong> (often &gt;99% blank) — no user rates everything. A recommender's job is to <strong style="color: var(--accent-teal);">predict the missing entries</strong> (like the pink <strong>?</strong>) so it can suggest items a user hasn't seen yet.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const USERS = ['Ann', 'Ben', 'Cara', 'Dan', 'Eve'];
+    const ITEMS = ['Dune', 'Matrix', 'Up', 'Joker', 'Coco'];
+    // null = blank/unrated. Target cell (the "?") is fixed at [row, col].
+    const TARGET = { r: 0, c: 4 };
+    const RATING_COLORS = { 1:'#d63031', 2:'#e17055', 3:'#d6a217', 4:'#00cec9', 5:'#00b894' };
+
+    let matrix = [];
+    let brush = 4; // current "paint" rating value
+
+    function seed() {
+      // A small, realistic, sparse-ish starting matrix. null = blank.
+      return [
+        [5,    null, 4,    null, null],  // Ann   (item 4 = target ?)
+        [null, 5,    null, 2,    4   ],  // Ben
+        [4,    null, null, null, 5   ],  // Cara
+        [null, 3,    5,    null, null],  // Dan
+        [2,    null, null, 4,    null],  // Eve
+      ];
+    }
+
+    function reset() { matrix = seed(); render(); }
+    function clearAll() { matrix = matrix.map(row => row.map(() => null)); render(); }
+    function fillAll() {
+      matrix = matrix.map((row, r) => row.map((v, c) =>
+        (r === TARGET.r && c === TARGET.c) ? null : (v === null ? (1 + Math.floor(Math.random()*5)) : v)));
+      render();
+    }
+    function randomize() {
+      matrix = matrix.map((row, r) => row.map((v, c) => {
+        if (r === TARGET.r && c === TARGET.c) return null; // keep target blank
+        return Math.random() < 0.55 ? (1 + Math.floor(Math.random()*5)) : null;
+      }));
+      render();
+    }
+
+    function isTarget(r, c) { return r === TARGET.r && c === TARGET.c; }
+
+    function clickCell(r, c) {
+      if (isTarget(r, c)) return; // target stays unknown
+      // toggle: same value clears, otherwise set to brush
+      matrix[r][c] = (matrix[r][c] === brush) ? null : brush;
+      render();
+    }
+
+    function setBrush(v) { brush = v; renderBrush(); }
+
+    function renderBrush() {
+      const pick = document.getElementById('paint-pick');
+      pick.innerHTML = [1,2,3,4,5].map(v =>
+        `<span class="pchip ${v===brush?'sel':''}" style="background:${RATING_COLORS[v]}33;color:${RATING_COLORS[v]};border-color:${RATING_COLORS[v]}66;"
+               onclick="setBrush(${v})" title="Paint ${v}">${v}</span>`).join('');
+    }
+
+    function render() {
+      renderBrush();
+      const tbl = document.getElementById('matrix');
+      const nUsers = USERS.length, nItems = ITEMS.length;
+
+      // header row
+      let html = '<tr><th class="corner">user \\ item</th>';
+      ITEMS.forEach(it => { html += `<th>${it}</th>`; });
+      html += '<th class="avg-head">avg</th></tr>';
+
+      // user rows
+      matrix.forEach((row, r) => {
+        html += `<tr><th class="uhead">${USERS[r]}</th>`;
+        row.forEach((v, c) => {
+          if (isTarget(r, c)) {
+            html += `<td><div class="cell target" onclick="clickCell(${r},${c})" title="Target — predict this rating">?</div></td>`;
+          } else if (v === null) {
+            html += `<td><div class="cell empty" onclick="clickCell(${r},${c})" title="${USERS[r]} → ${ITEMS[c]}: blank"></div></td>`;
+          } else {
+            html += `<td><div class="cell r${v}" onclick="clickCell(${r},${c})" title="${USERS[r]} → ${ITEMS[c]}: ${v}★">${v}</div></td>`;
+          }
+        });
+        const uvals = row.filter((v, c) => v !== null && !isTarget(r, c));
+        const uavg = uvals.length ? (uvals.reduce((a,b)=>a+b,0)/uvals.length) : null;
+        html += `<td><div class="avg-cell">${uavg !== null ? uavg.toFixed(1) : '—'}</div></td></tr>`;
+      });
+
+      // per-item average row
+      html += '<tr><th class="uhead avg-head">avg</th>';
+      const itemAvgs = [];
+      for (let c = 0; c < nItems; c++) {
+        const col = matrix.map((row, r) => isTarget(r, c) ? null : row[c]).filter(v => v !== null);
+        const iavg = col.length ? (col.reduce((a,b)=>a+b,0)/col.length) : null;
+        itemAvgs.push(iavg);
+        html += `<td><div class="avg-cell">${iavg !== null ? iavg.toFixed(1) : '—'}</div></td>`;
+      }
+      html += '<td></td></tr>';
+      tbl.innerHTML = html;
+
+      // ── stats ──
+      const total = nUsers * nItems;
+      const predictable = total - 1; // target excluded from "fillable" count for density of known
+      let filled = 0, sum = 0;
+      matrix.forEach((row, r) => row.forEach((v, c) => {
+        if (!isTarget(r, c) && v !== null) { filled++; sum += v; }
+      }));
+      // Density measured over all cells except the (always-unknown) target.
+      const density = (filled / predictable) * 100;
+      const sparsity = 100 - density;
+      const mean = filled ? (sum / filled) : null;
+
+      document.getElementById('m-density').textContent = density.toFixed(0) + '%';
+      document.getElementById('m-sparsity').textContent = sparsity.toFixed(0) + '%';
+      document.getElementById('m-filled').textContent = filled + ' / ' + predictable;
+      document.getElementById('m-mean').textContent = mean !== null ? mean.toFixed(2) : '—';
+      document.getElementById('density-fill').style.width = density.toFixed(0) + '%';
+
+      // ── breakdown log ──
+      const lines = [];
+      USERS.forEach((u, r) => {
+        const vals = matrix[r].filter((v, c) => v !== null && !isTarget(r, c));
+        const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : '—';
+        lines.push(`<div class="step-entry">${u}: rated <span class="step-highlight">${vals.length}</span>/${nItems} items → avg <span class="step-value">${avg}</span></div>`);
+      });
+      ITEMS.forEach((it, c) => {
+        const col = matrix.map((row, r) => isTarget(r, c) ? null : row[c]).filter(v => v !== null);
+        const avg = col.length ? (col.reduce((a,b)=>a+b,0)/col.length).toFixed(2) : '—';
+        lines.push(`<div class="step-entry" style="opacity:0.92;">${it}: rated by <span class="step-highlight">${col.length}</span>/${nUsers} users → avg <span class="step-value">${avg}</span></div>`);
+      });
+      document.getElementById('avg-log').innerHTML = lines.join('');
+    }
+
+    reset();
+
+    showTutorial({ id: 'c10v1', icon: '🎬', title: 'User–Item Rating Matrix', subtitle: 'The foundation of recommender systems.',
+      steps: [
+        'Each <strong>row is a user</strong>, each <strong>column is an item</strong>; a cell holds that user\'s rating (1–5)',
+        'Pick a <strong>brush value</strong>, then <strong>click cells</strong> to set ratings; click again to clear back to blank',
+        'Blank cells are <strong>missing ratings</strong> — most of a real matrix is empty (high <strong>sparsity</strong>)',
+        'The pink <strong>?</strong> is a <strong>target</strong> the recommender will predict later — leave it empty!'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In a user–item rating matrix, what does a single cell represent?',
+        options: ['How many items a user bought', 'One user\'s rating of one item', 'The average rating of an item', 'A list of similar users'],
+        correct: 1, explanation: 'Each cell (row = user, column = item) stores that one user\'s rating for that one item — or is blank if they haven\'t rated it.' },
+      { question: 'A 1000×1000 matrix has only 50,000 ratings entered. What is its sparsity?',
+        options: ['5%', '50%', '95%', '99.95%'],
+        correct: 2, explanation: 'Density = 50,000 / 1,000,000 = 5%, so sparsity = 1 − 0.05 = 95%. Real matrices are usually even sparser (>99%).' },
+      { question: 'Which is an example of EXPLICIT feedback?',
+        options: ['A user clicking a link', 'Watch time on a video', 'A user giving a movie 4 stars', 'Pages scrolled'],
+        correct: 2, explanation: 'Explicit feedback is a rating the user deliberately gives (stars, thumbs up/down). Clicks, watch time, and scrolls are implicit signals.' },
+      { question: 'What is the core job of a recommender given this matrix?',
+        options: ['Delete blank cells', 'Predict the missing (blank) ratings', 'Sort users alphabetically', 'Count how many items exist'],
+        correct: 1, explanation: 'A recommender predicts the unknown entries (like the pink ?) so it can recommend items a user has not yet rated or seen.' }
+    ]);
+  </script>
+</body>
+</html>

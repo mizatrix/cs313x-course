@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Crawler Architecture & Loop — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .crawl-svg { width: 100%; height: auto; display: block; }
+    .stage-box {
+      transition: var(--transition);
+      cursor: default;
+    }
+    .stage-rect {
+      fill: var(--bg-card);
+      stroke: var(--border-glass);
+      stroke-width: 1.5;
+      transition: var(--transition);
+    }
+    .stage-box.active .stage-rect {
+      stroke: var(--accent-violet);
+      stroke-width: 2.5;
+      filter: drop-shadow(0 0 10px rgba(108,92,231,0.6));
+    }
+    .stage-box.done .stage-rect {
+      stroke: var(--success);
+    }
+    .stage-label { fill: var(--text-primary); font-size: 13px; font-weight: 700; }
+    .stage-sub { fill: var(--text-muted); font-size: 10px; }
+    .stage-box.active .stage-label { fill: var(--accent-violet); }
+    .flow-arrow { stroke: var(--text-muted); stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    .flow-arrow.loopback { stroke: var(--accent-pink); stroke-dasharray: 6 4; marker-end: url(#arrow-pink); }
+    .flow-arrow.active { stroke: var(--accent-violet); }
+
+    .frontier-q { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+    .frontier-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.5rem 0.75rem; font-size: 0.78rem; font-family: monospace;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); color: var(--text-secondary);
+      transition: var(--transition);
+    }
+    .frontier-item.head {
+      border-color: var(--accent-violet);
+      color: var(--text-primary);
+      box-shadow: 0 0 10px rgba(108,92,231,0.25);
+    }
+    .frontier-item.fresh { border-color: var(--accent-pink); color: var(--accent-pink); }
+    .frontier-item .fi-tag {
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 4px;
+      background: rgba(108,92,231,0.15); color: var(--accent-violet);
+    }
+    .frontier-item.fresh .fi-tag { background: rgba(253,121,168,0.15); color: var(--accent-pink); }
+    .frontier-empty { font-size: 0.8rem; color: var(--text-muted); font-style: italic; padding: 0.5rem; }
+    .stage-banner {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.75rem 1rem; border-radius: var(--radius-md);
+      background: rgba(108,92,231,0.1); border: 1px solid rgba(108,92,231,0.25);
+      font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;
+      min-height: 3.4rem;
+    }
+    .stage-banner .sb-icon { font-size: 1.3rem; }
+    .stage-banner strong { color: var(--accent-violet); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 8</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Crawler Architecture & Loop</h1>
+      <p>Walk a single URL around the Mercator crawl loop: <strong>Frontier → Fetch → Parse → Extract → Dedup → Index</strong>, with newly found links looping back into the frontier.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Press <strong>Step</strong> repeatedly and watch the active stage light up. When a page is parsed and links are extracted, new URLs are pushed back onto the frontier — that loop is what lets one seed page grow into a whole crawl.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">The Crawl Loop</div>
+        <svg class="crawl-svg" viewBox="0 0 520 420" id="crawlSvg" aria-label="Crawl loop diagram">
+          <defs>
+            <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="var(--text-muted)"/>
+            </marker>
+            <marker id="arrow-pink" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent-pink)"/>
+            </marker>
+          </defs>
+          <!-- arrows drawn first so boxes sit on top -->
+          <g id="arrows"></g>
+          <g id="stages"></g>
+        </svg>
+
+        <div class="control-group" style="margin-top: 1rem;">
+          <div class="control-row">
+            <button class="btn btn-primary" id="stepBtn" onclick="step()">▶ Step</button>
+            <button class="btn btn-teal" id="autoBtn" onclick="toggleAuto()">⏩ Auto</button>
+            <button class="btn" onclick="resetCrawl()">↻ Reset</button>
+          </div>
+        </div>
+
+        <div class="stage-banner" id="stageBanner" style="margin-top:1rem;">
+          <span class="sb-icon">🌱</span>
+          <span id="stageText">Seeds are loaded into the <strong>URL Frontier</strong>. Press <strong>Step</strong> to dequeue a URL and begin the loop.</span>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Crawl Stats</div>
+        <div class="metric-grid" style="margin-bottom: 1.25rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-frontier">3</div>
+            <div class="metric-label">In Frontier</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-indexed">0</div>
+            <div class="metric-label">Indexed</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-found">0</div>
+            <div class="metric-label">Links Found</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-dups">0</div>
+            <div class="metric-label">Dups Dropped</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title">URL Frontier (queue)</div>
+        <div class="frontier-q" id="frontierList"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Step Log</div>
+        <div class="step-log" id="stepLog"></div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">Why It Loops</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            Each fetched page yields new hyperlinks. After <strong style="color:var(--accent-pink);">deduplication</strong> (already-seen URLs are dropped), the survivors are pushed back into the frontier — so the crawler never runs out of work until the frontier empties. <strong style="color:var(--accent-violet);">DNS resolution</strong> during Fetch is a classic bottleneck, so crawlers cache DNS results aggressively.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Stage definitions (the Mercator loop) ──────────────
+    const STAGES = [
+      { key:'frontier', label:'URL Frontier', sub:'priority queue', icon:'📋',
+        x:200, y:20,  text:'<strong>Dequeue</strong> a URL from the frontier. The frontier decides crawl order (politeness + priority).' },
+      { key:'fetch',    label:'Fetch (DNS)',  sub:'resolve + download', icon:'🌐',
+        x:360, y:110, text:'<strong>Fetch:</strong> resolve the host via <strong>DNS</strong>, open a connection, download the page. DNS lookups are slow — a major bottleneck, so results are cached.' },
+      { key:'parse',    label:'Parse',        sub:'build DOM / text', icon:'🧩',
+        x:360, y:250, text:'<strong>Parse</strong> the HTML into text and structure so content and links can be read out.' },
+      { key:'extract',  label:'Extract Links',sub:'find hrefs', icon:'🔗',
+        x:200, y:340, text:'<strong>Extract</strong> outgoing links from the page — these are candidate URLs for future crawling.' },
+      { key:'dedup',    label:'Dedup / Seen?',sub:'URL + content', icon:'🧹',
+        x:40,  y:250, text:'<strong>Dedup:</strong> drop URLs (and duplicate content) already seen. Survivors are <strong>new</strong> and worth crawling.' },
+      { key:'index',    label:'Index',        sub:'store for search', icon:'🗂️',
+        x:40,  y:110, text:'<strong>Index</strong> the page content into the search index. New links loop back into the frontier.' },
+    ];
+    const BOX_W = 120, BOX_H = 56;
+
+    // ── State ──────────────────────────────────────────────
+    let frontier, indexed, found, dups, current, currentUrl, autoTimer = null;
+    const SEEDS = ['example.org', 'wiki.edu', 'news.io'];
+    // pool of links a fetched page might yield (some are duplicates of seeds/visited)
+    const LINK_POOL = [
+      ['blog.example.org','example.org','shop.example.org'],
+      ['wiki.edu/cs','wiki.edu','docs.wiki.edu'],
+      ['news.io/tech','feed.news.io','news.io'],
+      ['blog.example.org','dev.example.org','about.example.org'],
+      ['wiki.edu/cs','wiki.edu/math','library.edu'],
+    ];
+    let visited;   // Set of URLs already seen (for dedup)
+    let pageCount; // how many full pages crawled (drives LINK_POOL)
+
+    // ── Build the SVG diagram once ─────────────────────────
+    function buildDiagram() {
+      const arrowsG = document.getElementById('arrows');
+      const stagesG = document.getElementById('stages');
+      // forward arrows between consecutive stages (ring), drawn box-edge to box-edge
+      const centers = STAGES.map(s => ({ x: s.x + BOX_W/2, y: s.y + BOX_H/2 }));
+      let arrowsHtml = '';
+      for (let i = 0; i < STAGES.length; i++) {
+        const a = centers[i], b = centers[(i + 1) % STAGES.length];
+        const isLoop = i === STAGES.length - 1; // index → frontier (the loop-back)
+        const [x1,y1,x2,y2] = trim(a, b, BOX_W, BOX_H);
+        arrowsHtml += `<path class="flow-arrow${isLoop ? ' loopback' : ''}" data-arrow="${i}" d="M${x1},${y1} L${x2},${y2}"/>`;
+      }
+      arrowsG.innerHTML = arrowsHtml;
+
+      let stagesHtml = '';
+      STAGES.forEach((s, i) => {
+        stagesHtml += `
+          <g class="stage-box" id="stage-${i}" transform="translate(${s.x},${s.y})">
+            <rect class="stage-rect" width="${BOX_W}" height="${BOX_H}" rx="10"/>
+            <text class="stage-label" x="${BOX_W/2}" y="24" text-anchor="middle">${s.icon} ${s.label}</text>
+            <text class="stage-sub" x="${BOX_W/2}" y="42" text-anchor="middle">${s.sub}</text>
+          </g>`;
+      });
+      stagesG.innerHTML = stagesHtml;
+    }
+
+    // shorten a line so each end stops just outside the box edge it leaves/enters
+    function trim(a, b, w, h) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const t = edgeT(dx, dy, w, h); // fraction of the segment to clip at each end
+      return [a.x + dx*t, a.y + dy*t, b.x - dx*t, b.y - dy*t];
+    }
+    // fraction of the vector (dx,dy) at which it crosses a (w+pad)×(h+pad) box centered at origin
+    function edgeT(dx, dy, w, h) {
+      const pad = 8;
+      const adx = Math.abs(dx) || 1e-6, ady = Math.abs(dy) || 1e-6;
+      // scale so the offset reaches the nearer edge (half-width or half-height)
+      return Math.min((w/2 + pad) / adx, (h/2 + pad) / ady, 0.45);
+    }
+
+    // ── Render helpers ─────────────────────────────────────
+    function renderFrontier() {
+      const el = document.getElementById('frontierList');
+      if (frontier.length === 0) {
+        el.innerHTML = '<div class="frontier-empty">Frontier is empty — crawl complete.</div>';
+      } else {
+        el.innerHTML = frontier.map((u, i) =>
+          `<div class="frontier-item ${i === 0 ? 'head' : ''} ${u.fresh ? 'fresh' : ''}">
+            <span class="fi-tag">${i === 0 ? 'next' : u.fresh ? 'new' : '#' + (i+1)}</span>
+            <span>${u.url}</span>
+          </div>`).join('');
+      }
+      document.getElementById('m-frontier').textContent = frontier.length;
+      document.getElementById('m-indexed').textContent = indexed;
+      document.getElementById('m-found').textContent = found;
+      document.getElementById('m-dups').textContent = dups;
+    }
+
+    function setActiveStage(i) {
+      STAGES.forEach((_, j) => {
+        const g = document.getElementById('stage-' + j);
+        g.classList.toggle('active', j === i);
+      });
+      document.querySelectorAll('.flow-arrow').forEach(p => p.classList.remove('active'));
+      if (i >= 0) {
+        const inc = (i - 1 + STAGES.length) % STAGES.length;
+        const a = document.querySelector(`[data-arrow="${inc}"]`);
+        if (a) a.classList.add('active');
+      }
+    }
+
+    function banner(i) {
+      const s = STAGES[i];
+      document.getElementById('stageBanner').querySelector('.sb-icon').textContent = s.icon;
+      const urlNote = currentUrl ? ` <em style="color:var(--accent-teal)">(${currentUrl})</em>` : '';
+      document.getElementById('stageText').innerHTML = s.text + urlNote;
+    }
+
+    function log(msg, value) {
+      const el = document.getElementById('stepLog');
+      const entry = document.createElement('div');
+      entry.className = 'step-entry';
+      entry.innerHTML = msg + (value !== undefined ? ` <span class="step-value">${value}</span>` : '');
+      el.prepend(entry);
+      while (el.children.length > 8) el.removeChild(el.lastChild);
+    }
+
+    // ── The crawl loop, one stage per Step ─────────────────
+    function step() {
+      if (frontier.length === 0 && current === -1) {
+        log('<span class="step-highlight">Frontier empty</span> — nothing left to crawl.');
+        return;
+      }
+      current = (current + 1) % STAGES.length;
+      const stage = STAGES[current];
+
+      if (stage.key === 'frontier') {
+        // dequeue next URL
+        if (frontier.length === 0) { current = -1; setActiveStage(-1); log('Frontier drained. Crawl finished.'); return; }
+        const item = frontier.shift();
+        currentUrl = item.url;
+        visited.add(currentUrl);
+        log('Dequeued from frontier:', currentUrl);
+      } else if (stage.key === 'fetch') {
+        log('Resolving DNS + fetching', currentUrl);
+      } else if (stage.key === 'parse') {
+        log('Parsed page into text + DOM');
+      } else if (stage.key === 'extract') {
+        const links = LINK_POOL[pageCount % LINK_POOL.length];
+        window._pendingLinks = links;
+        found += links.length;
+        log('Extracted <span class="step-highlight">' + links.length + '</span> links:', links.join(', '));
+      } else if (stage.key === 'dedup') {
+        const links = window._pendingLinks || [];
+        const fresh = links.filter(u => !visited.has(u) && !frontier.some(f => f.url === u));
+        const dropped = links.length - fresh.length;
+        dups += dropped;
+        window._freshLinks = fresh;
+        log('Dedup: kept ' + fresh.length + ', dropped <span class="step-highlight">' + dropped + '</span> already-seen');
+      } else if (stage.key === 'index') {
+        indexed++;
+        // push fresh links back into the frontier (the loop-back)
+        const fresh = window._freshLinks || [];
+        fresh.forEach(u => frontier.push({ url: u, fresh: true }));
+        // clear "fresh" flag on older items so only the newest pop pink
+        frontier.forEach((it, idx) => { if (!fresh.some(f => f === it.url)) it.fresh = false; });
+        pageCount++;
+        log('Indexed page. Looped <span class="step-highlight">' + fresh.length + '</span> new URLs back to frontier.');
+        window._pendingLinks = window._freshLinks = null;
+        currentUrl = null;
+      }
+
+      setActiveStage(current);
+      banner(current);
+      renderFrontier();
+    }
+
+    function toggleAuto() {
+      const btn = document.getElementById('autoBtn');
+      if (autoTimer) {
+        clearInterval(autoTimer); autoTimer = null;
+        btn.textContent = '⏩ Auto'; btn.classList.remove('btn-primary'); btn.classList.add('btn-teal');
+      } else {
+        btn.textContent = '⏸ Stop'; btn.classList.remove('btn-teal'); btn.classList.add('btn-primary');
+        autoTimer = setInterval(() => {
+          if (frontier.length === 0 && current >= STAGES.length - 2) { toggleAuto(); return; }
+          step();
+        }, 750);
+      }
+    }
+
+    function resetCrawl() {
+      if (autoTimer) toggleAuto();
+      frontier = SEEDS.map(u => ({ url: u, fresh: false }));
+      visited = new Set();
+      indexed = 0; found = 0; dups = 0; pageCount = 0;
+      current = -1; currentUrl = null;
+      window._pendingLinks = window._freshLinks = null;
+      document.getElementById('stepLog').innerHTML = '';
+      setActiveStage(-1);
+      document.getElementById('stageBanner').querySelector('.sb-icon').textContent = '🌱';
+      document.getElementById('stageText').innerHTML = 'Seeds are loaded into the <strong>URL Frontier</strong>. Press <strong>Step</strong> to dequeue a URL and begin the loop.';
+      renderFrontier();
+    }
+
+    buildDiagram();
+    resetCrawl();
+
+    showTutorial({ id: 'c8v1', icon: '🕷️', title: 'Crawler Architecture & Loop',
+      subtitle: 'How a web crawler turns seed URLs into an index.',
+      steps: [
+        'The crawl loop runs <strong>Frontier → Fetch → Parse → Extract → Dedup → Index</strong>',
+        'Press <strong>Step</strong> to move the current URL one stage forward; the active box lights up',
+        'At <strong>Extract</strong>, the page yields new links; <strong>Dedup</strong> drops ones already seen',
+        'At <strong>Index</strong>, surviving links <strong>loop back</strong> into the frontier — that pink arrow keeps the crawl alive'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What is the correct order of stages in the basic crawl loop?',
+        options: [
+          'Fetch → Frontier → Index → Parse → Extract',
+          'Frontier → Fetch → Parse → Extract → Dedup → Index',
+          'Index → Parse → Fetch → Frontier → Extract',
+          'Parse → Fetch → Frontier → Dedup → Index'
+        ], correct: 1,
+        explanation: 'A URL is taken from the frontier, fetched, parsed, links are extracted, duplicates are removed, and the page is indexed.' },
+      { question: 'What is the main role of the URL frontier?',
+        options: [
+          'It renders pages for users',
+          'It stores the inverted index',
+          'It holds URLs waiting to be crawled and decides crawl order',
+          'It resolves hostnames to IP addresses'
+        ], correct: 2,
+        explanation: 'The frontier is the queue of discovered-but-not-yet-fetched URLs; it manages crawl order, priority, and politeness.' },
+      { question: 'Why do extracted links loop back into the frontier?',
+        options: [
+          'To re-fetch the same page repeatedly',
+          'So newly discovered pages get crawled, expanding the crawl from the seeds',
+          'To delete them from the index',
+          'To resolve their DNS records faster'
+        ], correct: 1,
+        explanation: 'Feeding new links back into the frontier is what lets the crawler keep discovering pages — without it, a crawl would stop after the seeds.' },
+      { question: 'Why is DNS resolution often a bottleneck during the Fetch stage?',
+        options: [
+          'DNS lookups can be slow and high-latency, so crawlers cache resolved hosts',
+          'DNS stores the full page content',
+          'DNS removes duplicate URLs',
+          'DNS ranks pages for the index'
+        ], correct: 0,
+        explanation: 'Each fetch may need a DNS lookup; these add latency, so high-throughput crawlers maintain their own DNS cache.' }
+    ]);
+  </script>
+</body>
+</html>

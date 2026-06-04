@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · Practice Quiz — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .topic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+    .topic-chip {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.7rem 0.85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      font-size: 0.82rem; color: var(--text-secondary);
+      transition: var(--transition);
+    }
+    .topic-chip .ico { font-size: 1.05rem; }
+    .topic-chip strong { color: var(--text-primary); font-weight: 700; }
+    .quiz-intro-list {
+      list-style: none; padding: 0; margin: 0.5rem 0 0;
+    }
+    .quiz-intro-list li {
+      position: relative; padding-left: 1.4rem; margin-bottom: 0.5rem;
+      font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5;
+    }
+    .quiz-intro-list li::before {
+      content: '▸'; position: absolute; left: 0;
+      color: var(--accent-violet); font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Beginner</div>
+      <h1>Practice Quiz</h1>
+      <p>Ten questions covering the whole of Chapter 11 — the task-oriented dialogue pipeline, intents &amp; slots, DST, dialogue policy, NLG, agents/ReAct, and the two families of chatbots.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🎯</div>
+      <div class="challenge-text"><strong>Try This:</strong> Answer every question, read the explanation that pops up, then aim for a perfect 10/10. Wrong answers stay highlighted so you can see exactly where the misconception was.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">What's Covered</div>
+        <div class="topic-grid">
+          <div class="topic-chip"><span class="ico">🧩</span><div><strong>NLU</strong><br>intent + slots</div></div>
+          <div class="topic-chip"><span class="ico">📌</span><div><strong>DST</strong><br>belief state</div></div>
+          <div class="topic-chip"><span class="ico">🎮</span><div><strong>Policy</strong><br>next action</div></div>
+          <div class="topic-chip"><span class="ico">💬</span><div><strong>NLG</strong><br>text reply</div></div>
+          <div class="topic-chip"><span class="ico">🔧</span><div><strong>Agents</strong><br>ReAct &amp; tools</div></div>
+          <div class="topic-chip"><span class="ico">🤖</span><div><strong>Bot types</strong><br>task vs chit-chat</div></div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.75rem;">How to use this quiz</div>
+        <ul class="quiz-intro-list">
+          <li>Pick an answer — it locks in and shows the <strong>correct choice</strong> plus a short explanation.</li>
+          <li>Use the dots to track which questions you've nailed (green) and missed (red).</li>
+          <li><strong>Previous / Next</strong> let you move freely; <strong>See Results</strong> appears on the last question.</li>
+        </ul>
+
+        <div class="formula-box" style="margin-top:1.5rem;">utterance → NLU → DST → Policy → NLG → reply</div>
+
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.65; margin-top:1.25rem;">
+          Pipeline systems are <strong style="color:var(--accent-violet);">interpretable</strong> (you know which module failed) but suffer from <strong>error propagation</strong>. End-to-end LLMs optimize globally but can <strong style="color:var(--accent-teal);">hallucinate</strong> — which is why modern stacks add RAG grounding and tools.
+        </p>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Chapter 11 Review Quiz</div>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.5rem;">10 questions · pick the single best answer.</p>
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    showTutorial({
+      id: 'c11v6', icon: '🎯',
+      title: 'Chapter 11 Practice Quiz',
+      subtitle: 'Check your understanding of conversational AI & dialogue systems.',
+      steps: [
+        'There are <strong>10 questions</strong> spanning every Chapter 11 topic',
+        'Click an option to <strong>lock in</strong> your answer — the correct one is revealed with a short explanation',
+        'The <strong>progress dots</strong> show green for correct, red for missed questions',
+        'Move with <strong>Previous / Next</strong>, then hit <strong>See Results</strong> on the final question to get your score'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In the classic task-oriented pipeline, which order does a single user turn flow through?',
+        options: [
+          'NLG → Policy → DST → NLU',
+          'NLU → DST → Policy → NLG',
+          'DST → NLU → NLG → Policy',
+          'Policy → NLU → DST → NLG'
+        ],
+        correct: 1,
+        explanation: 'Understand the utterance (NLU), update the state (DST), decide the next action (Policy), then phrase the reply (NLG).'
+      },
+      {
+        question: 'NLU performs two jobs. Which pair correctly describes them?',
+        options: [
+          'Intent classification + slot filling',
+          'State tracking + action selection',
+          'Retrieval + generation',
+          'Summarization + ranking'
+        ],
+        correct: 0,
+        explanation: 'NLU classifies the user\'s intent (e.g. book_flight) and fills slots — entities extracted via sequence labeling (BIO tagging / CRF / BERT token classification).'
+      },
+      {
+        question: 'For "Book flights from New York to San Francisco tomorrow", which of these is a SLOT value (not the intent)?',
+        options: [
+          'book_flight',
+          'San Francisco',
+          'multi-class classification',
+          'sequence labeling'
+        ],
+        correct: 1,
+        explanation: 'The intent is book_flight; the slots are the extracted entities such as from_city=New York, to_city=San Francisco, date=tomorrow.'
+      },
+      {
+        question: 'A user says "Book to Boston" then immediately "No, Austin." What must Dialogue State Tracking do?',
+        options: [
+          'Add Austin as a second destination slot',
+          'Ignore the correction and keep Boston',
+          'Overwrite the destination value, not add a new one',
+          'Restart the dialogue from scratch'
+        ],
+        correct: 2,
+        explanation: 'Handling corrections means OVERWRITING the slot value. DST must also resolve coreference ("book that one") and cope with ASR noise — often via a soft probability distribution over values.'
+      },
+      {
+        question: 'What is the core goal of the Dialogue Policy?',
+        options: [
+          'Convert the action into fluent text',
+          'Map the current state sₜ to the next optimal action aₜ',
+          'Extract entities from the utterance',
+          'Retrieve documents from a vector store'
+        ],
+        correct: 1,
+        explanation: 'The policy maps state → action (e.g. request(date), confirm, book_ticket). It can be rule-based (brittle flowcharts) or learned with reinforcement learning (adaptive, optimizes long-term goals).'
+      },
+      {
+        question: 'Compared with a learned RL policy, a rule-based dialogue policy is best described as…',
+        options: [
+          'Adaptive and optimized at the dialogue level',
+          'Predictable but brittle, optimized only turn-by-turn',
+          'Impossible to deploy without user simulators',
+          'Always more natural-sounding'
+        ],
+        correct: 1,
+        explanation: 'Rule-based policies are hard-coded and predictable but brittle. RL policies are learned, adaptive, and optimize the whole dialogue — but need lots of simulated data.'
+      },
+      {
+        question: 'In NLG, what is the main trade-off between TEMPLATE and NEURAL response generation?',
+        options: [
+          'Templates hallucinate; neural is always safe',
+          'Templates are 100% safe but robotic; neural is natural but can hallucinate',
+          'Both are identical in practice',
+          'Neural is cheaper to maintain than templates'
+        ],
+        correct: 1,
+        explanation: 'Template NLG ("The {hotel} is at {address}.") is guaranteed safe but robotic. Neural NLG is fluent and varied but risks hallucinating facts.'
+      },
+      {
+        question: 'The ReAct pattern (Yao et al., 2023) gets its name from interleaving which two things?',
+        options: [
+          'Retrieval and Caching',
+          'Reasoning (Thoughts) and Acting (Tool calls)',
+          'Reading and Acknowledging',
+          'Ranking and Aggregating'
+        ],
+        correct: 1,
+        explanation: 'ReAct = Reason + Act: the model alternates internal Thoughts with external Actions (tool/API calls) and Observations until it can give the final Answer.'
+      },
+      {
+        question: 'In a ReAct trace, what is an "Observation"?',
+        options: [
+          'The model\'s internal chain of thought',
+          'The result returned from an external tool/API call',
+          'The final answer to the user',
+          'The system prompt given to the model'
+        ],
+        correct: 1,
+        explanation: 'After an Action (e.g. Search("Obama birth date")), the Observation is what the tool returns (e.g. "August 4, 1961"), which the model then reasons over.'
+      },
+      {
+        question: 'Which statement correctly contrasts the two families of dialogue systems?',
+        options: [
+          'Open-domain bots use slot filling; task-oriented bots chat about anything',
+          'Task-oriented bots target a goal (slot filling, success rate); open-domain bots optimize engagement & coherence',
+          'Both are evaluated only by BLEU score',
+          'Task-oriented systems cannot use LLMs'
+        ],
+        correct: 1,
+        explanation: 'Task-oriented systems (Siri, Alexa) complete a goal via slot filling and are judged on success rate / turns. Open-domain chit-chat bots (Replika, BlenderBot) aim for engagement and are judged on engagement time and coherence.'
+      }
+    ]);
+  </script>
+</body>
+</html>

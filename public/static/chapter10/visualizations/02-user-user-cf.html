@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 · User-User Collaborative Filtering — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .matrix { border-collapse: separate; border-spacing: 4px; width: 100%; }
+    .matrix th, .matrix td {
+      text-align: center; font-size: 0.82rem; padding: 0;
+    }
+    .matrix th {
+      color: var(--text-secondary); font-weight: 700; font-size: 0.78rem; padding: 0.3rem;
+    }
+    .matrix .row-head {
+      color: var(--text-primary); font-weight: 800; text-align: left;
+      padding-left: 0.4rem; cursor: pointer; white-space: nowrap;
+    }
+    .cell {
+      width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); font-weight: 700; margin: 0 auto;
+      background: var(--bg-card); border: 1px solid var(--border-glass); color: var(--text-primary);
+      transition: var(--transition);
+    }
+    .cell.empty { color: var(--text-muted); background: transparent; border-style: dashed; }
+    .cell.r1 { background: rgba(214,48,49,0.18); color: var(--error); }
+    .cell.r2 { background: rgba(214,48,49,0.10); color: var(--error); }
+    .cell.r3 { background: rgba(253,203,110,0.16); color: var(--warning); }
+    .cell.r4 { background: rgba(0,184,148,0.14); color: var(--success); }
+    .cell.r5 { background: rgba(0,184,148,0.26); color: var(--success); }
+    .row-target .cell { box-shadow: 0 0 0 2px var(--accent-violet) inset; }
+    .col-target .cell, .cell.col-target {
+      box-shadow: 0 0 0 2px var(--accent-teal) inset;
+    }
+    .cell.predict { background: rgba(108,92,231,0.2); color: var(--accent-violet); border: 2px dashed var(--accent-violet); font-size: 1rem; }
+    .row-head.active { color: var(--accent-violet); }
+    .col-pick { cursor: pointer; transition: var(--transition); }
+    .col-pick:hover { color: var(--accent-teal); }
+    .col-pick.active { color: var(--accent-teal); }
+    .sim-bar-wrap { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+    .sim-bar-wrap .uname { min-width: 64px; font-weight: 700; font-size: 0.82rem; }
+    .sim-track { flex: 1; height: 14px; background: var(--bg-card); border-radius: 99px; overflow: hidden; border: 1px solid var(--border-glass); position: relative; }
+    .sim-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); }
+    .sim-fill.neg { background: linear-gradient(90deg, var(--warning), var(--error)); }
+    .sim-val { min-width: 56px; text-align: right; font-weight: 800; font-size: 0.82rem; color: var(--accent-teal); }
+    .sim-bar-wrap.neighbour { background: rgba(108,92,231,0.08); border-radius: var(--radius-sm); padding: 0.25rem 0.4rem; }
+    .sim-bar-wrap.excluded { opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 10</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02 · Intermediate</div>
+      <h1>User-User Collaborative Filtering</h1>
+      <p>Predict a missing rating by finding users whose taste matches the <strong>target user</strong>, then blending their ratings — weighted by how similar they are.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Pick a target user (violet row) and an unrated item (teal column). Change <em>k</em> and the similarity metric — watch which neighbours are chosen and how the predicted rating shifts.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Rating Matrix (1–5 stars, blank = not rated)</div>
+        <div style="overflow-x:auto;">
+          <table class="matrix" id="matrix"></table>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.6rem;line-height:1.6;">
+          Click a <strong style="color:var(--accent-violet)">user name</strong> to set the target user.
+          Click an <strong style="color:var(--accent-teal)">item header</strong> the target has NOT rated to predict it.
+        </p>
+
+        <div class="control-group" style="margin-top:1rem;">
+          <div class="control-row">
+            <label style="font-size:0.85rem;">Similarity metric</label>
+            <div class="toggle-group" id="metric-toggle">
+              <div class="toggle-opt active" data-metric="cosine" onclick="setMetric('cosine')">Cosine</div>
+              <div class="toggle-opt" data-metric="pearson" onclick="setMetric('pearson')">Pearson</div>
+            </div>
+          </div>
+          <div class="control-row" style="margin-top:0.8rem;">
+            <label style="font-size:0.85rem;">Neighbourhood size <strong>k = <span id="k-val">2</span></strong></label>
+            <input type="range" id="k-slider" min="1" max="4" value="2" step="1" style="width:100%;" oninput="setK(this.value)">
+          </div>
+        </div>
+        <div style="margin-top:1rem;">
+          <button class="btn btn-primary btn-sm" onclick="randomize()">Randomize Ratings</button>
+          <button class="btn btn-sm" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="metric-grid" style="margin-bottom:1.2rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-pred">—</div>
+            <div class="metric-label">Predicted rating</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-neighbours">0</div>
+            <div class="metric-label">Neighbours used</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title">Step 1 · Similarity of target to every user</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:-0.2rem 0 0.7rem;">Computed over <strong>co-rated items</strong> only. Highlighted rows are the k nearest neighbours who rated the target item.</p>
+        <div id="sim-list"></div>
+
+        <div class="viz-section-title" style="margin-top:1.4rem;">Step 2 · Similarity-weighted prediction</div>
+        <div class="formula-box" id="formula">Select a target user and an unrated item.</div>
+        <div id="calc-log" class="step-log" style="margin-top:0.8rem;"></div>
+
+        <div style="margin-top:1.2rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.7;">
+            User-user CF assumes <strong style="color:var(--accent-violet)">people who agreed in the past will agree again</strong>. It compares whole <strong>rows</strong> of the matrix. Its weakness: user tastes are <strong>volatile and sparse</strong> — most pairs share few co-rated items, so similarities are noisy and must be recomputed as preferences drift.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const USERS = ['Ava', 'Ben', 'Cara', 'Dan', 'Eve'];
+    const ITEMS = ['Movie1', 'Movie2', 'Movie3', 'Movie4', 'Movie5'];
+    // null = not rated
+    const PRESET = [
+      [5, 3, null, 4, null],
+      [4, null, 4, 4, 2],
+      [null, 2, 5, null, 5],
+      [5, 3, null, 4, 1],
+      [3, null, 4, null, 4],
+    ];
+    let R;
+    let targetUser = 0;     // Ava
+    let targetItem = 2;     // Movie3 (Ava hasn't rated it)
+    let metric = 'cosine';
+    let k = 2;
+
+    function resetAll() {
+      R = PRESET.map(row => row.slice());
+      targetUser = 0; targetItem = 2; metric = 'cosine'; k = 2;
+      document.getElementById('k-slider').value = 2;
+      document.getElementById('k-val').textContent = 2;
+      document.querySelectorAll('#metric-toggle .toggle-opt').forEach(o =>
+        o.classList.toggle('active', o.dataset.metric === 'cosine'));
+      render();
+    }
+
+    function randomize() {
+      R = USERS.map(() => ITEMS.map(() => Math.random() < 0.3 ? null : (1 + Math.floor(Math.random() * 5))));
+      // ensure target item is unrated for target user
+      if (R[targetUser][targetItem] !== null) R[targetUser][targetItem] = null;
+      render();
+    }
+
+    function setMetric(m) {
+      metric = m;
+      document.querySelectorAll('#metric-toggle .toggle-opt').forEach(o =>
+        o.classList.toggle('active', o.dataset.metric === m));
+      render();
+    }
+
+    function setK(v) {
+      k = parseInt(v);
+      document.getElementById('k-val').textContent = k;
+      render();
+    }
+
+    function pickUser(u) { targetUser = u; render(); }
+    function pickItem(i) {
+      // only allow picking an item the target user has NOT rated
+      if (R[targetUser][i] === null) { targetItem = i; render(); }
+    }
+
+    // ── Similarity computation ────────────────────────
+    function meanOf(row) {
+      const vals = row.filter(v => v !== null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    }
+
+    function similarity(uRow, vRow) {
+      // indices co-rated by both
+      const co = [];
+      for (let i = 0; i < ITEMS.length; i++)
+        if (uRow[i] !== null && vRow[i] !== null) co.push(i);
+      if (co.length === 0) return { sim: null, co: 0 };
+
+      if (metric === 'cosine') {
+        let dot = 0, nu = 0, nv = 0;
+        co.forEach(i => { dot += uRow[i] * vRow[i]; nu += uRow[i] ** 2; nv += vRow[i] ** 2; });
+        if (nu === 0 || nv === 0) return { sim: null, co: co.length };
+        return { sim: dot / (Math.sqrt(nu) * Math.sqrt(nv)), co: co.length };
+      } else {
+        // Pearson — centre each user by their OWN mean over co-rated items
+        const mu = co.reduce((a, i) => a + uRow[i], 0) / co.length;
+        const mv = co.reduce((a, i) => a + vRow[i], 0) / co.length;
+        let num = 0, du = 0, dv = 0;
+        co.forEach(i => {
+          const a = uRow[i] - mu, b = vRow[i] - mv;
+          num += a * b; du += a * a; dv += b * b;
+        });
+        if (du === 0 || dv === 0) return { sim: null, co: co.length };
+        return { sim: num / (Math.sqrt(du) * Math.sqrt(dv)), co: co.length };
+      }
+    }
+
+    function render() {
+      renderMatrix();
+      compute();
+    }
+
+    function ratingClass(v) {
+      if (v === null) return 'empty';
+      return 'r' + v;
+    }
+
+    function renderMatrix() {
+      const tbl = document.getElementById('matrix');
+      let html = '<tr><th></th>';
+      ITEMS.forEach((it, i) => {
+        const canPick = R[targetUser][i] === null;
+        const cls = 'col-pick' + (i === targetItem ? ' active' : '') + (canPick ? '' : '');
+        html += `<th class="${cls}" ${canPick ? `onclick="pickItem(${i})"` : ''} title="${canPick ? 'Click to predict' : 'Already rated by target'}">${it.replace('Movie', 'M')}</th>`;
+      });
+      html += '</tr>';
+
+      USERS.forEach((u, ui) => {
+        const isTarget = ui === targetUser;
+        html += `<tr class="${isTarget ? 'row-target' : ''}">`;
+        html += `<td class="row-head ${isTarget ? 'active' : ''}" onclick="pickUser(${ui})" title="Click to set as target user">${u}${isTarget ? ' ★' : ''}</td>`;
+        ITEMS.forEach((it, ii) => {
+          const v = R[ui][ii];
+          const isPredict = isTarget && ii === targetItem;
+          if (isPredict) {
+            html += `<td><div class="cell predict">?</div></td>`;
+          } else {
+            const colT = ii === targetItem ? ' col-target' : '';
+            html += `<td><div class="cell ${ratingClass(v)}${colT}">${v === null ? '·' : v}</div></td>`;
+          }
+        });
+        html += '</tr>';
+      });
+      tbl.innerHTML = html;
+    }
+
+    function compute() {
+      const tRow = R[targetUser];
+
+      // similarity of target to all other users
+      const sims = USERS.map((u, ui) => {
+        if (ui === targetUser) return { ui, sim: null, co: 0, self: true };
+        const { sim, co } = similarity(tRow, R[ui]);
+        return { ui, sim, co, self: false, ratedTarget: R[ui][targetItem] !== null };
+      });
+
+      // candidate neighbours: rated the target item AND have a defined positive-ish similarity
+      const candidates = sims
+        .filter(s => !s.self && s.ratedTarget && s.sim !== null)
+        .sort((a, b) => b.sim - a.sim);
+      const neighbours = candidates.slice(0, k);
+      const nbSet = new Set(neighbours.map(n => n.ui));
+
+      // ── Step 1 list ──
+      const list = document.getElementById('sim-list');
+      const sorted = sims.filter(s => !s.self).sort((a, b) => {
+        const av = a.sim === null ? -2 : a.sim, bv = b.sim === null ? -2 : b.sim;
+        return bv - av;
+      });
+      let lhtml = '';
+      sorted.forEach(s => {
+        const isNb = nbSet.has(s.ui);
+        const excluded = !s.ratedTarget || s.sim === null;
+        const pct = s.sim === null ? 0 : Math.max(0, Math.min(100, ((s.sim + (metric === 'pearson' ? 1 : 0)) / (metric === 'pearson' ? 2 : 1)) * 100));
+        const valTxt = s.sim === null ? 'n/a' : s.sim.toFixed(3);
+        const reason = s.sim === null ? '(no co-rated items)' : (!s.ratedTarget ? '(didn’t rate target item)' : '');
+        lhtml += `<div class="sim-bar-wrap ${isNb ? 'neighbour' : ''} ${excluded ? 'excluded' : ''}">
+          <div class="uname">${USERS[s.ui]}${isNb ? ' ⭐' : ''}</div>
+          <div class="sim-track"><div class="sim-fill ${s.sim !== null && s.sim < 0 ? 'neg' : ''}" style="width:${pct}%"></div></div>
+          <div class="sim-val">${valTxt}</div>
+        </div>
+        ${reason ? `<div style="font-size:0.7rem;color:var(--text-muted);margin:-0.35rem 0 0.5rem 64px;">co-rated: ${s.co} ${reason}</div>` : `<div style="font-size:0.7rem;color:var(--text-muted);margin:-0.35rem 0 0.5rem 64px;">co-rated items: ${s.co} · rated target item: ${R[s.ui][targetItem]}★</div>`}`;
+      });
+      list.innerHTML = lhtml;
+
+      // ── Step 2 prediction ──
+      const formula = document.getElementById('formula');
+      const log = document.getElementById('calc-log');
+      document.getElementById('m-neighbours').textContent = neighbours.length;
+
+      if (neighbours.length === 0) {
+        document.getElementById('m-pred').textContent = '—';
+        formula.innerHTML = 'No neighbour rated <strong>' + ITEMS[targetItem] + '</strong> with a valid similarity. Try a different item, more ratings, or a different metric.';
+        log.innerHTML = '';
+        return;
+      }
+
+      // weighted average of neighbour raw ratings
+      let num = 0, den = 0;
+      const terms = [];
+      const lines = [];
+      neighbours.forEach(n => {
+        const w = n.sim;
+        const r = R[n.ui][targetItem];
+        num += w * r; den += Math.abs(w);
+        terms.push(`(${w.toFixed(2)}×${r})`);
+        lines.push(`<div class="step-entry"><span class="step-highlight">${USERS[n.ui]}</span> sim=<span class="step-value">${w.toFixed(3)}</span>, rated ${ITEMS[targetItem]} = <span class="step-value">${r}★</span> → contributes ${(w * r).toFixed(2)}</div>`);
+      });
+      const pred = den === 0 ? null : num / den;
+
+      formula.innerHTML =
+        `pred(<strong style="color:var(--accent-violet)">${USERS[targetUser]}</strong>, <strong style="color:var(--accent-teal)">${ITEMS[targetItem]}</strong>) = Σ(sim·r) / Σ|sim|<br>` +
+        `= [ ${terms.join(' + ')} ] / [ ${neighbours.map(n => Math.abs(n.sim).toFixed(2)).join(' + ')} ]<br>` +
+        `= ${num.toFixed(2)} / ${den.toFixed(2)} = <strong style="color:var(--accent-violet)">${pred === null ? '—' : pred.toFixed(2)}</strong>`;
+
+      lines.push(`<div class="step-entry">Numerator Σ(sim·r) = <span class="step-value">${num.toFixed(2)}</span>, Denominator Σ|sim| = <span class="step-value">${den.toFixed(2)}</span></div>`);
+      log.innerHTML = lines.join('');
+      document.getElementById('m-pred').textContent = pred === null ? '—' : pred.toFixed(2);
+    }
+
+    resetAll();
+
+    showTutorial({
+      id: 'c10v2', icon: '🤝', title: 'User-User Collaborative Filtering',
+      subtitle: 'Find similar users, borrow their ratings.',
+      steps: [
+        'Each <strong>row</strong> is one user’s ratings. Click a name to make them the <strong>target</strong> (violet).',
+        'Click an <strong>item header</strong> the target hasn’t rated (teal) — that’s the rating we’ll predict.',
+        'Step 1 measures how similar the target is to every other user over their <strong>co-rated</strong> items.',
+        'Step 2 takes the <strong>k nearest</strong> users who rated that item and blends their ratings, weighted by similarity.'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In user-user CF, similarity is computed between which parts of the rating matrix?',
+        options: ['Two columns (items)', 'Two rows (users)', 'A row and a column', 'The whole matrix at once'],
+        correct: 1,
+        explanation: 'User-user CF compares whole ROWS — each row is one user’s rating vector. Item-item CF would compare columns instead.'
+      },
+      {
+        question: 'Two users only have similarity defined over items that…',
+        options: ['Both users rated (co-rated items)', 'Either user rated', 'Neither user rated', 'The target user rated alone'],
+        correct: 0,
+        explanation: 'Similarity (cosine or Pearson) is only meaningful over CO-RATED items — items both users have rated. Sparse overlap makes similarities noisy.'
+      },
+      {
+        question: 'With k=2 nearest neighbours having sim 0.9 (rated 5) and 0.5 (rated 2), the similarity-weighted prediction is…',
+        options: ['3.5 (plain average)', '3.93', '5.0', '2.0'],
+        correct: 1,
+        explanation: 'pred = (0.9×5 + 0.5×2) / (0.9 + 0.5) = (4.5 + 1.0) / 1.4 = 5.5/1.4 ≈ 3.93 — weighted toward 5 by the closer neighbour, above the plain average of 3.5.'
+      },
+      {
+        question: 'A key weakness of user-user CF in practice is that…',
+        options: ['It needs item metadata', 'User tastes are volatile and overlap is sparse, so similarities are noisy and drift', 'It cannot use cosine similarity', 'It only works for two users'],
+        correct: 1,
+        explanation: 'User tastes change and most user pairs co-rate few items, so neighbourhoods are noisy and must be recomputed — a reason item-item CF is often preferred at scale.'
+      }
+    ]);
+  </script>
+</body>
+</html>

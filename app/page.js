@@ -7,6 +7,7 @@ import CourseProgress from './components/CourseProgress';
 import { chapters, chapterOrder } from './data/chapters';
 
 export default function HomePage() {
+  const totalViz = chapterOrder.reduce((sum, id) => sum + chapters[id].visualizations.length, 0);
   return (
     <>
       <ParticleCanvas />
@@ -25,15 +26,15 @@ export default function HomePage() {
           </p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <div className="stat-num">6</div>
+              <div className="stat-num">{chapterOrder.length}</div>
               <div className="stat-label">Chapters</div>
             </div>
             <div className="hero-stat">
-              <div className="stat-num">37</div>
+              <div className="stat-num">{totalViz}</div>
               <div className="stat-label">Visualizations</div>
             </div>
             <div className="hero-stat">
-              <div className="stat-num">100+</div>
+              <div className="stat-num">200+</div>
               <div className="stat-label">Quiz Questions</div>
             </div>
           </div>

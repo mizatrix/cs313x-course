@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 · Intent & Slot Tagging (NLU) — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .utter-input {
+      width: 100%; padding: 0.85rem 1rem; font-size: 1rem; font-family: inherit;
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      transition: var(--transition);
+    }
+    .utter-input:focus { outline: none; border-color: var(--accent-violet); box-shadow: 0 0 0 3px rgba(108,92,231,0.18); }
+    .preset-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .preset-chip {
+      font-size: 0.78rem; padding: 0.4rem 0.7rem; cursor: pointer;
+      background: rgba(108,92,231,0.1); color: var(--accent-violet);
+      border: 1px solid rgba(108,92,231,0.25); border-radius: 999px;
+      transition: var(--transition);
+    }
+    .preset-chip:hover { background: rgba(108,92,231,0.22); transform: translateY(-1px); }
+
+    .tagged-sentence {
+      font-size: 1.15rem; line-height: 2.4; padding: 1rem 1.1rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md); min-height: 2.5rem;
+    }
+    .tok { padding: 0.05rem 0.1rem; border-radius: var(--radius-sm); transition: var(--transition); }
+    .tok-slot {
+      position: relative; padding: 0.15rem 0.4rem 0.55rem; margin: 0 0.1rem;
+      border-radius: var(--radius-sm); font-weight: 600; cursor: default;
+    }
+    .tok-label {
+      position: absolute; left: 0; bottom: -0.05rem; width: 100%;
+      font-size: 0.55rem; font-weight: 800; letter-spacing: 0.04em;
+      text-transform: uppercase; text-align: center; opacity: 0.85;
+    }
+
+    .frame-box {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md); padding: 1rem 1.1rem; color: var(--text-secondary);
+    }
+    .frame-box .fk { color: var(--accent-violet); font-weight: 700; }
+    .frame-box .fv { color: var(--accent-teal); }
+    .frame-box .fnull { color: var(--text-muted); font-style: italic; }
+
+    .intent-pill {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 1rem; font-weight: 800; padding: 0.5rem 1rem;
+      border-radius: 999px; background: rgba(0,184,148,0.15);
+      color: var(--success); border: 1px solid rgba(0,184,148,0.3);
+    }
+    .intent-pill.unknown { background: rgba(214,48,49,0.12); color: var(--error); border-color: rgba(214,48,49,0.28); }
+    .conf-bar { height: 7px; border-radius: 999px; background: var(--border-glass); overflow: hidden; margin-top: 0.5rem; }
+    .conf-fill { height: 100%; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.35s ease; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--text-secondary); }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02 · Intermediate</div>
+      <h1>Intent &amp; Slot Tagging (NLU)</h1>
+      <p>Type an utterance and watch a Natural Language Understanding module classify the <strong>intent</strong> and fill <strong>slots</strong> (entities) to build a structured semantic frame.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Start with "Book a flight to Cairo tomorrow", then change "Cairo" to "Tokyo" and "tomorrow" to "on Friday". Watch the destination and date slots update live. Then try "What's the weather in Paris?" — the intent flips entirely.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Utterance</div>
+        <div class="control-group">
+          <input id="utter" class="utter-input" type="text" autocomplete="off"
+                 value="Book a flight to Cairo tomorrow" />
+          <div class="preset-row" id="presets"></div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Tagged Spans</div>
+        <div class="tagged-sentence" id="tagged"></div>
+        <div class="legend" id="legend"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Detected Slots</div>
+        <div id="slot-log" class="step-log"></div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Intent Classification</div>
+        <div style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.25rem;">
+          <div><span class="intent-pill" id="intent-pill">—</span></div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">Keyword score / confidence</div>
+          <div class="conf-bar"><div class="conf-fill" id="conf-fill" style="width:0%"></div></div>
+        </div>
+
+        <div class="metric-grid" style="margin-bottom:1.5rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-slots">0</div>
+            <div class="metric-label">Slots Filled</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-tokens">0</div>
+            <div class="metric-label">Tokens</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title">Semantic Frame</div>
+        <div class="frame-box" id="frame"></div>
+
+        <div style="margin-top:1.5rem;">
+          <div class="viz-section-title">Why It Matters</div>
+          <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.7;">
+            NLU turns free text into a machine-readable <strong style="color:var(--accent-violet);">frame</strong>. The
+            <strong>intent</strong> picks which action/skill to run; the <strong>slots</strong> supply its required
+            parameters. Empty required slots trigger a clarifying question (e.g. "Where would you like to fly?").
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Intent definitions: keyword cues → intent ──────────────
+    const INTENTS = [
+      { name: 'BookFlight',  icon: '✈️', kw: ['book', 'fly', 'flight', 'flights', 'ticket'] },
+      { name: 'GetWeather',  icon: '🌦️', kw: ['weather', 'forecast', 'rain', 'temperature', 'sunny', 'hot', 'cold'] },
+      { name: 'PlayMusic',   icon: '🎵', kw: ['play', 'song', 'music', 'track', 'album', 'artist'] },
+      { name: 'SetAlarm',    icon: '⏰', kw: ['alarm', 'wake', 'remind', 'reminder', 'timer'] },
+      { name: 'BookRestaurant', icon: '🍽️', kw: ['reserve', 'table', 'restaurant', 'dinner', 'lunch', 'booking'] },
+    ];
+
+    // ── Slot lexicons / patterns ───────────────────────────────
+    const CITIES = ['cairo','tokyo','paris','london','dubai','rome','berlin','madrid','cape town','new york','los angeles','san francisco'];
+    const DATE_WORDS = ['today','tomorrow','tonight','monday','tuesday','wednesday','thursday','friday','saturday','sunday','weekend'];
+    const ARTISTS = ['adele','queen','drake','beyonce','coldplay','eminem'];
+    // slot colors
+    const SLOT_STYLE = {
+      destination: { bg:'rgba(108,92,231,0.18)', fg:'var(--accent-violet)', label:'destination' },
+      origin:      { bg:'rgba(0,206,201,0.16)',  fg:'var(--accent-teal)',   label:'origin' },
+      date:        { bg:'rgba(253,121,168,0.18)', fg:'var(--accent-pink)',  label:'date' },
+      time:        { bg:'rgba(253,203,110,0.22)', fg:'var(--warning)',      label:'time' },
+      city:        { bg:'rgba(108,92,231,0.18)',  fg:'var(--accent-violet)', label:'city' },
+      artist:      { bg:'rgba(0,184,148,0.16)',   fg:'var(--success)',      label:'artist' },
+      cuisine:     { bg:'rgba(0,206,201,0.16)',   fg:'var(--accent-teal)',  label:'cuisine' },
+      song:        { bg:'rgba(0,184,148,0.16)',   fg:'var(--success)',      label:'song' },
+    };
+    const CUISINES = ['italian','indian','chinese','japanese','mexican','thai','french'];
+
+    const PRESETS = [
+      'Book a flight to Cairo tomorrow',
+      'Book a flight from London to Tokyo on Friday',
+      "What's the weather in Paris?",
+      'Play Bohemian Rhapsody by Queen',
+      'Set an alarm for 7 am tomorrow',
+      'Reserve a table at an Italian restaurant tonight'
+    ];
+
+    // ── Tokenizer keeps original text + lowercase ──────────────
+    function tokenize(s) {
+      const toks = [];
+      const re = /[A-Za-z0-9']+|[^\sA-Za-z0-9]/g;
+      let m;
+      while ((m = re.exec(s)) !== null) toks.push(m[0]);
+      return toks;
+    }
+
+    // Try to match a multi-word phrase from a lexicon at position i
+    function matchPhrase(lcToks, i, lexicon) {
+      for (let len = 3; len >= 1; len--) {
+        if (i + len > lcToks.length) continue;
+        const phrase = lcToks.slice(i, i + len).join(' ');
+        if (lexicon.includes(phrase)) return len;
+      }
+      return 0;
+    }
+
+    function classifyIntent(lcToks) {
+      let best = null, bestScore = 0;
+      INTENTS.forEach(intent => {
+        let score = 0;
+        lcToks.forEach(t => { if (intent.kw.includes(t)) score++; });
+        if (score > bestScore) { bestScore = score; best = intent; }
+      });
+      return { intent: best, score: bestScore };
+    }
+
+    // ── Slot filling: returns array of {start,end,type} spans ──
+    function fillSlots(toks, lcToks, intentName) {
+      const spans = [];
+      const used = new Array(toks.length).fill(false);
+      const add = (start, len, type) => {
+        for (let k = start; k < start + len; k++) used[k] = true;
+        spans.push({ start, end: start + len, type });
+      };
+
+      // direction context for origin vs destination
+      for (let i = 0; i < toks.length; i++) {
+        if (used[i]) continue;
+        const lc = lcToks[i];
+
+        // city phrase
+        const cityLen = matchPhrase(lcToks, i, CITIES);
+        if (cityLen > 0) {
+          // look back for "from" / "to" cue
+          const prev = lcToks[i - 1];
+          let type = 'city';
+          if (intentName === 'BookFlight') {
+            type = (prev === 'from') ? 'origin' : 'destination';
+          }
+          if (intentName === 'GetWeather') type = 'city';
+          add(i, cityLen, type);
+          i += cityLen - 1;
+          continue;
+        }
+
+        // date words
+        if (DATE_WORDS.includes(lc)) { add(i, 1, 'date'); continue; }
+        // "on Friday" handled above by date word; "next week"
+        if (lc === 'next' && DATE_WORDS.includes(lcToks[i + 1] || '')) { add(i, 2, 'date'); i++; continue; }
+
+        // time like "7 am", "07:30", "noon"
+        if (/^\d{1,2}([:.]\d{2})?$/.test(lc)) {
+          let len = 1;
+          const nxt = lcToks[i + 1];
+          if (nxt === 'am' || nxt === 'pm' || nxt === "o'clock") len = 2;
+          add(i, len, 'time'); i += len - 1; continue;
+        }
+        if (lc === 'noon' || lc === 'midnight') { add(i, 1, 'time'); continue; }
+
+        // artist
+        const artLen = matchPhrase(lcToks, i, ARTISTS);
+        if (artLen > 0 && intentName === 'PlayMusic') { add(i, artLen, 'artist'); i += artLen - 1; continue; }
+
+        // cuisine
+        if (CUISINES.includes(lc) && intentName === 'BookRestaurant') { add(i, 1, 'cuisine'); continue; }
+      }
+
+      // song: words between "play" and "by" (PlayMusic)
+      if (intentName === 'PlayMusic') {
+        const playIdx = lcToks.indexOf('play');
+        const byIdx = lcToks.indexOf('by');
+        if (playIdx >= 0) {
+          const start = playIdx + 1;
+          const end = byIdx > start ? byIdx : toks.length;
+          // collect contiguous unused word tokens as the song title
+          let s = -1;
+          for (let k = start; k < end; k++) {
+            const isWord = /[A-Za-z0-9']/.test(toks[k]) && !used[k];
+            if (isWord && s < 0) s = k;
+            if ((!isWord || k === end - 1) && s >= 0) {
+              const last = isWord ? k : k - 1;
+              if (last >= s) { add(s, last - s + 1, 'song'); }
+              s = -1;
+            }
+          }
+        }
+      }
+
+      spans.sort((a, b) => a.start - b.start);
+      return spans;
+    }
+
+    // ── Render ─────────────────────────────────────────────────
+    function update() {
+      const raw = document.getElementById('utter').value;
+      const toks = tokenize(raw);
+      const lcToks = toks.map(t => t.toLowerCase());
+
+      const { intent, score } = classifyIntent(lcToks);
+      const intentName = intent ? intent.name : null;
+      const spans = fillSlots(toks, lcToks, intentName);
+
+      // build span lookup for rendering
+      const spanAt = {};
+      spans.forEach(sp => { for (let k = sp.start; k < sp.end; k++) spanAt[k] = sp; });
+
+      // tagged sentence
+      let html = '';
+      let k = 0;
+      while (k < toks.length) {
+        const sp = spanAt[k];
+        if (sp && sp.start === k) {
+          const st = SLOT_STYLE[sp.type];
+          const text = toks.slice(sp.start, sp.end).join(' ');
+          html += `<span class="tok-slot" style="background:${st.bg}; color:${st.fg};">${escapeHtml(text)}<span class="tok-label" style="color:${st.fg};">${st.label}</span></span> `;
+          k = sp.end;
+        } else {
+          html += `<span class="tok">${escapeHtml(toks[k])}</span>${/[A-Za-z0-9']$/.test(toks[k]) ? ' ' : ''}`;
+          k++;
+        }
+      }
+      document.getElementById('tagged').innerHTML = html || '<span style="color:var(--text-muted)">Type something above…</span>';
+
+      // legend (unique slot types present)
+      const types = [...new Set(spans.map(s => s.type))];
+      document.getElementById('legend').innerHTML = types.map(t => {
+        const st = SLOT_STYLE[t];
+        return `<span class="legend-item"><span class="legend-swatch" style="background:${st.bg}; border:1px solid ${st.fg}"></span>${st.label}</span>`;
+      }).join('');
+
+      // intent pill + confidence
+      const pill = document.getElementById('intent-pill');
+      const totalKw = toks.filter(t => /[A-Za-z]/.test(t)).length || 1;
+      const conf = intentName ? Math.min(100, Math.round(35 + score / totalKw * 130)) : 0;
+      if (intentName) {
+        pill.className = 'intent-pill';
+        pill.textContent = `${intent.icon} ${intentName}`;
+      } else {
+        pill.className = 'intent-pill unknown';
+        pill.textContent = '❓ Unknown / Fallback';
+      }
+      document.getElementById('conf-fill').style.width = conf + '%';
+
+      // metrics
+      document.getElementById('m-slots').textContent = spans.length;
+      document.getElementById('m-tokens').textContent = toks.filter(t => /[A-Za-z0-9']/.test(t)).length;
+
+      // slot log
+      if (spans.length) {
+        document.getElementById('slot-log').innerHTML = spans.map(sp => {
+          const text = toks.slice(sp.start, sp.end).join(' ');
+          return `<div class="step-entry"><span class="step-highlight">${SLOT_STYLE[sp.type].label}</span> → <span class="step-value">${escapeHtml(text)}</span></div>`;
+        }).join('');
+      } else {
+        document.getElementById('slot-log').innerHTML = '<div class="step-entry" style="opacity:0.6;">No entities detected yet.</div>';
+      }
+
+      // semantic frame
+      const slotObj = {};
+      spans.forEach(sp => {
+        const txt = toks.slice(sp.start, sp.end).join(' ');
+        slotObj[sp.type] = slotObj[sp.type] ? slotObj[sp.type] + ', ' + txt : txt;
+      });
+      let frame = `{\n  <span class="fk">"intent"</span>: ${intentName ? `<span class="fv">"${intentName}"</span>` : '<span class="fnull">null</span>'},\n  <span class="fk">"slots"</span>: {`;
+      const entries = Object.entries(slotObj);
+      if (entries.length === 0) {
+        frame += ' <span class="fnull">/* empty — needs clarification */</span> }';
+      } else {
+        frame += '\n' + entries.map(([key, val]) =>
+          `    <span class="fk">"${key}"</span>: <span class="fv">"${escapeHtml(val)}"</span>`
+        ).join(',\n') + '\n  }';
+      }
+      frame += '\n}';
+      document.getElementById('frame').innerHTML = frame;
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Presets ────────────────────────────────────────────────
+    document.getElementById('presets').innerHTML = PRESETS.map((p, i) =>
+      `<span class="preset-chip" data-i="${i}">${escapeHtml(p)}</span>`
+    ).join('');
+    document.getElementById('presets').addEventListener('click', e => {
+      const chip = e.target.closest('.preset-chip');
+      if (!chip) return;
+      document.getElementById('utter').value = PRESETS[+chip.dataset.i];
+      update();
+    });
+
+    document.getElementById('utter').addEventListener('input', update);
+    update();
+
+    showTutorial({ id: 'c11v2', icon: '🗣️', title: 'Intent & Slot Tagging', subtitle: 'How NLU turns words into a structured semantic frame.',
+      steps: [
+        'NLU runs two tasks: <strong>intent classification</strong> (what does the user want?) and <strong>slot filling</strong> (what are the parameters?)',
+        'Type or pick a <strong>preset</strong> utterance — tagging updates live as you edit',
+        'Highlighted spans are <strong>slots / entities</strong> like destination, date, or artist',
+        'The result is a <strong>semantic frame</strong>: {intent, slots} that the dialogue system acts on'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In the utterance "Book a flight to Cairo tomorrow", what is the INTENT?', options: ['Cairo', 'tomorrow', 'BookFlight', 'destination'], correct: 2, explanation: 'The intent is the user\'s overall goal — BookFlight. "Cairo" and "tomorrow" are slot values, not the intent.' },
+      { question: 'In that same utterance, "Cairo" fills which slot?', options: ['intent', 'destination', 'date', 'origin'], correct: 1, explanation: '"Cairo" is the destination entity. The word "to" cues that the city is where the flight is going.' },
+      { question: 'What does the structured "semantic frame" produced by NLU contain?', options: ['Only the raw text', 'The intent plus filled slots', 'Just a relevance score', 'The TF-IDF vector'], correct: 1, explanation: 'A semantic frame bundles the classified intent together with its slots (entities), e.g. {intent: BookFlight, slots:{destination:Cairo, date:tomorrow}}.' },
+      { question: 'Why is NLU essential in a conversational/dialogue system?', options: ['It ranks web pages by PageRank', 'It compresses audio', 'It maps free-text utterances to machine-actionable intents & parameters', 'It generates the spoken voice'], correct: 2, explanation: 'NLU converts unstructured language into a structured intent + slots representation so the system knows which action to run and with what arguments.' }
+    ]);
+  </script>
+</body>
+</html>

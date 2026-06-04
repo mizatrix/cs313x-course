@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · Agentic Search — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .goal-box {
+      padding: 1rem 1.1rem; border-radius: var(--radius-md);
+      background: rgba(108,92,231,0.10); border: 1px solid rgba(108,92,231,0.30);
+      font-size: 0.92rem; line-height: 1.6; color: var(--text-primary); margin-bottom: 1.1rem;
+    }
+    .goal-box .goal-label { font-weight: 800; color: var(--accent-violet); margin-right: 0.4rem; }
+
+    /* Plan checklist */
+    .plan-item {
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.6rem 0.75rem; margin-bottom: 0.5rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); transition: var(--transition);
+      font-size: 0.86rem; color: var(--text-secondary);
+    }
+    .plan-item.active { border-color: var(--accent-teal); box-shadow: 0 0 12px rgba(0,206,201,0.18); color: var(--text-primary); }
+    .plan-item.done { color: var(--text-muted); }
+    .plan-check {
+      width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%;
+      border: 2px solid var(--border-glass); display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 800; transition: var(--transition);
+    }
+    .plan-item.active .plan-check { border-color: var(--accent-teal); color: var(--accent-teal); }
+    .plan-item.done .plan-check { background: var(--success); border-color: var(--success); color: #fff; }
+    .plan-num { color: var(--accent-violet); font-weight: 800; }
+
+    /* Step log roles */
+    .step-entry .role-tag {
+      display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 0.1rem 0.45rem; border-radius: 999px; margin-right: 0.5rem;
+    }
+    .role-thought { background: rgba(108,92,231,0.18); color: var(--accent-violet); }
+    .role-action  { background: rgba(0,206,201,0.18); color: var(--accent-teal); }
+    .role-observe { background: rgba(0,184,148,0.18); color: var(--success); }
+    .role-final   { background: rgba(253,121,168,0.18); color: var(--accent-pink); }
+    .tool-name { font-family: monospace; color: var(--accent-teal); font-weight: 700; }
+
+    .contrast-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    @media (max-width: 640px) { .contrast-cols { grid-template-columns: 1fr; } }
+    .contrast-box {
+      padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass);
+      background: var(--bg-card); font-size: 0.82rem; line-height: 1.55;
+    }
+    .contrast-box h5 { margin: 0 0 0.45rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .contrast-box.search h5 { color: var(--warning); }
+    .contrast-box.agent h5 { color: var(--success); }
+    .contrast-box .read-write { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+    .progress-track { height: 8px; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border-glass); overflow: hidden; margin-top: 0.4rem; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.4s ease; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 12</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Advanced</div>
+      <h1>Agentic Search</h1>
+      <p>A search engine returns links. An <strong>agent</strong> reasons, calls tools, observes results, and iterates until a multi-step task is actually <strong>completed</strong>.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🤖</div>
+      <div class="challenge-text"><strong>Try This:</strong> Press <strong>Step</strong> to advance the agent one reasoning cycle at a time, or <strong>Run</strong> to autoplay. Watch the plan tick off and notice that the agent <em>writes</em> (books, adds to calendar), not just reads.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: Goal, plan, controls -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">The Task</div>
+        <div class="goal-box">
+          <span class="goal-label">Goal:</span>Find the cheaper of two flights to Boston, book it, and add the trip to my calendar.
+        </div>
+
+        <div class="viz-section-title">Plan Checklist</div>
+        <div id="plan-list"></div>
+
+        <div class="control-group" style="margin-top: 1rem;">
+          <div class="control-row">
+            <button class="btn btn-primary" id="btn-step" onclick="step()">Step ▶</button>
+            <button class="btn btn-teal" id="btn-run" onclick="toggleRun()">Run ⏩</button>
+            <button class="btn" onclick="reset()">Reset ⟲</button>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.4rem;">Progress</div>
+        <div class="metric-grid" style="margin-bottom: 0.5rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-step">0</div>
+            <div class="metric-label">Reasoning Steps</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-tools">0</div>
+            <div class="metric-label">Tool Calls</div>
+          </div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="prog"></div></div>
+      </div>
+
+      <!-- RIGHT: ReAct trace + contrast -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Agent Trace (Reason → Act → Observe)</div>
+        <div id="trace" class="step-log" style="min-height: 220px;"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.4rem;">Search vs. Agent</div>
+        <div class="contrast-cols">
+          <div class="contrast-box search">
+            <h5>🔎 Single Search Query</h5>
+            <div>Query: <em>"cheap flights to Boston"</em></div>
+            <div style="margin-top:0.4rem;">→ Returns a page of <strong>links</strong>. You still compare, decide, book, and update your calendar — all by hand.</div>
+            <div class="read-write">Read-only · stateless · one shot</div>
+          </div>
+          <div class="contrast-box agent">
+            <h5>🤖 Agentic Search</h5>
+            <div id="agent-outcome">→ Decomposes the goal, calls tools, compares results, and finishes the booking for you.</div>
+            <div class="read-write">Plans · reads <strong>and writes</strong> · multi-step · iterates</div>
+          </div>
+        </div>
+
+        <div class="formula-box" style="margin-top: 1.2rem;">loop: Thought → Action(tool) → Observation → … → Final</div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Plan: the agent decomposes the goal into sub-goals ──
+    const PLAN = [
+      'Search for flights to Boston',
+      'Compare price of the two options',
+      'Book the cheaper flight',
+      'Add the trip to the calendar'
+    ];
+
+    // ── Scripted ReAct trace. Each step belongs to a plan index. ──
+    // role: thought | action | observe | final ; tool: bool ; plan: index this step works toward ; complete: marks plan[index] done
+    const TRACE = [
+      { plan: 0, role: 'thought', text: 'I need flight options before I can compare or book. Let me call the search tool.' },
+      { plan: 0, role: 'action',  tool: true, text: '<span class="tool-name">flight_search</span>(dest="BOS", date="Jun 12")' },
+      { plan: 0, role: 'observe', text: 'Returned 2 options: <strong>JetA</strong> $214 (1 stop), <strong>SkyB</strong> $189 (nonstop).', complete: 0 },
+
+      { plan: 1, role: 'thought', text: 'Two candidates found. I will compare their prices to pick the cheaper one.' },
+      { plan: 1, role: 'action',  tool: true, text: '<span class="tool-name">compare</span>(JetA=214, SkyB=189)' },
+      { plan: 1, role: 'observe', text: 'SkyB ($189) < JetA ($214). <strong>SkyB</strong> is cheaper and nonstop.', complete: 1 },
+
+      { plan: 2, role: 'thought', text: 'SkyB is the better choice. This is a WRITE action — I will actually book it.' },
+      { plan: 2, role: 'action',  tool: true, text: '<span class="tool-name">book_flight</span>(carrier="SkyB", price=189)' },
+      { plan: 2, role: 'observe', text: 'Booking confirmed ✅ — confirmation <strong>#SK7Q2X</strong>.', complete: 2 },
+
+      { plan: 3, role: 'thought', text: 'Trip is booked. Last sub-goal: put it on the calendar so it is not missed.' },
+      { plan: 3, role: 'action',  tool: true, text: '<span class="tool-name">calendar_add</span>(title="Flight BOS", date="Jun 12")' },
+      { plan: 3, role: 'observe', text: 'Event created on Jun 12, 9:40am. Reminder set.', complete: 3 },
+
+      { plan: 3, role: 'final', text: 'Task complete: compared 2 flights, booked the cheaper (SkyB, $189, #SK7Q2X), and added it to the calendar.' }
+    ];
+
+    let cursor = 0;          // index into TRACE
+    let toolCalls = 0;
+    let running = false;
+    let timer = null;
+
+    function renderPlan() {
+      const activePlan = cursor < TRACE.length ? TRACE[cursor].plan : PLAN.length;
+      document.getElementById('plan-list').innerHTML = PLAN.map((p, i) => {
+        const done = i < doneCount();
+        const active = !done && i === activePlan && cursor < TRACE.length;
+        const cls = done ? 'done' : (active ? 'active' : '');
+        const mark = done ? '✓' : (i + 1);
+        return `<div class="plan-item ${cls}">
+          <div class="plan-check">${mark}</div>
+          <div><span class="plan-num">${i + 1}.</span> ${p}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // how many plan items have been completed so far (by steps already executed)
+    function doneCount() {
+      let c = 0;
+      for (let i = 0; i < cursor; i++) {
+        if (TRACE[i].complete !== undefined) c = Math.max(c, TRACE[i].complete + 1);
+      }
+      return c;
+    }
+
+    function renderMetrics() {
+      document.getElementById('m-step').textContent = cursor;
+      document.getElementById('m-tools').textContent = toolCalls;
+      document.getElementById('prog').style.width = Math.round(cursor / TRACE.length * 100) + '%';
+      const outcome = document.getElementById('agent-outcome');
+      if (cursor >= TRACE.length) {
+        outcome.innerHTML = '✅ <strong>Done:</strong> compared 2 flights, booked SkyB ($189, #SK7Q2X), calendar event added — zero manual steps.';
+      } else {
+        outcome.innerHTML = '→ Decomposes the goal, calls tools, compares results, and finishes the booking for you.';
+      }
+    }
+
+    const ROLE_LABEL = { thought: 'Thought', action: 'Action', observe: 'Observation', final: 'Final' };
+    const ROLE_CLASS = { thought: 'role-thought', action: 'role-action', observe: 'role-observe', final: 'role-final' };
+
+    function step() {
+      if (cursor >= TRACE.length) { stopRun(); return; }
+      const s = TRACE[cursor];
+      if (s.tool) toolCalls++;
+      cursor++;
+
+      const trace = document.getElementById('trace');
+      const valueCls = s.role === 'final' ? 'step-value' : '';
+      const entry = document.createElement('div');
+      entry.className = 'step-entry';
+      if (s.role === 'observe' || s.role === 'final') entry.classList.add('step-highlight');
+      entry.innerHTML = `<span class="role-tag ${ROLE_CLASS[s.role]}">${ROLE_LABEL[s.role]}</span><span class="${valueCls}">${s.text}</span>`;
+      trace.appendChild(entry);
+      trace.scrollTop = trace.scrollHeight;
+
+      renderPlan();
+      renderMetrics();
+      if (cursor >= TRACE.length) stopRun();
+    }
+
+    function toggleRun() { running ? stopRun() : startRun(); }
+    function startRun() {
+      if (cursor >= TRACE.length) reset();
+      running = true;
+      document.getElementById('btn-run').textContent = 'Pause ⏸';
+      timer = setInterval(() => { if (cursor >= TRACE.length) stopRun(); else step(); }, 900);
+    }
+    function stopRun() {
+      running = false;
+      clearInterval(timer); timer = null;
+      document.getElementById('btn-run').textContent = 'Run ⏩';
+    }
+
+    function reset() {
+      stopRun();
+      cursor = 0; toolCalls = 0;
+      document.getElementById('trace').innerHTML = '<div class="step-entry" style="opacity:0.6;">Press <strong>Step</strong> or <strong>Run</strong> to start the agent…</div>';
+      renderPlan();
+      renderMetrics();
+    }
+
+    reset();
+
+    showTutorial({ id: 'c12v4', icon: '🤖', title: 'Agentic Search', subtitle: 'When search stops returning links and starts completing tasks.',
+      steps: [
+        'A plain search is <strong>read-only</strong>: it hands you links and you do the rest',
+        'An <strong>agent</strong> first builds a <strong>plan</strong>, then works it item by item',
+        'Each cycle is <strong>Thought → Action (tool call) → Observation</strong>, repeated until done',
+        'The agent can <strong>write</strong> — it books the flight and adds a calendar event, finishing the task'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What most distinguishes an agentic search system from a classic search engine?',
+        options: ['It uses a bigger index', 'It plans, calls tools, and can take actions to complete a task', 'It ranks links faster', 'It only works offline'],
+        correct: 1,
+        explanation: 'A classic engine returns ranked links (read-only). An agent decomposes a goal, calls tools, observes results, iterates, and can take real actions to finish the task.' },
+      { question: 'In the Thought → Action → Observation loop, what is the "Action" step?',
+        options: ['The user clicking a link', 'A tool/API call the agent makes (e.g. search, book)', 'Re-ranking the index', 'Caching the page'],
+        correct: 1,
+        explanation: 'The Action is a tool or API call the agent invokes (flight_search, book_flight, calendar_add). The resulting Observation feeds the next reasoning step.' },
+      { question: 'Why is "read AND write" significant for agents vs. read-only search?',
+        options: ['It makes queries shorter', 'The agent can change real state — book, send, schedule — not just retrieve', 'It improves precision@k', 'It removes the need for an LLM'],
+        correct: 1,
+        explanation: 'Read-only search just retrieves. Agents take write actions (booking, sending email, creating events) that change real-world state to actually complete the task.' },
+      { question: 'What role does the LLM primarily play in this agentic loop?',
+        options: ['Storing the inverted index', 'Reasoning: deciding which tool to call next and when the task is done',  'Compressing images', 'Encrypting the results'],
+        correct: 1,
+        explanation: 'The LLM is the reasoning engine: it decomposes the goal into a plan, picks the next tool/action from each observation, and decides when the task is complete.' }
+    ]);
+  </script>
+</body>
+</html>

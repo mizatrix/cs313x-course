@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · Chatbot Types Compared — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .query-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .query-chip {
+      padding: 0.5rem 0.85rem; font-size: 0.8rem; font-weight: 600;
+      border-radius: var(--radius-sm); cursor: pointer;
+      background: var(--bg-card); color: var(--text-secondary);
+      border: 1px solid var(--border-glass); transition: var(--transition);
+    }
+    .query-chip:hover { transform: translateY(-1px); color: var(--text-primary); }
+    .query-chip.active {
+      background: rgba(108,92,231,0.15); color: var(--accent-violet);
+      border-color: var(--accent-violet);
+    }
+    .bot-toggle { width: 100%; }
+    .bot-toggle .toggle-opt { flex: 1; text-align: center; }
+    .chat-window {
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md); padding: 1rem; min-height: 150px;
+    }
+    .bubble { max-width: 85%; padding: 0.7rem 0.95rem; border-radius: 14px; margin-bottom: 0.75rem; font-size: 0.88rem; line-height: 1.5; }
+    .bubble.user { margin-left: auto; background: var(--accent-violet); color: #fff; border-bottom-right-radius: 4px; }
+    .bubble.bot { margin-right: auto; background: rgba(0,206,201,0.12); color: var(--text-primary); border: 1px solid rgba(0,206,201,0.3); border-bottom-left-radius: 4px; }
+    .pipeline {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
+      font-size: 0.74rem; color: var(--text-muted); margin-top: 0.85rem;
+    }
+    .pipeline .stage { padding: 0.3rem 0.6rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); }
+    .pipeline .arrow { color: var(--accent-teal); font-weight: 700; }
+    .pool-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; margin-bottom: 0.4rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); font-size: 0.82rem; }
+    .pool-item.best { border-color: var(--success); background: rgba(0,184,148,0.1); }
+    .pool-sim { margin-left: auto; font-weight: 700; color: var(--accent-teal); font-size: 0.78rem; }
+    .pool-item.best .pool-sim { color: var(--success); }
+    .prosncons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .pc-col h5 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 0.4rem; }
+    .pc-col.pros h5 { color: var(--success); }
+    .pc-col.cons h5 { color: var(--error); }
+    .pc-col ul { margin: 0; padding-left: 1.05rem; }
+    .pc-col li { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 0.3rem; }
+    .risk-meter { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+    .risk-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border-glass); overflow: hidden; }
+    .risk-fill { height: 100%; border-radius: 4px; transition: var(--transition); }
+    @media (max-width: 640px) { .prosncons { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 05 · Beginner</div>
+      <h1>Chatbot Types Compared</h1>
+      <p>Send the <strong>same query</strong> to three chatbot families and see how each one responds — plus the trade-offs in control, flexibility, and hallucination risk.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Pick the off-topic query and switch between bots. Notice how the rule-based bot fails, retrieval returns its closest stored reply, and the generative bot invents something new (which may or may not be true).</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">1 · Pick a Sample Query</div>
+        <div class="query-picker" id="query-picker"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">2 · Choose a Chatbot Family</div>
+        <div class="toggle-group bot-toggle" id="bot-toggle">
+          <button class="toggle-opt active" data-bot="rule">Rule-Based</button>
+          <button class="toggle-opt" data-bot="retrieval">Retrieval</button>
+          <button class="toggle-opt" data-bot="generative">Generative</button>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Conversation</div>
+        <div class="chat-window" id="chat-window"></div>
+        <div class="pipeline" id="pipeline"></div>
+
+        <div id="mechanism"></div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title" id="bot-title">Rule-Based Bot</div>
+        <p id="bot-desc" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-top: 0;"></p>
+
+        <div class="metric-grid" style="margin-bottom: 1.25rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-control">—</div>
+            <div class="metric-label">Control</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-flex">—</div>
+            <div class="metric-label">Flexibility</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title">Hallucination Risk</div>
+        <div class="risk-meter">
+          <div class="risk-bar"><div class="risk-fill" id="risk-fill"></div></div>
+          <span id="risk-label" style="font-size: 0.8rem; font-weight: 700; min-width: 60px; text-align: right;"></span>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Trade-offs</div>
+        <div class="prosncons">
+          <div class="pc-col pros"><h5>Pros</h5><ul id="pros-list"></ul></div>
+          <div class="pc-col cons"><h5>Cons</h5><ul id="cons-list"></ul></div>
+        </div>
+
+        <div class="formula-box" style="margin-top: 1.5rem;" id="usecase">—</div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Sample queries (the SAME query is sent to every bot) ──
+    const QUERIES = [
+      { id: 'hours',  text: 'What are your opening hours?' },
+      { id: 'refund', text: 'How do I get a refund?' },
+      { id: 'weather',text: "What's the weather like on Mars right now?" },
+    ];
+
+    // Retrieval pool: candidate canned responses scored by (toy) similarity to query.
+    const RETRIEVAL_POOL = {
+      hours:  [
+        { r: 'We are open Mon–Fri, 9am to 6pm.', sim: 0.91 },
+        { r: 'Our return policy lasts 30 days.', sim: 0.22 },
+        { r: 'You can reach support at help@store.com.', sim: 0.18 },
+      ],
+      refund: [
+        { r: 'To request a refund, open your order and click "Return". Refunds take 5–7 days.', sim: 0.88 },
+        { r: 'We are open Mon–Fri, 9am to 6pm.', sim: 0.19 },
+        { r: 'You can reach support at help@store.com.', sim: 0.41 },
+      ],
+      weather:[
+        { r: 'We are open Mon–Fri, 9am to 6pm.', sim: 0.12 },
+        { r: 'To request a refund, open your order and click "Return".', sim: 0.09 },
+        { r: 'You can reach support at help@store.com.', sim: 0.14 },
+      ],
+    };
+
+    // Per-bot, per-query reply + behaviour notes.
+    const BOTS = {
+      rule: {
+        title: 'Rule-Based Bot',
+        desc: 'Matches the input against a fixed set of patterns (keywords / regex / decision tree) and returns a hand-written canned reply. No learning involved.',
+        control: 'High', flex: 'Low', risk: 0.05, riskLabel: 'None',
+        pipeline: ['Input', 'Match pattern / keyword', 'Return canned reply'],
+        pros: ['Fully predictable & safe', 'No training data needed', 'Cheap and fast'],
+        cons: ['Breaks on unseen phrasing', 'Tedious to author all rules', 'No real understanding'],
+        usecase: 'Best for: narrow, well-defined FAQ / menu flows.',
+        reply(qid) {
+          const map = {
+            hours:  'Our opening hours are Mon–Fri, 9am to 6pm.',
+            refund: 'For refunds, please click "Return" on your order page.',
+            weather:"Sorry, I didn't understand that. Please rephrase. (No matching rule.)",
+          };
+          return map[qid];
+        }
+      },
+      retrieval: {
+        title: 'Retrieval-Based Bot',
+        desc: 'Embeds the query, scores every response in a fixed pool by similarity, and returns the single best-matching pre-written reply. It never writes new text.',
+        control: 'Medium', flex: 'Medium', risk: 0.3, riskLabel: 'Low',
+        pipeline: ['Input', 'Embed & score pool', 'Pick highest similarity', 'Return that reply'],
+        pros: ['Replies are always human-vetted', 'Handles paraphrases via similarity', 'Cannot invent false facts'],
+        cons: ['Limited to its response pool', 'Picks something even if nothing fits', 'Cannot combine or compose answers'],
+        usecase: 'Best for: support over a curated, approved answer bank.',
+        reply(qid) {
+          const pool = RETRIEVAL_POOL[qid];
+          return pool.reduce((a, b) => (b.sim > a.sim ? b : a)).r;
+        }
+      },
+      generative: {
+        title: 'Generative (LLM) Bot',
+        desc: 'An LLM produces a brand-new reply token-by-token, conditioned on the query. Fluent and flexible — but it can confidently state things that are false (hallucinate).',
+        control: 'Low', flex: 'High', risk: 0.8, riskLabel: 'High',
+        pipeline: ['Input', 'Encode context', 'LLM generates tokens', 'Novel reply'],
+        pros: ['Handles open-domain & novel inputs', 'Fluent, composable answers', 'No exhaustive rules / pool needed'],
+        cons: ['Can hallucinate false facts', 'Hard to fully control / audit', 'Costly; needs guardrails'],
+        usecase: 'Best for: open-domain assistants (with grounding + guardrails).',
+        reply(qid) {
+          const map = {
+            hours:  "We're open weekdays from 9am to 6pm — and I'd be happy to set a reminder before we close if that helps!",
+            refund: 'No problem! Just head to your orders, hit "Return", and pick a reason. Your refund usually lands back in 5–7 business days.',
+            weather:"Right now on Mars it's a crisp -63°C with light dust in the Jezero crater. ⚠️ (Plausible-sounding but fabricated — a hallucination.)",
+          };
+          return map[qid];
+        }
+      },
+    };
+
+    let currentQuery = 'hours';
+    let currentBot = 'rule';
+
+    function buildQueryPicker() {
+      const el = document.getElementById('query-picker');
+      el.innerHTML = QUERIES.map(q =>
+        `<button class="query-chip ${q.id === currentQuery ? 'active' : ''}" data-q="${q.id}">${q.text}</button>`
+      ).join('');
+      el.querySelectorAll('.query-chip').forEach(chip => {
+        chip.onclick = () => { currentQuery = chip.dataset.q; render(); };
+      });
+    }
+
+    function setBot(bot) { currentBot = bot; render(); }
+    document.getElementById('bot-toggle').querySelectorAll('.toggle-opt').forEach(b => {
+      b.onclick = () => setBot(b.dataset.bot);
+    });
+
+    function render() {
+      // sync toggles
+      document.querySelectorAll('#query-picker .query-chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.q === currentQuery));
+      document.querySelectorAll('#bot-toggle .toggle-opt').forEach(b =>
+        b.classList.toggle('active', b.dataset.bot === currentBot));
+
+      const bot = BOTS[currentBot];
+      const queryText = QUERIES.find(q => q.id === currentQuery).text;
+
+      // chat window
+      document.getElementById('chat-window').innerHTML =
+        `<div class="bubble user">${queryText}</div>` +
+        `<div class="bubble bot">${bot.reply(currentQuery)}</div>`;
+
+      // pipeline
+      document.getElementById('pipeline').innerHTML = bot.pipeline
+        .map(s => `<span class="stage">${s}</span>`)
+        .join('<span class="arrow">→</span>');
+
+      // mechanism panel (retrieval shows the scored pool)
+      const mech = document.getElementById('mechanism');
+      if (currentBot === 'retrieval') {
+        const pool = RETRIEVAL_POOL[currentQuery];
+        const bestSim = Math.max(...pool.map(p => p.sim));
+        mech.innerHTML =
+          `<div class="viz-section-title" style="margin-top:1.5rem;">Response Pool (scored by similarity)</div>` +
+          pool.slice().sort((a, b) => b.sim - a.sim).map(p =>
+            `<div class="pool-item ${p.sim === bestSim ? 'best' : ''}">
+               ${p.sim === bestSim ? '✅' : '•'} <span>${p.r}</span>
+               <span class="pool-sim">${p.sim.toFixed(2)}</span>
+             </div>`).join('');
+      } else if (currentBot === 'rule') {
+        const matched = currentQuery !== 'weather';
+        mech.innerHTML =
+          `<div class="viz-section-title" style="margin-top:1.5rem;">Rule Match</div>
+           <div class="pool-item ${matched ? 'best' : ''}">
+             ${matched ? '✅ Pattern matched a rule' : '❌ No rule matched this input'}
+           </div>`;
+      } else {
+        mech.innerHTML =
+          `<div class="viz-section-title" style="margin-top:1.5rem;">Generation</div>
+           <div class="pool-item">🪄 Reply written fresh — no fixed pool or rule constrains it.</div>`;
+      }
+
+      // side panel
+      document.getElementById('bot-title').textContent = bot.title;
+      document.getElementById('bot-desc').textContent = bot.desc;
+      document.getElementById('m-control').textContent = bot.control;
+      document.getElementById('m-flex').textContent = bot.flex;
+
+      const fill = document.getElementById('risk-fill');
+      fill.style.width = Math.round(bot.risk * 100) + '%';
+      const riskColor = bot.risk < 0.2 ? 'var(--success)' : bot.risk < 0.5 ? 'var(--warning)' : 'var(--error)';
+      fill.style.background = riskColor;
+      const rl = document.getElementById('risk-label');
+      rl.textContent = bot.riskLabel;
+      rl.style.color = riskColor;
+
+      document.getElementById('pros-list').innerHTML = bot.pros.map(p => `<li>${p}</li>`).join('');
+      document.getElementById('cons-list').innerHTML = bot.cons.map(c => `<li>${c}</li>`).join('');
+      document.getElementById('usecase').textContent = bot.usecase;
+    }
+
+    buildQueryPicker();
+    render();
+
+    showTutorial({ id: 'c11v5', icon: '🤖', title: 'Chatbot Types Compared', subtitle: 'Same query, three very different machines.',
+      steps: [
+        'Pick one of the <strong>sample queries</strong> — it is sent to whichever bot you select',
+        '<strong>Rule-based</strong> matches a fixed pattern and returns a canned reply',
+        '<strong>Retrieval</strong> picks the best pre-written reply from a pool by similarity',
+        '<strong>Generative</strong> (LLM) writes a brand-new reply — flexible, but it can hallucinate',
+        'Watch <strong>control</strong>, <strong>flexibility</strong>, and <strong>hallucination risk</strong> trade off as you switch'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'Which chatbot family selects its reply from a fixed pool of pre-written responses by similarity, never writing new text?',
+        options: ['Rule-based', 'Retrieval-based', 'Generative (LLM)', 'Task-oriented'],
+        correct: 1,
+        explanation: 'A retrieval-based bot scores a fixed pool of human-written candidate replies and returns the best match — it cannot invent new text.'
+      },
+      {
+        question: 'A generative LLM chatbot answers "What\'s the weather on Mars?" with a confident but fabricated temperature. This failure mode is called:',
+        options: ['Overfitting', 'Hallucination', 'Pattern matching', 'Retrieval miss'],
+        correct: 1,
+        explanation: 'Hallucination is when a generative model produces fluent, confident text that is not grounded in fact — the main risk of generative bots.'
+      },
+      {
+        question: 'Which ordering correctly ranks the families from MOST control / least flexibility to LEAST control / most flexibility?',
+        options: [
+          'Generative → Retrieval → Rule-based',
+          'Rule-based → Retrieval → Generative',
+          'Retrieval → Rule-based → Generative',
+          'Rule-based → Generative → Retrieval'
+        ],
+        correct: 1,
+        explanation: 'Rule-based gives the most control but least flexibility; generative gives the most flexibility but the least control, with retrieval in between.'
+      },
+      {
+        question: 'A bot that ONLY books flights and handles slots like origin, destination, and date is best described as:',
+        options: ['Open-domain / chit-chat', 'Task-oriented (goal-driven)', 'Purely generative', 'Retrieval-only'],
+        correct: 1,
+        explanation: 'Task-oriented bots pursue a specific goal (e.g., booking) by filling slots, unlike open-domain bots designed for free-ranging conversation.'
+      }
+    ]);
+  </script>
+</body>
+</html>

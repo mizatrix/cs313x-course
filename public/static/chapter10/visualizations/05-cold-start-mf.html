@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · Cold Start & Matrix Factorization — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    /* ── Cold-start matrix ───────────────────────────── */
+    .cs-wrap { overflow-x: auto; padding-bottom: 0.4rem; }
+    table.cs-matrix { border-collapse: separate; border-spacing: 6px; margin: 0 auto; }
+    table.cs-matrix th {
+      font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);
+      padding: 3px 6px; text-align: center;
+    }
+    table.cs-matrix th.corner { color: var(--accent-violet); }
+    table.cs-matrix th.uhead { color: var(--accent-teal); text-align: right; padding-right: 8px; }
+    table.cs-matrix th.new-head { color: var(--accent-pink); }
+    .csc {
+      width: 42px; height: 42px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.95rem; font-weight: 800; user-select: none;
+      border: 2px solid var(--border-glass); transition: var(--transition);
+    }
+    .csc.filled { background: rgba(0,184,148,0.16); color: var(--success); border-color: rgba(0,184,148,0.4); }
+    .csc.empty { background: var(--bg-card); color: var(--text-muted); border-style: dashed; opacity: 0.55; }
+    .csc.empty::after { content: '?'; font-size: 0.9rem; opacity: 0.7; }
+    .csc.coldrow, .csc.coldcol {
+      border-color: var(--accent-pink); border-style: dashed;
+      background: rgba(253,121,168,0.08);
+    }
+    .csc.predicted {
+      background: rgba(108,92,231,0.18); color: var(--accent-violet);
+      border-color: var(--accent-violet); border-style: solid;
+      box-shadow: 0 0 0 2px rgba(108,92,231,0.25);
+    }
+    .new-tag {
+      display: inline-block; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.5px;
+      color: var(--accent-pink); background: rgba(253,121,168,0.12);
+      border: 1px solid rgba(253,121,168,0.3); border-radius: 4px;
+      padding: 1px 4px; margin-left: 4px; vertical-align: middle;
+    }
+    .sol-status {
+      margin-top: 1rem; padding: 0.85rem 1rem; border-radius: var(--radius-md);
+      border: 1px solid var(--border-glass); background: var(--bg-card);
+      font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;
+    }
+    .sol-status.active {
+      border-color: rgba(0,184,148,0.4); background: rgba(0,184,148,0.06);
+      color: var(--text-primary);
+    }
+    .sol-status .rec-pill {
+      display: inline-block; font-weight: 800; color: var(--success);
+      background: rgba(0,184,148,0.12); border: 1px solid rgba(0,184,148,0.3);
+      border-radius: 6px; padding: 2px 8px; margin: 0 2px;
+    }
+
+    /* ── Matrix factorization ────────────────────────── */
+    .mf-grid { display: grid; grid-template-columns: 1fr; gap: 0.8rem; }
+    .vec-block {
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      padding: 0.7rem 0.85rem; background: var(--bg-card);
+    }
+    .vec-block .vb-title { font-size: 0.78rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .vec-block.u .vb-title { color: var(--accent-teal); }
+    .vec-block.v .vb-title { color: var(--accent-pink); }
+    .slider-row { display: grid; grid-template-columns: 70px 1fr 44px; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+    .slider-row label { font-size: 0.72rem; color: var(--text-muted); }
+    .slider-row input[type=range] { width: 100%; accent-color: var(--accent-violet); }
+    .slider-row .sval { font-size: 0.82rem; font-weight: 800; color: var(--accent-violet); text-align: right; }
+    .dot-vis { display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap; font-size: 0.9rem; }
+    .dot-term {
+      padding: 3px 7px; border-radius: 6px; font-weight: 800; font-size: 0.82rem;
+      background: rgba(108,92,231,0.12); color: var(--accent-violet);
+      border: 1px solid rgba(108,92,231,0.25);
+    }
+    .pred-big {
+      font-size: 2rem; font-weight: 800; color: var(--accent-violet); text-align: center;
+    }
+    .err-line { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 0.3rem; }
+    .mini-r { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:0.5rem; }
+    .mini-cell {
+      width: 40px; height: 40px; border-radius: var(--radius-sm);
+      display:flex; align-items:center; justify-content:center;
+      font-size:0.85rem; font-weight:800; border:2px solid var(--border-glass);
+      background: rgba(0,206,201,0.1); color: var(--accent-teal);
+    }
+    .mini-cell.tgt { border-color: var(--accent-violet); color: var(--accent-violet); background: rgba(108,92,231,0.12);
+      box-shadow: 0 0 0 2px rgba(108,92,231,0.2); cursor: pointer; }
+    .mini-lbl { font-size:0.62rem; color: var(--text-muted); text-align:center; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 10</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 05 · Advanced</div>
+      <h1>Cold Start &amp; Matrix Factorization</h1>
+      <p>New users and items have empty rows/columns, so neighborhood CF has nothing to learn from. See why — and how latent-factor models reconstruct ratings as <strong>R ≈ U·Vᵀ</strong>.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🧊</div>
+      <div class="challenge-text"><strong>Try This:</strong> The new user's row is empty, so collaborative filtering is stuck. Toggle a solution to "warm up" the cold start. Then drag the latent-factor sliders below until the dot product reconstructs the target rating.</div>
+    </div>
+
+    <!-- ============ PART 1 — COLD START ============ -->
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Part 1 · The Cold-Start Problem</div>
+        <div class="cs-wrap">
+          <table class="cs-matrix" id="cs-table"></table>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.8rem; line-height:1.6;">
+          <strong style="color:var(--accent-pink);">Una</strong> just signed up (empty row); <strong style="color:var(--accent-pink);">Item&nbsp;X</strong> was just added (empty column). With no overlapping ratings, similarity to other users/items is undefined — pure collaborative filtering <strong>cannot recommend</strong>.
+        </p>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Cold-Start Remedies</div>
+        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.8rem;">CF needs history. Pick a fallback signal that <em>doesn't</em> need this user's ratings:</p>
+        <div class="toggle-group" id="sol-toggle" style="flex-direction:column; align-items:stretch; gap:0.5rem;">
+          <button class="toggle-opt" data-sol="content">🏷️ Content features — match item metadata (genre, tags) to the user's profile</button>
+          <button class="toggle-opt" data-sol="popularity">🔥 Popularity — recommend the globally top-rated items</button>
+          <button class="toggle-opt" data-sol="onboarding">📝 Onboarding — ask a few taste questions to seed the row</button>
+          <button class="toggle-opt" data-sol="none">🚫 Pure CF only (no fallback)</button>
+        </div>
+
+        <div class="sol-status" id="sol-status">Select a remedy to warm up Una's cold start.</div>
+
+        <div style="margin-top:1.2rem;">
+          <div class="viz-section-title">Why CF Fails Here</div>
+          <p style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+            Neighborhood CF computes similarity from <strong>co-rated</strong> entries. A new user shares <em>zero</em> ratings with anyone, so every cosine/Pearson similarity is <strong style="color:var(--error);">0/0 — undefined</strong>. The same holds for a new item's column. Fallbacks inject an <strong style="color:var(--accent-teal);">external signal</strong> until enough ratings accumulate.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PART 2 — MATRIX FACTORIZATION ============ -->
+    <div class="viz-container two-col" style="margin-top:1.5rem;">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Part 2 · Matrix Factorization — R ≈ U·Vᵀ</div>
+        <div class="formula-box">R̂(u, i) = pᵤ · qᵢ = Σ<sub>f</sub> p<sub>u,f</sub> · q<sub>i,f</sub></div>
+        <p style="font-size:0.82rem; color:var(--text-secondary); margin:0.6rem 0 0.9rem; line-height:1.7;">
+          Instead of comparing whole rows, MF learns a short <strong>latent-factor vector</strong> for every user (<strong style="color:var(--accent-teal);">pᵤ</strong>) and every item (<strong style="color:var(--accent-pink);">qᵢ</strong>). A predicted rating is just their <strong>dot product</strong>. Drag the 2 factors to reconstruct the observed rating.
+        </p>
+
+        <div class="mf-grid">
+          <div class="vec-block u">
+            <div class="vb-title">User vector pᵤ &nbsp;(taste)</div>
+            <div class="slider-row">
+              <label>f₁ · action</label>
+              <input type="range" id="u0" min="-2" max="2" step="0.1" value="1.2">
+              <div class="sval" id="u0v">1.2</div>
+            </div>
+            <div class="slider-row">
+              <label>f₂ · romance</label>
+              <input type="range" id="u1" min="-2" max="2" step="0.1" value="-0.5">
+              <div class="sval" id="u1v">-0.5</div>
+            </div>
+          </div>
+          <div class="vec-block v">
+            <div class="vb-title">Item vector qᵢ &nbsp;(traits)</div>
+            <div class="slider-row">
+              <label>f₁ · action</label>
+              <input type="range" id="v0" min="-2" max="2" step="0.1" value="1.5">
+              <div class="sval" id="v0v">1.5</div>
+            </div>
+            <div class="slider-row">
+              <label>f₂ · romance</label>
+              <input type="range" id="v1" min="-2" max="2" step="0.1" value="0.4">
+              <div class="sval" id="v1v">0.4</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:0.9rem;">
+          <button class="btn btn-primary btn-sm" onclick="autoFit()">Auto-fit ✨</button>
+          <button class="btn btn-sm" onclick="resetMF()">Reset</button>
+          <button class="btn btn-teal btn-sm" onclick="newTarget()">New target ⤳</button>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Prediction = Dot Product</div>
+        <div class="metric-grid" style="margin-bottom:1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-pred">0.00</div>
+            <div class="metric-label">Predicted R̂</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-target">4.0</div>
+            <div class="metric-label">Observed R</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top:0.5rem;">Dot-product expansion</div>
+        <div class="dot-vis" id="dot-vis" style="margin:0.6rem 0;"></div>
+        <div class="pred-big" id="pred-big">= 0.00</div>
+        <div class="err-line" id="err-line">error = |R − R̂| = 0.00</div>
+
+        <div class="viz-section-title" style="margin-top:1.2rem;">Reconstructed mini-matrix</div>
+        <p style="font-size:0.74rem; color:var(--text-muted); text-align:center; margin-bottom:0.2rem;">click a cell to make it the target</p>
+        <div id="mini-matrix"></div>
+
+        <div style="margin-top:1.2rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+            MF turns a huge, sparse R into two thin tables U (n×k) and V (m×k) with <strong style="color:var(--accent-violet);">k ≪ n, m</strong>. The latent factors are <em>learned</em>, not labeled — "action" / "romance" are just our interpretation. Predicting an <strong>unobserved</strong> cell is one dot product away.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    /* ======================================================
+       PART 1 — Cold start matrix
+       ====================================================== */
+    const USERS = ['Ann', 'Bob', 'Cat', 'Dan', 'Una'];   // Una = new user
+    const ITEMS = ['M1', 'M2', 'M3', 'M4', 'X'];          // X = new item
+    const NEW_USER = 4, NEW_ITEM = 4;
+    // ratings for existing users/items; null = unrated
+    const CS_R = [
+      [5, 3, null, 4, null],
+      [4, null, 2, 5, null],
+      [null, 4, 5, null, null],
+      [3, 5, 4, 2, null],
+      [null, null, null, null, null], // Una — cold
+    ];
+    let activeSol = null;
+
+    function buildColdStart() {
+      const t = document.getElementById('cs-table');
+      let html = '<tr><th class="corner">R</th>';
+      ITEMS.forEach((it, ci) => {
+        const isNew = ci === NEW_ITEM;
+        html += `<th class="${isNew ? 'new-head' : ''}">${it}${isNew ? '<span class="new-tag">NEW</span>' : ''}</th>`;
+      });
+      html += '</tr>';
+
+      CS_R.forEach((row, ri) => {
+        const newUser = ri === NEW_USER;
+        html += `<tr><th class="uhead ${newUser ? 'new-head' : ''}">${USERS[ri]}${newUser ? '<span class="new-tag">NEW</span>' : ''}</th>`;
+        row.forEach((val, ci) => {
+          const newCol = ci === NEW_ITEM;
+          const coldZone = newUser || newCol;
+          let cls = val == null ? 'empty' : 'filled';
+          let content = val == null ? '' : val;
+          // when a remedy is active, fill Una's row with predicted recs
+          if (newUser && activeSol && activeSol !== 'none' && !newCol) {
+            cls = 'predicted'; content = PRED_FILL[activeSol][ci];
+          }
+          if (coldZone && cls === 'empty') cls += newUser ? ' coldrow' : ' coldcol';
+          html += `<td><div class="csc ${cls}">${content}</div></td>`;
+        });
+        html += '</tr>';
+      });
+      t.innerHTML = html;
+    }
+
+    // illustrative predicted ratings each remedy would produce for Una on M1..M4
+    const PRED_FILL = {
+      content:    [4, 3, 5, 4],   // based on genre match
+      popularity: [4, 4, 4, 3],   // global averages
+      onboarding: [5, 2, 4, 5],   // from her quiz answers
+    };
+    const SOL_TEXT = {
+      content: 'Content features matched Una\'s stated genres to item metadata. Top pick: <span class="rec-pill">M3 (5★)</span> — no co-ratings needed.',
+      popularity: 'Fell back to global popularity. Top pick: <span class="rec-pill">M1 / M2 (4★)</span> — same for every new user.',
+      onboarding: 'Onboarding quiz seeded the empty row. Top picks: <span class="rec-pill">M1 (5★)</span> <span class="rec-pill">M4 (5★)</span> — personalized from day one.',
+      none: '🚫 Pure CF: Una shares zero co-rated items, so every similarity is <strong style="color:var(--error);">undefined</strong>. No recommendation possible.'
+    };
+
+    document.querySelectorAll('#sol-toggle .toggle-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#sol-toggle .toggle-opt').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeSol = btn.dataset.sol;
+        const st = document.getElementById('sol-status');
+        st.innerHTML = SOL_TEXT[activeSol];
+        st.classList.toggle('active', activeSol !== 'none');
+        buildColdStart();
+      });
+    });
+
+    buildColdStart();
+
+    /* ======================================================
+       PART 2 — Matrix factorization (2 latent factors)
+       ====================================================== */
+    const sliders = ['u0', 'u1', 'v0', 'v1'];
+    const DEFAULTS = { u0: 1.2, u1: -0.5, v0: 1.5, v1: 0.4 };
+    let target = 4.0;
+
+    // a tiny 3-user x 3-item observed matrix for the reconstruction grid
+    const MINI_U = [[1.2, -0.5], [0.3, 1.4], [-0.8, 0.9]];
+    const MINI_V = [[1.5, 0.4], [-0.6, 1.3], [0.9, -1.1]];
+    const MINI_OBS = [[4, 2, 3], [1, 5, 2], [2, 4, 1]];
+    let tgtCell = [0, 0];
+
+    function dot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
+
+    function getVecs() {
+      const u = [parseFloat(uval('u0')), parseFloat(uval('u1'))];
+      const v = [parseFloat(uval('v0')), parseFloat(uval('v1'))];
+      return { u, v };
+    }
+    function uval(id) { return document.getElementById(id).value; }
+
+    function renderMF() {
+      sliders.forEach(id => { document.getElementById(id + 'v').textContent = parseFloat(uval(id)).toFixed(1); });
+      const { u, v } = getVecs();
+      const pred = dot(u, v);
+
+      document.getElementById('m-pred').textContent = pred.toFixed(2);
+      document.getElementById('m-target').textContent = target.toFixed(1);
+
+      document.getElementById('dot-vis').innerHTML =
+        `<span class="dot-term">${u[0].toFixed(1)}×${v[0].toFixed(1)}</span>` +
+        `<span>+</span>` +
+        `<span class="dot-term">${u[1].toFixed(1)}×${v[1].toFixed(1)}</span>` +
+        `<span>=</span>` +
+        `<span class="dot-term">${(u[0]*v[0]).toFixed(2)}</span><span>+</span>` +
+        `<span class="dot-term">${(u[1]*v[1]).toFixed(2)}</span>`;
+
+      document.getElementById('pred-big').textContent = '= ' + pred.toFixed(2);
+      const err = Math.abs(target - pred);
+      const el = document.getElementById('err-line');
+      el.textContent = `error = |R − R̂| = |${target.toFixed(1)} − ${pred.toFixed(2)}| = ${err.toFixed(2)}`;
+      el.style.color = err < 0.15 ? 'var(--success)' : 'var(--text-muted)';
+
+      renderMini();
+    }
+
+    function renderMini() {
+      // current user/item vectors override row 0 / col 0 of the mini grid (the editable target lives there)
+      const { u, v } = getVecs();
+      let html = '<div class="cs-wrap"><table class="cs-matrix" style="margin:0 auto;">';
+      html += '<tr><th class="corner">R̂</th><th>i₀</th><th>i₁</th><th>i₂</th></tr>';
+      for (let r = 0; r < 3; r++) {
+        html += `<tr><th class="uhead">u${r}</th>`;
+        for (let c = 0; c < 3; c++) {
+          const uu = (r === tgtCell[0]) ? u : MINI_U[r];
+          const vv = (c === tgtCell[1]) ? v : MINI_V[c];
+          const p = dot(uu, vv);
+          const isTgt = (r === tgtCell[0] && c === tgtCell[1]);
+          html += `<td><div class="mini-cell ${isTgt ? 'tgt' : ''}" onclick="pickCell(${r},${c})" title="observed ${MINI_OBS[r][c]}">${p.toFixed(1)}</div></td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</table></div><div class="mini-lbl">predicted R̂ = pᵤ · qᵢ for every cell · the outlined cell is the live target</div>';
+      document.getElementById('mini-matrix').innerHTML = html;
+    }
+
+    window.pickCell = function (r, c) {
+      tgtCell = [r, c];
+      target = MINI_OBS[r][c];
+      // load that cell's "true" latent vectors as the editable starting point
+      setSliders(MINI_U[r], MINI_V[c]);
+      renderMF();
+    };
+
+    function setSliders(u, v) {
+      document.getElementById('u0').value = u[0];
+      document.getElementById('u1').value = u[1];
+      document.getElementById('v0').value = v[0];
+      document.getElementById('v1').value = v[1];
+    }
+
+    window.autoFit = function () {
+      // nudge the user vector toward the value that reproduces target given current item vector
+      const { u, v } = getVecs();
+      const denom = v[0] * v[0] + v[1] * v[1];
+      if (denom < 1e-6) return;
+      // project: scale u so dot(u,v) == target (least-change along v direction)
+      const cur = dot(u, v);
+      const k = (target - cur) / denom;
+      document.getElementById('u0').value = (u[0] + k * v[0]).toFixed(1);
+      document.getElementById('u1').value = (u[1] + k * v[1]).toFixed(1);
+      renderMF();
+    };
+
+    window.resetMF = function () {
+      Object.keys(DEFAULTS).forEach(id => { document.getElementById(id).value = DEFAULTS[id]; });
+      target = 4.0; tgtCell = [0, 0];
+      renderMF();
+    };
+
+    window.newTarget = function () {
+      const r = Math.floor(Math.random() * 3), c = Math.floor(Math.random() * 3);
+      pickCell(r, c);
+    };
+
+    sliders.forEach(id => document.getElementById(id).addEventListener('input', renderMF));
+    renderMF();
+
+    /* ======================================================
+       Tutorial + Quiz
+       ====================================================== */
+    showTutorial({
+      id: 'c10v5', icon: '🧊', title: 'Cold Start & Matrix Factorization',
+      subtitle: 'Why new users/items break CF — and how latent factors fix it.',
+      steps: [
+        'Part 1: Una\'s row and Item X\'s column are <strong>empty</strong> — CF has no co-ratings to compare',
+        'Toggle a <strong>remedy</strong> (content, popularity, onboarding) to fill in recommendations',
+        'Part 2: drag the <strong>latent-factor sliders</strong> for the user (pᵤ) and item (qᵢ) vectors',
+        'The prediction R̂ is their <strong>dot product</strong>; try Auto-fit to match the observed rating'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'Why does neighborhood collaborative filtering fail for a brand-new user?',
+        options: [
+          'The user vector is too long to compute',
+          'The user has no co-rated items, so similarity to others is undefined',
+          'New users always dislike popular items',
+          'The rating matrix becomes too dense'
+        ],
+        correct: 1,
+        explanation: 'Similarity (cosine/Pearson) is computed over co-rated entries. A new user shares zero ratings, so every similarity is 0/0 — undefined. This is the cold-start problem.'
+      },
+      {
+        question: 'Which is a valid cold-start remedy that does NOT need the new user\'s own rating history?',
+        options: [
+          'Pearson similarity to neighbors',
+          'Recommending the globally most-popular items',
+          'User-based CF averaging',
+          'Item-item co-occurrence on the user\'s ratings'
+        ],
+        correct: 1,
+        explanation: 'Popularity (and content features or an onboarding quiz) injects an external signal that needs no prior ratings from this user. The other options all require existing ratings.'
+      },
+      {
+        question: 'In matrix factorization, the approximation R ≈ U·Vᵀ means…',
+        options: [
+          'R is multiplied by its own transpose',
+          'Each rating is reconstructed from short per-user and per-item latent vectors',
+          'V is the inverse of U',
+          'Ratings are stored uncompressed in two copies'
+        ],
+        correct: 1,
+        explanation: 'U holds a k-dim latent vector per user, V a k-dim vector per item (k ≪ n, m). Their product approximates the full, sparse rating matrix R.'
+      },
+      {
+        question: 'How is a single predicted rating R̂(u, i) computed in a latent-factor model?',
+        options: [
+          'The average of the user\'s and item\'s rows',
+          'The dot product of the user vector pᵤ and item vector qᵢ',
+          'The cosine similarity between two users',
+          'The number of factors k'
+        ],
+        correct: 1,
+        explanation: 'R̂(u,i) = pᵤ · qᵢ = Σ_f p_{u,f}·q_{i,f}. The factor-wise products are summed — one dot product per prediction, even for unobserved cells.'
+      }
+    ]);
+  </script>
+</body>
+</html>

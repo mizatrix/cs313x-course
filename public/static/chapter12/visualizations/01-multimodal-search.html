@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Multimodal Search — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .space-wrap { position: relative; width: 100%; }
+    #space-svg {
+      width: 100%; height: auto; display: block;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+    }
+    .axis-line { stroke: var(--border-glass); stroke-width: 1; }
+    .grid-line { stroke: var(--border-glass); stroke-width: 0.5; opacity: 0.4; }
+    .img-node {
+      cursor: default; transition: var(--transition);
+    }
+    .img-emoji { font-size: 22px; text-anchor: middle; dominant-baseline: central; }
+    .img-ring {
+      fill: none; stroke: var(--border-glass); stroke-width: 2;
+      transition: stroke 0.25s, stroke-width 0.25s;
+    }
+    .img-ring.top { stroke: var(--success); stroke-width: 3; }
+    .img-ring.dim { opacity: 0.35; }
+    .query-dot { fill: var(--accent-violet); stroke: #fff; stroke-width: 2; }
+    .query-label {
+      font-size: 11px; font-weight: 700; fill: var(--accent-violet);
+      text-anchor: middle;
+    }
+    .sim-line { stroke: var(--accent-teal); stroke-width: 1.5; opacity: 0.5; stroke-dasharray: 4 3; }
+    .query-pill {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 0.9rem; margin: 0.3rem 0.3rem 0 0;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: 999px; cursor: pointer; font-size: 0.85rem;
+      font-weight: 600; color: var(--text-secondary); transition: var(--transition);
+    }
+    .query-pill:hover { transform: translateY(-2px); border-color: var(--accent-violet); }
+    .query-pill.active {
+      background: rgba(108,92,231,0.15); border-color: var(--accent-violet);
+      color: var(--text-primary);
+    }
+    .result-emoji { font-size: 1.4rem; margin-right: 0.2rem; }
+    .sim-bar-track {
+      flex: 1; height: 8px; background: var(--border-glass);
+      border-radius: 999px; overflow: hidden; margin: 0 0.6rem;
+    }
+    .sim-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+      transition: width 0.4s ease;
+    }
+    .rank-item.best { border-color: var(--success); box-shadow: 0 0 14px rgba(0,184,148,0.25); }
+    .sim-val { min-width: 56px; text-align: right; font-weight: 800; color: var(--accent-teal); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 12</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Multimodal Search</h1>
+      <p>Text and images live in <strong>one shared embedding space</strong>. A CLIP-style model lets a <strong>text query retrieve images</strong> by cosine similarity — no captions or keywords needed.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Type "a fluffy pet" or pick a query pill. Watch the violet query dot land in the shared space and the nearest image icons light up green — that is cross-modal retrieval.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Shared Embedding Space</div>
+        <div class="space-wrap">
+          <svg id="space-svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.6rem; line-height: 1.6;">
+          🟣 = your text query · 🖼️ icons = image items. Both modalities are projected into the <strong>same 2D space</strong>. Nearby = semantically similar. Green rings mark the top matches.
+        </p>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Text Query</div>
+        <div class="control-group">
+          <div class="control-row">
+            <input id="query-input" type="text" placeholder="Type a query, e.g. a fluffy pet"
+              style="flex:1; padding:0.6rem 0.8rem; border-radius:var(--radius-sm); border:1px solid var(--border-glass); background:var(--bg-card); color:var(--text-primary); font-size:0.9rem;">
+          </div>
+          <div id="query-pills" style="margin-top:0.5rem;"></div>
+        </div>
+
+        <div class="metric-grid" style="margin: 1.2rem 0;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-best">—</div>
+            <div class="metric-label">Top Match</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-sim">0.00</div>
+            <div class="metric-label">Cosine Similarity</div>
+          </div>
+        </div>
+
+        <div class="formula-box">cos(q, i) = (q · i) / (‖q‖ ‖i‖)</div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Ranked Images</div>
+        <div id="ranked" class="ranked-list"></div>
+
+        <div style="margin-top: 1.5rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            Because text and images share <strong style="color: var(--accent-violet);">one joint space</strong>, the <em>same</em> cosine-similarity ranking works <strong>across modalities</strong> — a text vector retrieves image vectors directly. This is how CLIP-style models power image search from words.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Shared 2D embedding space (normalized angle/position encodes semantics) ──
+    // Each image is a unit-ish vector positioned in [0,1]^2; queries map to the same space.
+    const IMAGES = [
+      { emoji: '🐶', label: 'dog',      v: [0.82, 0.78] },
+      { emoji: '🐱', label: 'cat',      v: [0.74, 0.86] },
+      { emoji: '🐦', label: 'bird',     v: [0.66, 0.62] },
+      { emoji: '🚗', label: 'car',      v: [0.18, 0.30] },
+      { emoji: '✈️', label: 'airplane', v: [0.12, 0.52] },
+      { emoji: '🏖️', label: 'beach',    v: [0.34, 0.86] },
+      { emoji: '🏔️', label: 'mountain', v: [0.30, 0.14] },
+      { emoji: '🍕', label: 'pizza',    v: [0.88, 0.22] },
+      { emoji: '🌹', label: 'flower',   v: [0.60, 0.30] },
+      { emoji: '⚽', label: 'soccer',   v: [0.46, 0.46] },
+    ];
+
+    // Pre-built text queries → their position in the SAME shared space.
+    const PRESETS = [
+      { text: 'a fluffy pet',          v: [0.80, 0.84] },
+      { text: 'a fast vehicle',        v: [0.15, 0.34] },
+      { text: 'a sunny vacation spot', v: [0.33, 0.84] },
+      { text: 'something to eat',      v: [0.86, 0.24] },
+      { text: 'a wild outdoor scene',  v: [0.30, 0.18] },
+    ];
+
+    // Keyword → space position, so free-typed text also lands somewhere sensible.
+    const KEYWORDS = [
+      { words: ['fluffy','pet','dog','cat','kitten','puppy','animal','cute'], v: [0.80, 0.84] },
+      { words: ['bird','fly','wings','tweet'],                                v: [0.66, 0.62] },
+      { words: ['car','fast','vehicle','drive','road','speed'],              v: [0.18, 0.30] },
+      { words: ['plane','airplane','flight','travel','sky'],                 v: [0.12, 0.52] },
+      { words: ['beach','vacation','sunny','sea','ocean','sand','holiday'],  v: [0.34, 0.86] },
+      { words: ['mountain','hike','wild','outdoor','peak','nature'],         v: [0.30, 0.14] },
+      { words: ['pizza','food','eat','hungry','meal','slice','tasty'],       v: [0.88, 0.22] },
+      { words: ['flower','rose','bloom','garden','plant'],                   v: [0.60, 0.30] },
+      { words: ['soccer','ball','sport','game','play','football'],           v: [0.46, 0.46] },
+    ];
+
+    let queryVec = PRESETS[0].v.slice();
+    let queryText = PRESETS[0].text;
+
+    function cosine(a, b) {
+      const dot = a[0]*b[0] + a[1]*b[1];
+      const na = Math.hypot(a[0], a[1]);
+      const nb = Math.hypot(b[0], b[1]);
+      return (na && nb) ? dot / (na * nb) : 0;
+    }
+
+    function resolveQuery(text) {
+      const t = text.toLowerCase();
+      let acc = [0, 0], hits = 0;
+      KEYWORDS.forEach(k => {
+        if (k.words.some(w => t.includes(w))) { acc[0] += k.v[0]; acc[1] += k.v[1]; hits++; }
+      });
+      if (hits > 0) return [acc[0]/hits, acc[1]/hits];
+      // No keyword: place near the centroid so similarities stay meaningful.
+      return [0.5, 0.5];
+    }
+
+    // SVG layout helpers (data [0,1] → svg coords with margin, y flipped) ──
+    const PAD = 40, SIZE = 400, SPAN = SIZE - 2 * PAD;
+    const sx = x => PAD + x * SPAN;
+    const sy = y => PAD + (1 - y) * SPAN;
+
+    function render() {
+      const svg = document.getElementById('space-svg');
+
+      // Score & rank
+      const scored = IMAGES.map(img => ({ ...img, sim: cosine(queryVec, img.v) }))
+                           .sort((a, b) => b.sim - a.sim);
+      const best = scored[0];
+      const topLabels = new Set(scored.slice(0, 3).map(s => s.label));
+
+      // ── Build SVG ──
+      let g = '';
+      // grid
+      for (let i = 1; i < 5; i++) {
+        const p = PAD + i / 5 * SPAN;
+        g += `<line class="grid-line" x1="${p}" y1="${PAD}" x2="${p}" y2="${SIZE-PAD}"/>`;
+        g += `<line class="grid-line" x1="${PAD}" y1="${p}" x2="${SIZE-PAD}" y2="${p}"/>`;
+      }
+      // axes
+      g += `<line class="axis-line" x1="${PAD}" y1="${SIZE-PAD}" x2="${SIZE-PAD}" y2="${SIZE-PAD}"/>`;
+      g += `<line class="axis-line" x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${SIZE-PAD}"/>`;
+      g += `<text x="${SIZE-PAD}" y="${SIZE-PAD+18}" font-size="9" fill="var(--text-muted)" text-anchor="end">embedding dim 1 →</text>`;
+      g += `<text x="${PAD-6}" y="${PAD-12}" font-size="9" fill="var(--text-muted)" text-anchor="start">↑ embedding dim 2</text>`;
+
+      const qx = sx(queryVec[0]), qy = sy(queryVec[1]);
+
+      // similarity lines from query to top-3 (drawn under nodes)
+      scored.slice(0, 3).forEach(s => {
+        g += `<line class="sim-line" x1="${qx}" y1="${qy}" x2="${sx(s.v[0])}" y2="${sy(s.v[1])}"/>`;
+      });
+
+      // image nodes
+      IMAGES.forEach(img => {
+        const cx = sx(img.v[0]), cy = sy(img.v[1]);
+        const isTop = topLabels.has(img.label);
+        const ringCls = isTop ? 'img-ring top' : 'img-ring dim';
+        g += `<g class="img-node">
+          <circle class="${ringCls}" cx="${cx}" cy="${cy}" r="17"/>
+          <text class="img-emoji" x="${cx}" y="${cy+1}">${img.emoji}</text>
+          <text x="${cx}" y="${cy+27}" font-size="8" fill="var(--text-muted)" text-anchor="middle">${img.label}</text>
+        </g>`;
+      });
+
+      // query dot on top
+      g += `<circle class="query-dot" cx="${qx}" cy="${qy}" r="8"/>`;
+      g += `<text class="query-label" x="${qx}" y="${qy-14}">query</text>`;
+
+      svg.innerHTML = g;
+
+      // ── Metrics ──
+      document.getElementById('m-best').textContent = best.emoji;
+      document.getElementById('m-sim').textContent = best.sim.toFixed(2);
+
+      // ── Ranked list ──
+      const ranked = document.getElementById('ranked');
+      ranked.innerHTML = scored.map((s, i) => `
+        <div class="rank-item ${i === 0 ? 'best' : ''}" style="display:flex; align-items:center;">
+          <span class="rank-badge">${i + 1}</span>
+          <span class="result-emoji">${s.emoji}</span>
+          <span style="min-width:62px; font-weight:600; font-size:0.85rem;">${s.label}</span>
+          <span class="sim-bar-track"><span class="sim-bar-fill" style="width:${Math.max(0, s.sim*100).toFixed(0)}%"></span></span>
+          <span class="sim-val">${s.sim.toFixed(3)}</span>
+        </div>
+      `).join('');
+    }
+
+    function setQuery(text, vec) {
+      queryText = text;
+      queryVec = vec ? vec.slice() : resolveQuery(text);
+      document.getElementById('query-input').value = text;
+      document.querySelectorAll('.query-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.text === text);
+      });
+      render();
+    }
+
+    function buildPills() {
+      const wrap = document.getElementById('query-pills');
+      wrap.innerHTML = PRESETS.map(p =>
+        `<span class="query-pill" data-text="${p.text}">🔍 ${p.text}</span>`
+      ).join('');
+      wrap.querySelectorAll('.query-pill').forEach((el, idx) => {
+        el.addEventListener('click', () => setQuery(PRESETS[idx].text, PRESETS[idx].v));
+      });
+    }
+
+    document.getElementById('query-input').addEventListener('input', (e) => {
+      queryText = e.target.value;
+      queryVec = resolveQuery(queryText);
+      document.querySelectorAll('.query-pill').forEach(p =>
+        p.classList.toggle('active', p.dataset.text === queryText));
+      render();
+    });
+
+    buildPills();
+    setQuery(PRESETS[0].text, PRESETS[0].v);
+
+    showTutorial({ id: 'c12v1', icon: '🖼️', title: 'Multimodal Search', subtitle: 'One shared space lets words find pictures.',
+      steps: [
+        'Both <strong>text queries</strong> and <strong>images</strong> are embedded into the <strong>same 2D space</strong>',
+        'Type a query or click a <strong>query pill</strong> — the violet dot is your text vector',
+        'Images are ranked by <strong>cosine similarity</strong> to that query vector',
+        'The closest icons get <strong>green rings</strong> — a text query has retrieved images (CLIP-style)'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What makes cross-modal retrieval (text → image) possible in a CLIP-style model?',
+        options: ['Images are converted to text captions first', 'Text and images are embedded into one shared vector space', 'A keyword index is built from image filenames', 'Each image is tagged manually by humans'],
+        correct: 1,
+        explanation: 'Both modalities are mapped into a single joint embedding space, so a text vector and image vectors can be compared directly.' },
+      { question: 'Once a query and images share a space, how are images ranked for a text query?',
+        options: ['By alphabetical caption order', 'By file size', 'By cosine similarity to the query vector', 'By the date the image was uploaded'],
+        correct: 2,
+        explanation: 'The same cosine-similarity scoring used in text IR now works across modalities — higher cosine means a closer semantic match.' },
+      { question: 'In the shared space, two points that are very CLOSE (high cosine similarity) means…',
+        options: ['They are from the same modality', 'They are semantically similar regardless of modality', 'They have the same vector length', 'They were indexed at the same time'],
+        correct: 1,
+        explanation: 'Proximity in the joint space encodes meaning, not modality — a "dog" text query sits near a dog photo even though one is words and one is pixels.' },
+      { question: 'Why does multimodal search NOT need manual keywords or captions on the images?',
+        options: ['It searches the surrounding web page text', 'The image encoder produces a vector capturing visual meaning directly', 'It uses the image color histogram only', 'It relies on the user tagging results'],
+        correct: 1,
+        explanation: 'The image encoder maps pixels straight to a semantic vector in the shared space, so similarity can be computed without any text metadata.' }
+    ]);
+  </script>
+</body>
+</html>

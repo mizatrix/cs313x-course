@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · URL Frontier — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .frontier-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+    .queue-col-title {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;
+    }
+    /* Front (priority) queues */
+    .fq {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 0.7rem; margin-bottom: 0.5rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+    }
+    .fq-label {
+      font-weight: 800; font-size: 0.8rem; min-width: 78px;
+      color: var(--accent-violet); display: flex; flex-direction: column; line-height: 1.2;
+    }
+    .fq-label small { font-weight: 600; font-size: 0.62rem; color: var(--text-muted); }
+    .fq-items { display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1; min-height: 26px; }
+
+    /* Back (politeness, per-host) queues */
+    .bq {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 0.7rem; margin-bottom: 0.5rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md); transition: var(--transition);
+    }
+    .bq.ready { border-color: rgba(0,184,148,0.5); box-shadow: 0 0 10px rgba(0,184,148,0.18); }
+    .bq.firing { border-color: var(--accent-teal); box-shadow: 0 0 16px rgba(0,206,201,0.4); }
+    .bq-host {
+      font-weight: 800; font-size: 0.8rem; min-width: 96px;
+      display: flex; flex-direction: column; line-height: 1.2; color: var(--accent-teal);
+    }
+    .bq-host small { font-weight: 600; font-size: 0.62rem; color: var(--text-muted); }
+    .bq-items { display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1; min-height: 26px; }
+    .bq-timer {
+      font-size: 0.7rem; font-weight: 700; min-width: 86px; text-align: right;
+    }
+    .bq-timer.go { color: var(--success); }
+    .bq-timer.wait { color: var(--warning); }
+
+    .url-pill {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 0.2rem 0.45rem; border-radius: var(--radius-sm);
+      font-size: 0.68rem; font-weight: 700;
+      background: rgba(108,92,231,0.14); color: var(--accent-violet);
+      border: 1px solid rgba(108,92,231,0.28);
+    }
+    .url-pill.p1 { background: rgba(214,48,49,0.13); color: var(--error); border-color: rgba(214,48,49,0.3); }
+    .url-pill.p2 { background: rgba(253,203,110,0.16); color: var(--warning); border-color: rgba(253,203,110,0.34); }
+    .url-pill.p3 { background: rgba(0,184,148,0.14); color: var(--success); border-color: rgba(0,184,148,0.3); }
+    .url-pill .pg { opacity: 0.7; font-weight: 600; font-size: 0.6rem; }
+
+    .empty-note { font-size: 0.7rem; color: var(--text-muted); font-style: italic; }
+
+    .add-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
+    .add-row .control-group { margin-bottom: 0; }
+    select, input[type="text"] {
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      padding: 0.45rem 0.55rem; font-size: 0.82rem; font-family: inherit;
+    }
+    .last-host-banner {
+      font-size: 0.78rem; padding: 0.55rem 0.7rem; border-radius: var(--radius-sm);
+      background: rgba(0,206,201,0.08); border: 1px solid rgba(0,206,201,0.25);
+      color: var(--text-secondary); margin-bottom: 0.8rem;
+    }
+    .last-host-banner strong { color: var(--accent-teal); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 8</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>URL Frontier: Politeness &amp; Priority</h1>
+      <p>The Mercator frontier uses <strong>front queues</strong> for crawl priority and <strong>back queues</strong> (one host each) for politeness — so you never hammer the same server twice in a row.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">⚖️</div>
+      <div class="challenge-text"><strong>Try This:</strong> Add several URLs for the <em>same host</em>, then press <strong>Step</strong> repeatedly. Notice the scheduler refuses to fetch that host again until its politeness delay has elapsed — it picks a different ready host instead.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: controls + front queues -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Add a URL to the Frontier</div>
+        <div class="add-row" style="margin-bottom: 1rem;">
+          <div class="control-group">
+            <label class="queue-col-title" style="margin-bottom:0.3rem;">Host</label>
+            <select id="in-host">
+              <option value="a.com">a.com</option>
+              <option value="b.org">b.org</option>
+              <option value="c.net">c.net</option>
+              <option value="d.io">d.io</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label class="queue-col-title" style="margin-bottom:0.3rem;">Page</label>
+            <input type="text" id="in-page" value="/news" size="8">
+          </div>
+          <div class="control-group">
+            <label class="queue-col-title" style="margin-bottom:0.3rem;">Priority</label>
+            <select id="in-prio">
+              <option value="1">1 · High</option>
+              <option value="2" selected>2 · Medium</option>
+              <option value="3">3 · Low</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addFromForm()">+ Add URL</button>
+        </div>
+        <div style="margin-bottom: 1.2rem;">
+          <button class="btn btn-sm" onclick="addSamples()">Add Sample URLs</button>
+          <button class="btn btn-sm" onclick="resetAll()">Reset</button>
+        </div>
+
+        <div class="viz-section-title">Front Queues — by Priority</div>
+        <p style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.7rem;line-height:1.5;">
+          A new URL is routed to a front queue by its <strong>priority</strong>. A prioritizer biases selection toward higher-priority queues.
+        </p>
+        <div id="front-queues"></div>
+
+        <div class="viz-section-title" style="margin-top:1.4rem;">Back Queues — by Host (Politeness)</div>
+        <p style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.7rem;line-height:1.5;">
+          Each back queue holds URLs for <strong>exactly one host</strong>. A router maps host → back queue, keeping per-host requests serialized and spaced out.
+        </p>
+        <div id="back-queues"></div>
+      </div>
+
+      <!-- RIGHT: scheduler -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Next-Fetch Scheduler</div>
+
+        <div class="last-host-banner" id="last-host-banner">
+          Virtual clock: <strong>t = 0</strong> · Last fetched host: <strong>—</strong>
+        </div>
+
+        <div class="metric-grid" style="margin-bottom:1.2rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-clock">0</div>
+            <div class="metric-label">Clock (t)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-pending">0</div>
+            <div class="metric-label">URLs Pending</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-fetched">0</div>
+            <div class="metric-label">Fetched</div>
+          </div>
+        </div>
+
+        <div class="control-group" style="margin-bottom:1rem;">
+          <label class="queue-col-title" style="margin-bottom:0.4rem;">Politeness delay per host: <span id="delay-val" style="color:var(--accent-teal);font-weight:800;">3</span> ticks</label>
+          <input type="range" id="delay-slider" min="1" max="8" value="3" style="width:100%;" oninput="onDelayChange(this.value)">
+        </div>
+
+        <div style="margin-bottom:1.1rem;">
+          <button class="btn btn-teal" onclick="step()">▶ Step (fetch next)</button>
+          <button class="btn btn-sm" onclick="run5()">Run ×5</button>
+        </div>
+
+        <div class="viz-section-title">Heap of Host Ready-Times</div>
+        <p style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.6rem;line-height:1.5;">
+          The scheduler keeps a <strong>min-heap</strong> keyed on each host's <em>ready time</em>. It pops the earliest-ready non-empty host, fetches one URL, then pushes that host back with ready-time = <code>now + delay</code>.
+        </p>
+        <div id="heap-view" class="step-log" style="margin-bottom:1.2rem;"></div>
+
+        <div class="formula-box" id="next-formula">next ← min-ready non-empty back queue</div>
+
+        <div class="viz-section-title" style="margin-top:1.2rem;">Scheduler Log</div>
+        <div id="sched-log" class="step-log"></div>
+
+        <div style="margin-top:1.3rem;">
+          <div class="viz-section-title">Why It Matters</div>
+          <p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+            <strong style="color:var(--accent-violet);">Priority</strong> (front) and <strong style="color:var(--accent-teal);">politeness</strong> (back) are separated so a high-priority page can't trick the crawler into overloading one server. Hitting a host too fast looks like a denial-of-service attack and can get the crawler <strong>blocked or banned</strong>.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── State ──────────────────────────────────────────
+    const HOSTS = ['a.com', 'b.org', 'c.net', 'd.io'];
+    const PRIOS = [1, 2, 3];                 // 1 = high
+    let frontQueues;   // { 1:[], 2:[], 3:[] }  each item {host, page, prio}
+    let backQueues;    // { host: [ {host,page,prio} ] }
+    let readyAt;       // { host: tick the host becomes pollite-eligible }
+    let clock, fetched, lastHost, delay, uid;
+
+    function resetAll() {
+      frontQueues = { 1: [], 2: [], 3: [] };
+      backQueues = {}; readyAt = {};
+      HOSTS.forEach(h => { backQueues[h] = []; readyAt[h] = 0; });
+      clock = 0; fetched = 0; lastHost = null; uid = 0;
+      logLines = [];
+      render();
+    }
+
+    let logLines = [];
+
+    // ── Adding URLs ────────────────────────────────────
+    function addURL(host, page, prio) {
+      const item = { id: ++uid, host, page, prio };
+      // 1) Front queue selection by PRIORITY
+      frontQueues[prio].push(item);
+      // 2) Router: when it "leaves" the front queue it is sent to the
+      //    per-host BACK queue. We model the front→back hand-off immediately
+      //    for items, but keep one copy displayed in the front lane too.
+      backQueues[host].push(item);
+      render();
+    }
+
+    function addFromForm() {
+      const host = document.getElementById('in-host').value;
+      let page = document.getElementById('in-page').value.trim() || '/';
+      if (!page.startsWith('/')) page = '/' + page;
+      const prio = parseInt(document.getElementById('in-prio').value);
+      addURL(host, page, prio);
+    }
+
+    function addSamples() {
+      const samples = [
+        ['a.com', '/home', 1], ['a.com', '/news', 2], ['a.com', '/about', 3],
+        ['b.org', '/index', 1], ['b.org', '/docs', 2],
+        ['c.net', '/blog', 2], ['c.net', '/feed', 3], ['c.net', '/tag', 1],
+        ['d.io', '/start', 1],
+      ];
+      samples.forEach(s => addURL(s[0], s[1], s[2]));
+    }
+
+    // ── Scheduler: min-heap of host ready-times ────────
+    // Pick the non-empty back queue whose host is ready earliest.
+    // Tie-break: avoid lastHost, then earlier ready, then host name.
+    function pickNextHost() {
+      const candidates = HOSTS.filter(h => backQueues[h].length > 0);
+      if (candidates.length === 0) return null;
+      candidates.sort((x, y) => {
+        if (readyAt[x] !== readyAt[y]) return readyAt[x] - readyAt[y];
+        if (x === lastHost && y !== lastHost) return 1;   // push lastHost back
+        if (y === lastHost && x !== lastHost) return -1;
+        return x.localeCompare(y);
+      });
+      return candidates[0];
+    }
+
+    function step() {
+      const host = pickNextHost();
+      if (!host) {
+        pushLog(`<span class="step-highlight">Frontier empty</span> — nothing to fetch.`, true);
+        render();
+        return;
+      }
+      // Advance the virtual clock to when this host is actually ready
+      // (politeness: cannot fetch before readyAt[host]).
+      const waited = Math.max(0, readyAt[host] - clock);
+      if (clock < readyAt[host]) clock = readyAt[host];
+
+      const item = backQueues[host].shift();
+      // Remove the matching item from its front queue lane too
+      const fq = frontQueues[item.prio];
+      const fi = fq.findIndex(x => x.id === item.id);
+      if (fi >= 0) fq.splice(fi, 1);
+
+      fetched++;
+      const fetchedAt = clock;
+      clock += 1;                         // fetching itself takes 1 tick
+      readyAt[host] = clock + delay;      // host not eligible again until now+delay
+      const prev = lastHost;
+      lastHost = host;
+
+      let msg = `t=${fetchedAt}: fetch <span class="step-value">${host}${item.page}</span> (P${item.prio})`;
+      if (waited > 0) msg += ` · waited ${waited}t for politeness`;
+      if (prev === host) msg += ` · ⚠ same host repeated`;
+      msg += ` → ${host} blocked until t=${readyAt[host]}`;
+      pushLog(msg, prev === host);
+      render(host);
+    }
+
+    function run5() {
+      let n = 0;
+      const tick = () => {
+        if (n++ >= 5) return;
+        const before = fetched;
+        step();
+        if (fetched > before) setTimeout(tick, 260);
+      };
+      tick();
+    }
+
+    function onDelayChange(v) {
+      delay = parseInt(v);
+      document.getElementById('delay-val').textContent = delay;
+      // Re-baseline future readiness relative to current clock (don't rewrite history)
+      render();
+    }
+
+    function pushLog(html, warn) {
+      logLines.unshift(`<div class="step-entry"${warn ? ' style="border-left:3px solid var(--error);padding-left:0.5rem;"' : ''}>${html}</div>`);
+      if (logLines.length > 9) logLines.pop();
+    }
+
+    // ── Rendering ──────────────────────────────────────
+    function pill(item) {
+      return `<span class="url-pill p${item.prio}" title="priority ${item.prio}">${item.host}${item.page}<span class="pg">P${item.prio}</span></span>`;
+    }
+
+    function render(firingHost) {
+      // Front queues
+      const prioName = { 1: 'High', 2: 'Medium', 3: 'Low' };
+      let fhtml = '';
+      PRIOS.forEach(p => {
+        const items = frontQueues[p];
+        fhtml += `<div class="fq">
+          <div class="fq-label">F${p}<small>${prioName[p]} prio</small></div>
+          <div class="fq-items">${items.length ? items.map(pill).join('') : '<span class="empty-note">empty</span>'}</div>
+        </div>`;
+      });
+      document.getElementById('front-queues').innerHTML = fhtml;
+
+      // Back queues (per host)
+      let bhtml = '';
+      HOSTS.forEach(h => {
+        const items = backQueues[h];
+        const ready = readyAt[h] <= clock;
+        const firing = firingHost === h;
+        const cls = firing ? 'firing' : (items.length && ready ? 'ready' : '');
+        let timer;
+        if (!items.length) {
+          timer = `<span class="bq-timer">idle</span>`;
+        } else if (ready) {
+          timer = `<span class="bq-timer go">ready ✓</span>`;
+        } else {
+          timer = `<span class="bq-timer wait">wait ${readyAt[h] - clock}t</span>`;
+        }
+        bhtml += `<div class="bq ${cls}">
+          <div class="bq-host">${h}<small>back queue</small></div>
+          <div class="bq-items">${items.length ? items.map(pill).join('') : '<span class="empty-note">empty</span>'}</div>
+          ${timer}
+        </div>`;
+      });
+      document.getElementById('back-queues').innerHTML = bhtml;
+
+      // Heap of ready-times (sorted view)
+      const heap = HOSTS.filter(h => backQueues[h].length > 0)
+        .sort((x, y) => readyAt[x] - readyAt[y]);
+      let hhtml = '';
+      if (heap.length === 0) {
+        hhtml = `<div class="step-entry empty-note">heap empty — all back queues drained</div>`;
+      } else {
+        heap.forEach((h, i) => {
+          const eligible = readyAt[h] <= clock;
+          const top = i === 0;
+          hhtml += `<div class="step-entry">${top ? '▶ ' : '&nbsp;&nbsp;&nbsp;'}<strong>${h}</strong> · ready@t=<span class="${eligible ? 'step-value' : 'step-highlight'}">${readyAt[h]}</span> · ${backQueues[h].length} URL${backQueues[h].length>1?'s':''} ${top ? '← next' : ''}</div>`;
+        });
+      }
+      document.getElementById('heap-view').innerHTML = hhtml;
+
+      // Metrics
+      const pending = HOSTS.reduce((s, h) => s + backQueues[h].length, 0);
+      document.getElementById('m-clock').textContent = clock;
+      document.getElementById('m-pending').textContent = pending;
+      document.getElementById('m-fetched').textContent = fetched;
+      document.getElementById('last-host-banner').innerHTML =
+        `Virtual clock: <strong>t = ${clock}</strong> · Last fetched host: <strong>${lastHost || '—'}</strong>`;
+
+      const next = pickNextHost();
+      document.getElementById('next-formula').innerHTML = next
+        ? `next ← <strong>${next}</strong> (ready@t=${readyAt[next]}, popped from min-heap)`
+        : `next ← <em>frontier empty</em>`;
+
+      document.getElementById('sched-log').innerHTML =
+        logLines.length ? logLines.join('') : `<div class="step-entry empty-note">No fetches yet. Press “Step”.</div>`;
+    }
+
+    // ── Init ───────────────────────────────────────────
+    delay = 3;
+    resetAll();
+    addSamples();
+
+    showTutorial({ id: 'c8v3', icon: '🕸️', title: 'URL Frontier: Politeness & Priority',
+      subtitle: 'The Mercator front/back queue design.',
+      steps: [
+        '<strong>Front queues (F1–F3)</strong> route a URL by its <strong>priority</strong> — higher priority gets crawled sooner.',
+        '<strong>Back queues</strong> hold one <strong>host each</strong>. The router keeps every host\'s requests serialized in its own lane.',
+        'A <strong>min-heap of host ready-times</strong> picks the next fetch — always the earliest-ready non-empty host.',
+        'After fetching a host, it is blocked until <code>now + politeness delay</code>, so you never hit the same server twice in a row.'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In the Mercator URL frontier, what determines which FRONT queue a URL enters?',
+        options: ['Its host name', 'Its crawl priority', 'Its file size', 'Alphabetical order'],
+        correct: 1,
+        explanation: 'Front queues are selected by PRIORITY — a prioritizer biases the crawler toward higher-priority pages. Hosts are handled by the back queues.' },
+      { question: 'Each BACK queue in the frontier contains URLs for…',
+        options: ['Exactly one host', 'One priority level', 'All hosts mixed together', 'Only failed URLs'],
+        correct: 0,
+        explanation: 'There is one back queue per host. This serializes requests to a single server so politeness delays can be enforced per host.' },
+      { question: 'What is the purpose of the per-host politeness delay?',
+        options: ['To rank pages by relevance', 'To compress the index', 'To avoid overloading a server (DoS-like behavior)', 'To deduplicate URLs'],
+        correct: 2,
+        explanation: 'Fetching one host too rapidly looks like a denial-of-service attack and can get the crawler blocked. The delay spaces out requests to each host.' },
+      { question: 'The scheduler uses a min-heap keyed on host ready-times to…',
+        options: ['Store the inverted index', 'Always pick the earliest-ready non-empty host', 'Sort URLs alphabetically', 'Detect duplicate content'],
+        correct: 1,
+        explanation: 'Popping the min of the heap gives the host that became polite-eligible soonest, so the crawler stays busy while respecting per-host delays — and avoids hitting the same host back-to-back.' }
+    ]);
+  </script>
+</body>
+</html>

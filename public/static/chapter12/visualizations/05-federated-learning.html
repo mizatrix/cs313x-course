@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · Federated Learning &amp; Privacy — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .fl-stage {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .fl-svg { width: 100%; height: 100%; display: block; }
+
+    .device-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm);
+      padding: 0.7rem 0.85rem;
+      margin-bottom: 0.6rem;
+      transition: var(--transition);
+    }
+    .device-card.training { border-color: var(--accent-teal); box-shadow: 0 0 14px rgba(0,206,201,0.25); }
+    .device-card.sending  { border-color: var(--accent-violet); box-shadow: 0 0 14px rgba(108,92,231,0.25); }
+    .device-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .device-name { font-weight: 700; color: var(--text-primary); font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+    .device-status { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+    .device-status.live { color: var(--accent-teal); }
+    .device-status.up   { color: var(--accent-violet); }
+    .data-pill {
+      font-size: 0.68rem; font-weight: 700; padding: 0.12rem 0.45rem;
+      border-radius: 999px; background: rgba(214,48,49,0.12);
+      color: var(--error); border: 1px solid rgba(214,48,49,0.25);
+    }
+    .acc-bar-wrap { height: 7px; border-radius: 999px; background: var(--border-glass); margin-top: 0.5rem; overflow: hidden; }
+    .acc-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.5s ease; }
+    .acc-row { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.35rem; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin-top: 0.75rem; font-size: 0.74rem; color: var(--text-secondary); }
+    .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+    .lock-note {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.8rem; color: var(--success); font-weight: 700;
+      margin-top: 0.6rem;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 12</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 05 · Advanced</div>
+      <h1>Federated Learning &amp; Privacy</h1>
+      <p>Devices train on their <strong>own private data</strong> and send only <strong>model updates</strong> to a server, which averages them into a shared global model — raw data never leaves the device.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🔒</div>
+      <div class="challenge-text"><strong>Try This:</strong> Run several rounds and watch the global accuracy climb while each device's raw data stays put. Toggle <em>Non-IID data</em> to see how skewed local data slows the global model down.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Federated Round</div>
+        <div class="fl-stage">
+          <svg class="fl-svg" id="fl-svg" viewBox="0 0 600 420" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--error)"></span> Private data (stays on device)</span>
+          <span><span class="swatch" style="background:var(--accent-violet)"></span> Model update (Δw) sent up</span>
+          <span><span class="swatch" style="background:var(--accent-teal)"></span> Global model pushed down</span>
+        </div>
+        <div class="lock-note">🔒 <span>Raw data never leaves any device — only gradients/weights travel.</span></div>
+
+        <div class="control-row" style="margin-top: 1rem;">
+          <button class="btn btn-primary" id="btn-round" onclick="runRound()">▶ Run Training Round</button>
+          <button class="btn btn-teal btn-sm" onclick="autoRun()">⏩ Auto ×5</button>
+          <button class="btn btn-sm" onclick="resetSim()">↻ Reset</button>
+        </div>
+        <div class="control-row" style="margin-top: 0.75rem;">
+          <div class="toggle-group" id="iid-toggle">
+            <button class="toggle-opt active" data-iid="1" onclick="setIID(true)">IID data</button>
+            <button class="toggle-opt" data-iid="0" onclick="setIID(false)">Non-IID data</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Global Model</div>
+        <div class="metric-grid" style="margin-bottom: 1.25rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-acc">10.0%</div>
+            <div class="metric-label">Global Accuracy</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-round">0</div>
+            <div class="metric-label">Rounds</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-data">0 MB</div>
+            <div class="metric-label">Raw Data Sent</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-comm">0 MB</div>
+            <div class="metric-label">Updates Uploaded</div>
+          </div>
+        </div>
+
+        <div class="formula-box">w<sub>global</sub> ← Σ (n<sub>k</sub> / N) · w<sub>k</sub>&nbsp;&nbsp;(FedAvg)</div>
+
+        <div class="viz-section-title" style="margin-top: 1.25rem;">Devices (local models)</div>
+        <div id="devices-list"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.25rem;">Round Log</div>
+        <div id="round-log" class="step-log"></div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">Trade-offs</div>
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.7;">
+            <strong style="color: var(--accent-teal);">Privacy:</strong> raw data stays on-device — only small weight updates move.
+            <strong style="color: var(--warning);">Communication cost:</strong> every round uploads/downloads model weights repeatedly.
+            <strong style="color: var(--error);">Non-IID data:</strong> when devices see very different data, averaged updates conflict and convergence slows.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Model sizes (illustrative) ──────────────────────
+    const UPDATE_MB = 2.4;        // size of one model update per device per round
+    const DATA_PER_DEVICE_MB = 85; // raw data that would be sent in centralized training (never sent here)
+    const MODEL_PARAMS = 2.4;     // download size (global model) per device
+
+    const DEVICE_META = [
+      { name: '📱 Phone',  samples: 1200 },
+      { name: '💻 Laptop', samples: 2600 },
+      { name: '⌚ Watch',  samples: 400  },
+      { name: '📟 Tablet', samples: 1800 },
+    ];
+
+    let state = {};
+
+    function resetSim() {
+      state = {
+        round: 0,
+        global: 10,                       // global accuracy %
+        iid: true,
+        rawSent: 0,                       // raw data uploaded (stays 0 — privacy!)
+        commUp: 0,                        // model updates uploaded (MB)
+        devices: DEVICE_META.map(d => ({ ...d, acc: 10, phase: 'idle' })),
+        log: [],
+      };
+      animPhase = 'idle';
+      render();
+      drawSVG();
+    }
+
+    function setIID(isIID) {
+      state.iid = isIID;
+      document.querySelectorAll('#iid-toggle .toggle-opt').forEach(b => {
+        b.classList.toggle('active', (b.dataset.iid === '1') === isIID);
+      });
+      log(isIID
+        ? 'Switched to <span class="step-highlight">IID</span> data — devices see similar distributions.'
+        : 'Switched to <span class="step-highlight">Non-IID</span> data — local distributions are skewed, updates conflict.');
+    }
+
+    function log(msg) {
+      state.log.unshift(msg);
+      if (state.log.length > 8) state.log.pop();
+      document.getElementById('round-log').innerHTML =
+        state.log.map(m => `<div class="step-entry">${m}</div>`).join('');
+    }
+
+    const totalSamples = DEVICE_META.reduce((s, d) => s + d.samples, 0);
+
+    // One synchronous round of FedAvg with simple diminishing-returns dynamics.
+    function runRound() {
+      state.round++;
+
+      // 1) Each device trains locally on its OWN data → local accuracy improves.
+      state.devices.forEach(d => {
+        // Non-IID adds noise/variance and a smaller effective step.
+        const noise = state.iid ? 0 : (Math.random() * 10 - 5);
+        const step = (95 - d.acc) * (state.iid ? 0.30 : 0.18);
+        d.acc = Math.max(8, Math.min(97, d.acc + step + noise));
+        d.phase = 'training';
+      });
+
+      // 2) Devices upload ONLY model updates (Δw), never raw data.
+      state.commUp += state.devices.length * UPDATE_MB;
+      // rawSent intentionally stays 0 — that's the privacy guarantee.
+
+      // 3) Server aggregates via weighted average (FedAvg) → new global model.
+      let agg = 0;
+      state.devices.forEach(d => { agg += (d.samples / totalSamples) * d.acc; });
+      // Non-IID: averaging conflicting updates loses a bit of the local gains.
+      const penalty = state.iid ? 0 : 2.2;
+      state.global = Math.max(state.global, agg - penalty);
+      state.global = Math.min(97, state.global);
+
+      // 4) Push global model back; locals sync toward it for next round.
+      state.devices.forEach(d => {
+        d.acc = d.acc + (state.global - d.acc) * 0.5;
+        d.phase = 'idle';
+      });
+
+      log(`Round <span class="step-highlight">${state.round}</span>: ` +
+          `${state.devices.length} devices uploaded Δw (${(state.devices.length * UPDATE_MB).toFixed(1)} MB) · ` +
+          `FedAvg → global acc <span class="step-value">${state.global.toFixed(1)}%</span>` +
+          (state.iid ? '' : ' <span style="color:var(--error)">(non-IID penalty −2.2%)</span>'));
+
+      render();
+      animate();
+    }
+
+    let autoTimer = null;
+    function autoRun() {
+      if (autoTimer) return;
+      let n = 0;
+      autoTimer = setInterval(() => {
+        runRound();
+        if (++n >= 5) { clearInterval(autoTimer); autoTimer = null; }
+      }, 950);
+    }
+
+    function render() {
+      document.getElementById('m-acc').textContent = state.global.toFixed(1) + '%';
+      document.getElementById('m-round').textContent = state.round;
+      document.getElementById('m-data').textContent = state.rawSent.toFixed(0) + ' MB';
+      document.getElementById('m-comm').textContent = state.commUp.toFixed(1) + ' MB';
+
+      document.getElementById('devices-list').innerHTML = state.devices.map((d, i) => `
+        <div class="device-card ${d.phase}" id="dev-card-${i}">
+          <div class="device-head">
+            <div class="device-name">${d.name}</div>
+            <span class="data-pill" title="This data never leaves the device">${d.samples} private samples</span>
+          </div>
+          <div class="acc-bar-wrap"><div class="acc-bar-fill" style="width:${d.acc}%"></div></div>
+          <div class="acc-row"><span>local model</span><span>${d.acc.toFixed(1)}%</span></div>
+        </div>`).join('');
+    }
+
+    // ── SVG network diagram + update-packet animation ───
+    const SERVER = { x: 300, y: 70 };
+    const NODES = [
+      { x: 90,  y: 330 },
+      { x: 230, y: 360 },
+      { x: 370, y: 360 },
+      { x: 510, y: 330 },
+    ];
+    let animPhase = 'idle'; // 'up' | 'down'
+    let animT = 0;
+
+    function drawSVG() {
+      const svg = document.getElementById('fl-svg');
+      let s = '';
+      // links
+      NODES.forEach(n => {
+        s += `<line x1="${SERVER.x}" y1="${SERVER.y}" x2="${n.x}" y2="${n.y}" stroke="var(--border-glass)" stroke-width="2"/>`;
+      });
+      // server
+      s += `<g>
+        <rect x="${SERVER.x-58}" y="${SERVER.y-30}" width="116" height="60" rx="12" fill="var(--bg-card)" stroke="var(--accent-teal)" stroke-width="2"/>
+        <text x="${SERVER.x}" y="${SERVER.y-4}" text-anchor="middle" fill="var(--text-primary)" font-size="14" font-weight="700">☁ Server</text>
+        <text x="${SERVER.x}" y="${SERVER.y+15}" text-anchor="middle" fill="var(--accent-teal)" font-size="11" font-weight="700">FedAvg</text>
+      </g>`;
+      // devices
+      NODES.forEach((n, i) => {
+        const d = state.devices[i];
+        s += `<g>
+          <rect x="${n.x-46}" y="${n.y-26}" width="92" height="52" rx="10" fill="var(--bg-card)" stroke="var(--accent-violet)" stroke-width="1.5"/>
+          <text x="${n.x}" y="${n.y-6}" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="700">${d.name}</text>
+          <circle cx="${n.x+30}" cy="${n.y-18}" r="6" fill="var(--error)"/>
+          <text x="${n.x}" y="${n.y+13}" text-anchor="middle" fill="var(--text-secondary)" font-size="10">acc ${d.acc.toFixed(0)}%</text>
+        </g>`;
+      });
+      // animated packets
+      if (animPhase !== 'idle') {
+        NODES.forEach(n => {
+          const t = animPhase === 'up' ? animT : 1 - animT;
+          const px = n.x + (SERVER.x - n.x) * t;
+          const py = n.y + (SERVER.y - n.y) * t;
+          const color = animPhase === 'up' ? 'var(--accent-violet)' : 'var(--accent-teal)';
+          const label = animPhase === 'up' ? 'Δw' : 'w';
+          s += `<g>
+            <rect x="${px-13}" y="${py-10}" width="26" height="20" rx="5" fill="${color}"/>
+            <text x="${px}" y="${py+4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">${label}</text>
+          </g>`;
+        });
+      }
+      svg.innerHTML = s;
+    }
+
+    function animate() {
+      // upload phase, then download phase
+      animPhase = 'up'; animT = 0;
+      const tick = () => {
+        animT += 0.05;
+        if (animT >= 1) {
+          if (animPhase === 'up') { animPhase = 'down'; animT = 0; drawSVG(); requestAnimationFrame(tick); }
+          else { animPhase = 'idle'; drawSVG(); }
+          return;
+        }
+        drawSVG();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    resetSim();
+
+    showTutorial({
+      id: 'c12v5', icon: '🔒', title: 'Federated Learning & Privacy',
+      subtitle: 'Train a shared model without collecting anyone\'s raw data.',
+      steps: [
+        'Each <strong>device trains locally</strong> on its own private data — the red data never leaves it',
+        'Devices upload only <strong>model updates (Δw)</strong>, not raw data — that\'s the privacy win',
+        'The <strong>server aggregates</strong> updates with FedAvg (weighted average) into a new global model',
+        'The global model is <strong>pushed back</strong> down; repeat. Watch comms cost grow and try Non-IID data'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In federated learning, what does each device send to the server after local training?',
+        options: ['Its full raw training dataset', 'Only model updates (gradients/weights)', 'Nothing — the server trains alone', 'A copy of every user query'],
+        correct: 1,
+        explanation: 'Devices upload only model updates (Δw), never raw data. Keeping data on-device is the core privacy property of federated learning.'
+      },
+      {
+        question: 'Why is federated learning considered more privacy-preserving than centralized training?',
+        options: ['It encrypts the entire internet', 'Raw user data never leaves the device', 'It uses fewer model parameters', 'It deletes the model after each round'],
+        correct: 1,
+        explanation: 'Because training happens on-device and only aggregated model updates are shared, the user\'s raw data stays local and is never collected centrally.'
+      },
+      {
+        question: 'What does the server do with the updates it receives (the FedAvg step)?',
+        options: ['Picks the single best device model', 'Computes a sample-weighted average into a new global model', 'Concatenates all the raw datasets', 'Discards them to save bandwidth'],
+        correct: 1,
+        explanation: 'FedAvg aggregates the device updates as a weighted average (by number of local samples) to form a new global model, which is pushed back to all devices.'
+      },
+      {
+        question: 'Which is a real trade-off / challenge of federated learning?',
+        options: ['Zero network usage', 'Non-IID (skewed) local data can slow or destabilize convergence', 'It only works on one device', 'It requires raw data upload'],
+        correct: 1,
+        explanation: 'Two key costs are communication overhead (weights uploaded/downloaded every round) and non-IID data, where devices have very different distributions, making averaged updates conflict and convergence harder.'
+      }
+    ]);
+  </script>
+</body>
+</html>

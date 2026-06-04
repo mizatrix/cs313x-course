@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Task-Oriented Dialogue Pipeline — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .pipeline {
+      display: flex; flex-direction: column; gap: 0.85rem;
+    }
+    .stage {
+      position: relative;
+      padding: 1rem 1.1rem;
+      background: var(--bg-card);
+      border: 2px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      transition: var(--transition);
+      opacity: 0.55;
+    }
+    .stage.active {
+      opacity: 1;
+      border-color: var(--accent-violet);
+      box-shadow: 0 0 18px rgba(108,92,231,0.35);
+      transform: translateX(4px);
+    }
+    .stage.done {
+      opacity: 1;
+      border-color: rgba(0,184,148,0.4);
+    }
+    .stage-head {
+      display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;
+    }
+    .stage-num {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 800; color: #fff;
+      background: var(--accent-violet);
+    }
+    .stage.done .stage-num { background: var(--success); }
+    .stage-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
+    .stage-sub { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; text-align: right; }
+    .stage-out {
+      font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;
+      min-height: 1.2rem;
+    }
+    .stage-out .k { color: var(--accent-teal); font-weight: 700; }
+    .stage-out .v { color: var(--text-primary); font-weight: 700; }
+    .stage-out .muted { color: var(--text-muted); }
+    .arrow {
+      align-self: center; color: var(--accent-violet);
+      font-size: 1.1rem; line-height: 0.4; opacity: 0.6;
+    }
+    .utt-options { display: flex; flex-direction: column; gap: 0.5rem; }
+    .utt-opt {
+      text-align: left; padding: 0.7rem 0.9rem;
+      background: var(--bg-card); border: 2px solid var(--border-glass);
+      border-radius: var(--radius-sm); color: var(--text-secondary);
+      font-size: 0.85rem; cursor: pointer; transition: var(--transition);
+      font-family: inherit;
+    }
+    .utt-opt:hover { border-color: var(--accent-teal); color: var(--text-primary); }
+    .utt-opt.selected {
+      border-color: var(--accent-violet); color: var(--text-primary);
+      background: rgba(108,92,231,0.12); font-weight: 600;
+    }
+    .reply-bubble {
+      padding: 0.9rem 1rem; border-radius: var(--radius-md);
+      background: rgba(0,206,201,0.12); border: 1px solid rgba(0,206,201,0.3);
+      color: var(--text-primary); font-size: 0.92rem; line-height: 1.5;
+      min-height: 1.4rem;
+    }
+    .reply-bubble.empty { color: var(--text-muted); background: var(--bg-card); border-color: var(--border-glass); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Task-Oriented Dialogue Pipeline</h1>
+      <p>A modular task-oriented dialogue system passes each user turn through four stages: <strong>NLU → DST → Policy → NLG</strong>. Run a turn and watch each stage light up.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Pick a user utterance, then press <strong>Run turn</strong> and follow the data as it flows through each stage. Notice how the dialogue state (DST) <em>accumulates</em> slots across turns until the booking is complete.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">User Utterance</div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem;">Task: book a flight. Choose what the user says next.</p>
+        <div class="utt-options" id="utt-options"></div>
+
+        <div style="margin-top: 1.25rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="run-btn" onclick="runTurn()">▶ Run turn</button>
+          <button class="btn" onclick="resetAll()">Reset dialogue</button>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.75rem;">Accumulated Dialogue State</div>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <div class="metric-value" id="m-slots">0/3</div>
+            <div class="metric-label">Slots filled</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-turn">0</div>
+            <div class="metric-label">Turns run</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">System Reply (NLG output)</div>
+        <div class="reply-bubble empty" id="reply">— run a turn to see the system's reply —</div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">The 4-Stage Pipeline</div>
+        <div class="pipeline" id="pipeline">
+          <div class="stage" data-stage="0">
+            <div class="stage-head">
+              <div class="stage-num">1</div>
+              <div class="stage-title">NLU</div>
+              <div class="stage-sub">Natural Language Understanding<br>utterance → intent + slots</div>
+            </div>
+            <div class="stage-out" id="out-nlu"><span class="muted">waiting…</span></div>
+          </div>
+          <div class="arrow">▼</div>
+          <div class="stage" data-stage="1">
+            <div class="stage-head">
+              <div class="stage-num">2</div>
+              <div class="stage-title">DST</div>
+              <div class="stage-sub">Dialogue State Tracking<br>update belief state</div>
+            </div>
+            <div class="stage-out" id="out-dst"><span class="muted">waiting…</span></div>
+          </div>
+          <div class="arrow">▼</div>
+          <div class="stage" data-stage="2">
+            <div class="stage-head">
+              <div class="stage-num">3</div>
+              <div class="stage-title">Dialogue Policy</div>
+              <div class="stage-sub">Dialogue Management<br>state → next action</div>
+            </div>
+            <div class="stage-out" id="out-pol"><span class="muted">waiting…</span></div>
+          </div>
+          <div class="arrow">▼</div>
+          <div class="stage" data-stage="3">
+            <div class="stage-head">
+              <div class="stage-num">4</div>
+              <div class="stage-title">NLG</div>
+              <div class="stage-sub">Natural Language Generation<br>action → text reply</div>
+            </div>
+            <div class="stage-out" id="out-nlg"><span class="muted">waiting…</span></div>
+          </div>
+        </div>
+
+        <div class="formula-box" style="margin-top:1.25rem;">utterance → NLU → DST → Policy → NLG → reply</div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Sample utterances (book-a-flight task) ─────────────────
+    // Each carries the NLU result it would produce and the policy action it triggers.
+    const UTTERANCES = [
+      {
+        text: '"I want to fly from Boston to Tokyo."',
+        intent: 'book_flight',
+        slots: { origin: 'Boston', destination: 'Tokyo' }
+      },
+      {
+        text: '"I\'d like to leave next Friday."',
+        intent: 'inform',
+        slots: { date: 'next Friday' }
+      },
+      {
+        text: '"Make it Tokyo as the destination."',
+        intent: 'inform',
+        slots: { destination: 'Tokyo' }
+      },
+      {
+        text: '"Yes, that\'s correct — book it."',
+        intent: 'confirm',
+        slots: {}
+      }
+    ];
+
+    const REQUIRED = ['origin', 'destination', 'date']; // slots needed to book
+    let selected = 0;
+    let state = {};        // accumulated belief state (DST)
+    let turns = 0;
+    let booked = false;
+    let animating = false;
+
+    function renderOptions() {
+      const c = document.getElementById('utt-options');
+      c.innerHTML = UTTERANCES.map((u, i) =>
+        `<button class="utt-opt ${i === selected ? 'selected' : ''}" onclick="pick(${i})">${u.text}</button>`
+      ).join('');
+    }
+
+    function pick(i) {
+      if (animating) return;
+      selected = i;
+      renderOptions();
+    }
+
+    function setStage(idx, cls) {
+      document.querySelectorAll('.stage').forEach(s => {
+        if (+s.dataset.stage === idx) {
+          s.classList.remove('active', 'done');
+          if (cls) s.classList.add(cls);
+        }
+      });
+    }
+
+    function clearStages() {
+      document.querySelectorAll('.stage').forEach(s => s.classList.remove('active', 'done'));
+      ['out-nlu', 'out-dst', 'out-pol', 'out-nlg'].forEach(id =>
+        document.getElementById(id).innerHTML = '<span class="muted">waiting…</span>');
+    }
+
+    function slotStr(slots) {
+      const keys = Object.keys(slots);
+      if (!keys.length) return '<span class="muted">{ }</span>';
+      return '{ ' + keys.map(k => `<span class="k">${k}</span>=<span class="v">${slots[k]}</span>`).join(', ') + ' }';
+    }
+
+    function decidePolicy(u) {
+      // Dialogue policy: inspect belief state, decide next system action.
+      if (u.intent === 'confirm') {
+        booked = true;
+        return { action: 'book_ticket()', reply: '✈️ Booked! Your flight from ' + (state.origin || '?') + ' to ' + (state.destination || '?') + ' on ' + (state.date || '?') + ' is confirmed.' };
+      }
+      const missing = REQUIRED.filter(s => !state[s]);
+      if (missing.length === 0) {
+        return { action: 'confirm(' + REQUIRED.join(', ') + ')', reply: 'So that\'s ' + state.origin + ' → ' + state.destination + ' on ' + state.date + '. Shall I book it?' };
+      }
+      const next = missing[0];
+      const prompts = {
+        origin: 'Where will you be departing from?',
+        destination: 'Where would you like to fly to?',
+        date: 'What date would you like to travel?'
+      };
+      return { action: 'request(' + next + ')', reply: prompts[next] };
+    }
+
+    function runTurn() {
+      if (animating) return;
+      if (booked) { resetAll(); }
+      animating = true;
+      document.getElementById('run-btn').disabled = true;
+      clearStages();
+      const u = UTTERANCES[selected];
+
+      // STAGE 1 — NLU
+      setTimeout(() => {
+        setStage(0, 'active');
+        document.getElementById('out-nlu').innerHTML =
+          `intent = <span class="v">${u.intent}</span><br>slots = ${slotStr(u.slots)}`;
+      }, 150);
+
+      // STAGE 2 — DST (merge new slots into the running belief state)
+      setTimeout(() => {
+        setStage(0, 'done');
+        setStage(1, 'active');
+        Object.assign(state, u.slots);
+        document.getElementById('out-dst').innerHTML =
+          `belief state = ${slotStr(state)}`;
+        const filled = REQUIRED.filter(s => state[s]).length;
+        document.getElementById('m-slots').textContent = filled + '/3';
+      }, 900);
+
+      // STAGE 3 — Dialogue Policy
+      let decision;
+      setTimeout(() => {
+        setStage(1, 'done');
+        setStage(2, 'active');
+        decision = decidePolicy(u);
+        document.getElementById('out-pol').innerHTML =
+          `next action = <span class="v">${decision.action}</span>`;
+      }, 1650);
+
+      // STAGE 4 — NLG
+      setTimeout(() => {
+        setStage(2, 'done');
+        setStage(3, 'active');
+        document.getElementById('out-nlg').innerHTML =
+          `text = "<span class="v">${decision.reply}</span>"`;
+      }, 2400);
+
+      // Finish: post reply, advance turn counter
+      setTimeout(() => {
+        setStage(3, 'done');
+        const reply = document.getElementById('reply');
+        reply.classList.remove('empty');
+        reply.textContent = decision.reply;
+        turns++;
+        document.getElementById('m-turn').textContent = turns;
+        animating = false;
+        document.getElementById('run-btn').disabled = false;
+      }, 3000);
+    }
+
+    function resetAll() {
+      state = {}; turns = 0; booked = false; selected = 0; animating = false;
+      document.getElementById('run-btn').disabled = false;
+      document.getElementById('m-slots').textContent = '0/3';
+      document.getElementById('m-turn').textContent = '0';
+      const reply = document.getElementById('reply');
+      reply.classList.add('empty');
+      reply.textContent = '— run a turn to see the system\'s reply —';
+      clearStages();
+      renderOptions();
+    }
+
+    renderOptions();
+
+    showTutorial({
+      id: 'c11v1', icon: '💬',
+      title: 'Task-Oriented Dialogue Pipeline',
+      subtitle: 'How a modular dialogue system turns a user utterance into a reply.',
+      steps: [
+        '<strong>NLU</strong> reads the utterance and extracts an <strong>intent + slots</strong>',
+        '<strong>DST</strong> merges those slots into the running <strong>dialogue state</strong> (it accumulates across turns)',
+        '<strong>Dialogue Policy</strong> looks at the state and picks the next <strong>system action</strong>',
+        '<strong>NLG</strong> turns that action into a natural-language <strong>reply</strong>',
+        'Pick an utterance and press <strong>Run turn</strong> to watch the data flow through all four stages'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'Which component converts a raw user utterance into an intent and slot values?',
+        options: ['NLG', 'NLU', 'Dialogue Policy', 'DST'],
+        correct: 1,
+        explanation: 'NLU (Natural Language Understanding) maps the surface text to a structured intent + slots — the first stage of the pipeline.'
+      },
+      {
+        question: 'What is the correct flow of a single user turn through the pipeline?',
+        options: [
+          'NLG → Policy → DST → NLU',
+          'DST → NLU → NLG → Policy',
+          'NLU → DST → Policy → NLG',
+          'Policy → NLU → NLG → DST'
+        ],
+        correct: 2,
+        explanation: 'Understand the input (NLU), update the state (DST), decide what to do (Policy), then phrase the reply (NLG).'
+      },
+      {
+        question: 'What is the job of Dialogue State Tracking (DST)?',
+        options: [
+          'Generate the final text reply',
+          'Maintain/update the accumulated belief state of filled slots across turns',
+          'Pick the next system action',
+          'Detect the user\'s intent'
+        ],
+        correct: 1,
+        explanation: 'DST keeps a running belief state, merging newly extracted slots so the system remembers context from earlier turns.'
+      },
+      {
+        question: 'A key advantage of this MODULAR (pipeline) design over a single end-to-end model is that…',
+        options: [
+          'It needs no training data at all',
+          'Each component can be developed, debugged, and swapped independently',
+          'It always produces more fluent language',
+          'It removes the need for a dialogue policy'
+        ],
+        correct: 1,
+        explanation: 'Modularity lets you build, test, and replace NLU, DST, Policy, and NLG separately — easier to debug and maintain than one opaque model.'
+      }
+    ]);
+  </script>
+</body>
+</html>

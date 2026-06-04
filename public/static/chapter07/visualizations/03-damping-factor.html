@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Damping Factor & Teleport — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .d-slider-row { display: flex; align-items: center; gap: 1rem; margin: 0.5rem 0 1rem; }
+    .d-slider-row input[type=range] { flex: 1; }
+    .d-readout {
+      font-weight: 800; font-size: 1.15rem; color: var(--accent-violet);
+      min-width: 96px; text-align: right;
+    }
+    .split-bar {
+      display: flex; height: 34px; border-radius: var(--radius-sm);
+      overflow: hidden; border: 1px solid var(--border-glass); margin: 0.25rem 0 0.75rem;
+    }
+    .split-follow { background: var(--accent-violet); }
+    .split-jump { background: var(--accent-teal); }
+    .split-seg {
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 0.78rem; white-space: nowrap;
+      transition: width 0.25s ease; overflow: hidden;
+    }
+    .split-legend { display: flex; gap: 1.2rem; font-size: 0.8rem; color: var(--text-secondary); flex-wrap: wrap; }
+    .legend-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+    .pr-bars { display: flex; flex-direction: column; gap: 0.55rem; }
+    .pr-bar-row { display: flex; align-items: center; gap: 0.6rem; }
+    .pr-bar-row .pr-name { width: 64px; font-weight: 700; font-size: 0.82rem; }
+    .pr-bar-track { flex: 1; height: 22px; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); overflow: hidden; }
+    .pr-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); transition: width 0.3s ease; }
+    .pr-bar-row .pr-val { width: 64px; text-align: right; font-weight: 700; font-size: 0.82rem; color: var(--accent-teal); font-variant-numeric: tabular-nums; }
+    .pr-bar-row.sink .pr-name { color: var(--warning); }
+    .leak-note { font-size: 0.82rem; line-height: 1.6; color: var(--text-secondary); }
+    .leak-note b.bad { color: var(--error); }
+    .leak-note b.good { color: var(--success); }
+    .node-sink circle { stroke: var(--warning); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 7</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>Damping Factor &amp; Teleport</h1>
+      <p>The damping factor <strong>d</strong> sets how often the random surfer <strong>follows a link</strong> vs. <strong>teleports</strong> to a random page. Drag the slider and watch a rank sink trap—or release—PageRank mass.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Toggle the dangling-node sink ON, then push <strong>d → 1.0</strong>. Watch almost all rank pile onto node D. Now set <strong>d = 0</strong> — every page becomes exactly uniform. The sweet spot is around <strong>d ≈ 0.85</strong>.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: graph + controls -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Web Graph (4 pages)</div>
+        <div class="canvas-container" style="padding: 0;">
+          <svg id="graph" viewBox="0 0 400 300" style="width:100%; height:auto; display:block;"></svg>
+        </div>
+
+        <div class="control-group" style="margin-top: 1rem;">
+          <div class="control-row" style="justify-content: space-between;">
+            <span style="font-weight:700;">Damping factor&nbsp; d</span>
+            <span class="d-readout" id="d-readout">d = 0.85</span>
+          </div>
+          <div class="d-slider-row">
+            <span style="font-size:0.78rem;color:var(--text-muted);">0</span>
+            <input type="range" id="d-slider" min="0" max="1" step="0.01" value="0.85">
+            <span style="font-size:0.78rem;color:var(--text-muted);">1</span>
+          </div>
+
+          <div class="viz-section-title" style="margin-top:0.25rem;">Surfer's choice each step</div>
+          <div class="split-bar" id="split-bar">
+            <div class="split-seg split-follow" id="seg-follow"></div>
+            <div class="split-seg split-jump" id="seg-jump"></div>
+          </div>
+          <div class="split-legend">
+            <span><span class="legend-dot" style="background:var(--accent-violet);"></span>Follow a link &nbsp;<b>d</b></span>
+            <span><span class="legend-dot" style="background:var(--accent-teal);"></span>Teleport (random jump) &nbsp;<b>1 − d</b></span>
+          </div>
+
+          <div class="control-row" style="margin-top:1rem; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="toggleSink()" id="sink-btn">Sink: ON</button>
+            <button class="btn btn-teal btn-sm" onclick="setD(0.85)">d = 0.85</button>
+            <button class="btn btn-sm" onclick="setD(1)">d = 1.0</button>
+            <button class="btn btn-sm" onclick="setD(0)">d = 0</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: PageRank + analysis -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Converged PageRank</div>
+        <div class="pr-bars" id="pr-bars"></div>
+
+        <div class="metric-grid" style="margin: 1.25rem 0;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-teleport">15%</div>
+            <div class="metric-label">Teleport prob (1−d)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-sink">D</div>
+            <div class="metric-label">Rank sink share</div>
+          </div>
+        </div>
+
+        <div class="formula-box" id="pr-formula">
+          PR(p) = (1−d)/N + d · Σ PR(q)/L(q)
+        </div>
+
+        <div class="viz-section-title" style="margin-top:1.25rem;">What's happening</div>
+        <div id="leak-note" class="leak-note"></div>
+
+        <div class="viz-section-title" style="margin-top:1.25rem;">Power-iteration steps</div>
+        <div id="step-log" class="step-log"></div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Graph definition ────────────────────────────────
+    // Nodes A,B,C,D. Edges (out-links). D is the candidate dangling node / rank sink.
+    const NAMES = ['A', 'B', 'C', 'D'];
+    const N = 4;
+    const POS = [ {x:90,y:70}, {x:310,y:70}, {x:90,y:230}, {x:310,y:230} ];
+
+    // Base links (when sink is ON, D has NO out-links → dangling rank sink).
+    // A→B, A→C, B→C, B→D, C→A, C→D  ... and D points back only when sink is OFF.
+    const BASE_EDGES = [ [0,1],[0,2],[1,2],[1,3],[2,0],[2,3] ];
+    const D_EDGES    = [ [3,0],[3,2] ]; // added when sink OFF (D links out)
+
+    let d = 0.85;
+    let sinkOn = true;
+
+    function currentEdges() {
+      return sinkOn ? BASE_EDGES.slice() : BASE_EDGES.concat(D_EDGES);
+    }
+
+    // ── PageRank with teleport + dangling-mass redistribution ──
+    function computePR(edges, dd) {
+      // build out-link lists
+      const out = Array.from({length:N}, () => []);
+      edges.forEach(([s,t]) => out[s].push(t));
+      const L = out.map(o => o.length);
+
+      let pr = new Array(N).fill(1 / N);
+      const ITER = 60;
+      const history = [];
+
+      for (let it = 0; it < ITER; it++) {
+        const next = new Array(N).fill(0);
+
+        // dangling mass: nodes with no out-links spread their rank to everyone
+        let dangling = 0;
+        for (let i = 0; i < N; i++) if (L[i] === 0) dangling += pr[i];
+
+        for (let i = 0; i < N; i++) {
+          // teleport term  (1-d)/N
+          next[i] += (1 - dd) / N;
+          // dangling redistribution (treated as uniform out-links), scaled by d
+          next[i] += dd * dangling / N;
+        }
+        // link-following term  d * Σ pr[q]/L(q)
+        for (let q = 0; q < N; q++) {
+          if (L[q] === 0) continue;
+          const share = dd * pr[q] / L[q];
+          for (const t of out[q]) next[t] += share;
+        }
+
+        if (it < 6) history.push(next.slice());
+        pr = next;
+      }
+      return { pr, L, history };
+    }
+
+    // ── Rendering ───────────────────────────────────────
+    function render() {
+      const edges = currentEdges();
+      const { pr, L, history } = computePR(edges, d);
+
+      // slider readout + split bar
+      document.getElementById('d-readout').textContent = 'd = ' + d.toFixed(2);
+      const fp = Math.round(d * 100), jp = 100 - fp;
+      document.getElementById('seg-follow').style.width = fp + '%';
+      document.getElementById('seg-jump').style.width = jp + '%';
+      document.getElementById('seg-follow').textContent = fp >= 10 ? fp + '%' : '';
+      document.getElementById('seg-jump').textContent = jp >= 10 ? jp + '%' : '';
+      document.getElementById('m-teleport').textContent = jp + '%';
+
+      // graph svg
+      drawGraph(edges, pr, L);
+
+      // PR bars
+      const maxPR = Math.max(...pr, 0.0001);
+      let barsHtml = '';
+      pr.forEach((v, i) => {
+        const isSink = sinkOn && L[i] === 0;
+        const w = (v / maxPR) * 100;
+        barsHtml += `<div class="pr-bar-row ${isSink ? 'sink' : ''}">
+          <div class="pr-name">${NAMES[i]}${isSink ? ' ⚠' : ''}</div>
+          <div class="pr-bar-track"><div class="pr-bar-fill" style="width:${w.toFixed(1)}%"></div></div>
+          <div class="pr-val">${v.toFixed(4)}</div>
+        </div>`;
+      });
+      document.getElementById('pr-bars').innerHTML = barsHtml;
+
+      // sink share metric (D's share of total, since total ≈ 1)
+      const sinkIdx = 3;
+      document.getElementById('m-sink').textContent = (pr[sinkIdx] * 100).toFixed(0) + '%';
+
+      // power-iteration log (first few steps)
+      const log = history.map((row, it) =>
+        `<div class="step-entry">iter <span class="step-highlight">${it + 1}</span> → [${row.map(x => x.toFixed(3)).join(', ')}]</div>`
+      ).join('') + `<div class="step-entry">… → <span class="step-value">[${pr.map(x => x.toFixed(3)).join(', ')}]</span> (converged)</div>`;
+      document.getElementById('step-log').innerHTML = log;
+
+      // narrative note
+      const note = document.getElementById('leak-note');
+      const sum = pr.reduce((a, b) => a + b, 0);
+      if (d >= 0.999) {
+        if (sinkOn) {
+          note.innerHTML = `<b class="bad">d = 1, no teleport.</b> Node D is a <b>dangling rank sink</b> with no out-links. Without the teleport term to redistribute its mass, rank keeps flowing in and getting trapped — D absorbs almost everything. This is exactly the <b>rank-sink leak</b> teleport was invented to fix.`;
+        } else {
+          note.innerHTML = `<b>d = 1, no teleport.</b> Every node now has out-links, so mass isn't lost — but with no teleport the surfer can get stuck in cycles and ranks depend entirely on link structure. Disconnected regions could still be starved.`;
+        }
+      } else if (d <= 0.001) {
+        note.innerHTML = `<b class="good">d = 0 → pure teleport.</b> The surfer ignores links entirely and jumps to a random page every step, so PageRank is exactly <b>uniform = 1/N = ${(1/N).toFixed(2)}</b> for all pages. Link structure no longer matters.`;
+      } else {
+        const teleStr = ((1 - d) * 100).toFixed(0);
+        note.innerHTML = `With probability <b style="color:var(--accent-violet)">${(d*100).toFixed(0)}%</b> the surfer follows a link; with <b style="color:var(--accent-teal)">${teleStr}%</b> it teleports. Teleport guarantees every page gets at least <b>(1−d)/N = ${((1-d)/N).toFixed(3)}</b> rank, so ${sinkOn ? 'even the dangling sink D can\'t hoard all the mass' : 'no page is ever starved'}. Total mass stays conserved at <b>${sum.toFixed(3)}</b>.`;
+      }
+
+      // sink button label
+      document.getElementById('sink-btn').textContent = 'Sink: ' + (sinkOn ? 'ON' : 'OFF');
+      document.getElementById('sink-btn').className = 'btn btn-sm ' + (sinkOn ? 'btn-primary' : '');
+    }
+
+    function drawGraph(edges, pr, L) {
+      const svg = document.getElementById('graph');
+      const maxPR = Math.max(...pr, 0.0001);
+      let s = '';
+
+      // arrow marker
+      s += `<defs>
+        <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="var(--text-muted)"></path>
+        </marker>
+      </defs>`;
+
+      // edges
+      edges.forEach(([sN, tN]) => {
+        const a = POS[sN], b = POS[tN];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy);
+        const r = 26;
+        const x1 = a.x + dx / len * r, y1 = a.y + dy / len * r;
+        const x2 = b.x - dx / len * (r + 6), y2 = b.y - dy / len * (r + 6);
+        s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--text-muted)" stroke-width="1.6" opacity="0.6" marker-end="url(#arrow)"></line>`;
+      });
+
+      // nodes (radius scaled by PageRank)
+      pr.forEach((v, i) => {
+        const p = POS[i];
+        const r = 16 + (v / maxPR) * 16;
+        const isSink = sinkOn && L[i] === 0;
+        const fill = isSink ? 'rgba(253,203,110,0.22)' : 'rgba(108,92,231,0.18)';
+        const stroke = isSink ? 'var(--warning)' : 'var(--accent-violet)';
+        s += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2.5"></circle>`;
+        s += `<text x="${p.x}" y="${p.y - 1}" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="15" fill="var(--text-primary)">${NAMES[i]}</text>`;
+        s += `<text x="${p.x}" y="${p.y + 14}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--text-secondary)">${v.toFixed(3)}</text>`;
+        if (isSink) {
+          s += `<text x="${p.x}" y="${p.y - r - 6}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--warning)">dangling sink</text>`;
+        }
+      });
+
+      svg.innerHTML = s;
+    }
+
+    // ── Controls ────────────────────────────────────────
+    function setD(v) {
+      d = v;
+      document.getElementById('d-slider').value = v;
+      render();
+    }
+    function toggleSink() { sinkOn = !sinkOn; render(); }
+
+    document.getElementById('d-slider').addEventListener('input', (e) => {
+      d = parseFloat(e.target.value);
+      render();
+    });
+
+    render();
+
+    // ── Tutorial ────────────────────────────────────────
+    showTutorial({ id: 'c7v3', icon: '🎲', title: 'Damping Factor & Teleport',
+      subtitle: 'How the random surfer balances following links and jumping randomly.',
+      steps: [
+        'Drag the <strong>d</strong> slider: it splits each step into <strong>follow a link (d)</strong> vs <strong>teleport (1−d)</strong>',
+        'Node <strong>D</strong> is a <strong>dangling rank sink</strong> — no out-links, so it traps mass when d is high',
+        'Set <strong>d → 1</strong> to watch the sink hoard rank, then <strong>d = 0</strong> for a perfectly uniform distribution',
+        'The real web uses <strong>d ≈ 0.85</strong> — enough teleport to fix sinks, enough link-following to keep ranks meaningful'
+      ]
+    });
+
+    // ── Quiz ────────────────────────────────────────────
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In PageRank, what does the damping factor d represent?',
+        options: [
+          'The probability the surfer follows an outgoing link (rather than teleporting)',
+          'The fraction of pages that are relevant',
+          'The number of iterations until convergence',
+          'The total number of links on a page'
+        ], correct: 0,
+        explanation: 'd is the probability the random surfer keeps following links. With probability 1−d it instead teleports to a random page.' },
+      { question: 'If d = 0.85, what is the teleport (random-jump) probability?',
+        options: ['0.85', '0.15', '1.0', '0.50'], correct: 1,
+        explanation: 'Teleport probability is 1 − d = 1 − 0.85 = 0.15.' },
+      { question: 'A "dangling node" (rank sink) is a page that…',
+        options: [
+          'has many incoming links',
+          'has no outgoing links, so it can trap PageRank mass',
+          'is never crawled',
+          'links only to itself in a 2-cycle'
+        ], correct: 1,
+        explanation: 'A dangling node has no out-links. Without the teleport term (or redistributing its mass), it absorbs rank and leaks it from the rest of the graph.' },
+      { question: 'Why is d typically set around 0.85 rather than 1.0?',
+        options: [
+          'To make computation faster',
+          'Because 1.0 is mathematically impossible',
+          'The teleport term (1−d) prevents rank sinks and guarantees convergence to a unique solution',
+          'To give every page exactly equal rank'
+        ], correct: 2,
+        explanation: 'Keeping d < 1 means a nonzero teleport probability, which fixes dangling sinks, connects the whole graph, and makes PageRank converge to a unique stationary distribution. d≈0.85 is the empirical sweet spot.' }
+    ]);
+  </script>
+</body>
+</html>

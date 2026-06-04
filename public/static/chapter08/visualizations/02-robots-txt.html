@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 · robots.txt Parser — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .robots-area {
+      width: 100%; min-height: 240px; resize: vertical;
+      font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.85rem; line-height: 1.6;
+      padding: 0.9rem 1rem;
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      transition: var(--transition);
+    }
+    .robots-area:focus { outline: none; border-color: var(--accent-violet); box-shadow: 0 0 0 3px rgba(108,92,231,0.15); }
+    .path-input {
+      flex: 1; min-width: 0;
+      font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.9rem; padding: 0.65rem 0.85rem;
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      transition: var(--transition);
+    }
+    .path-input:focus { outline: none; border-color: var(--accent-teal); box-shadow: 0 0 0 3px rgba(0,206,201,0.15); }
+
+    .verdict {
+      display: flex; align-items: center; gap: 0.85rem;
+      padding: 1.1rem 1.25rem; border-radius: var(--radius-md);
+      border: 2px solid transparent; margin-bottom: 1rem;
+      transition: var(--transition);
+    }
+    .verdict .v-icon { font-size: 2rem; line-height: 1; }
+    .verdict .v-title { font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px; }
+    .verdict .v-sub { font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.15rem; }
+    .verdict.allowed { background: rgba(0,184,148,0.12); border-color: rgba(0,184,148,0.4); }
+    .verdict.allowed .v-title { color: var(--success); }
+    .verdict.blocked { background: rgba(214,48,49,0.1); border-color: rgba(214,48,49,0.35); }
+    .verdict.blocked .v-title { color: var(--error); }
+
+    .rule-line {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.45rem 0.7rem; margin-bottom: 0.3rem;
+      font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.82rem; border-radius: var(--radius-sm);
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      transition: var(--transition);
+    }
+    .rule-line .rl-dir { font-weight: 700; min-width: 78px; }
+    .rule-line .rl-dir.allow { color: var(--success); }
+    .rule-line .rl-dir.disallow { color: var(--error); }
+    .rule-line .rl-pat { color: var(--text-primary); flex: 1; word-break: break-all; }
+    .rule-line .rl-len { font-size: 0.72rem; color: var(--text-muted); }
+    .rule-line.matched { border-color: var(--accent-violet); box-shadow: 0 0 0 2px rgba(108,92,231,0.2); }
+    .rule-line.winner { border-color: var(--accent-teal); box-shadow: 0 0 0 2px rgba(0,206,201,0.3); background: rgba(0,206,201,0.06); }
+    .rule-line.dimmed { opacity: 0.4; }
+    .badge-win { font-size: 0.68rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--accent-teal); color: #00322f; font-weight: 800; }
+    .ua-pill { font-size: 0.7rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 8</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02 · Beginner</div>
+      <h1>robots.txt Parser</h1>
+      <p>The <strong>Robots Exclusion Protocol</strong> tells crawlers which paths they may fetch. Edit the file, test any path, and see the <strong>longest-match</strong> rule decide.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🤖</div>
+      <div class="challenge-text"><strong>Try This:</strong> Test <code>/private/data.html</code> — it's blocked by <code>Disallow: /private/</code>. Now add <code>Allow: /private/data.html</code> and watch the longer, more specific rule win.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">robots.txt</div>
+        <textarea id="robots" class="robots-area" spellcheck="false"></textarea>
+
+        <div class="control-group" style="margin-top: 1rem;">
+          <div class="viz-section-title">Test a URL Path</div>
+          <div class="control-row" style="display:flex; gap:0.5rem; align-items:center;">
+            <span style="color:var(--text-muted); font-family:monospace; font-size:0.85rem;">example.com</span>
+            <input id="path" class="path-input" value="/private/data.html" spellcheck="false">
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+          <button class="btn btn-primary" onclick="setPath('/about')">/about</button>
+          <button class="btn" onclick="setPath('/private/data.html')">/private/data.html</button>
+          <button class="btn" onclick="setPath('/admin/login')">/admin/login</button>
+          <button class="btn btn-teal" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Crawler Verdict</div>
+        <div id="verdict" class="verdict allowed">
+          <div class="v-icon">✅</div>
+          <div>
+            <div class="v-title">ALLOWED</div>
+            <div class="v-sub">—</div>
+          </div>
+        </div>
+
+        <div class="metric-grid" style="margin-bottom: 1.25rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-delay">—</div>
+            <div class="metric-label">Crawl-delay (s)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-rules">0</div>
+            <div class="metric-label">Matching rules</div>
+          </div>
+        </div>
+
+        <div class="formula-box">Verdict = directive of the <strong>longest matching pattern</strong> (Allow wins ties)</div>
+
+        <div class="viz-section-title" style="margin-top: 1.25rem;">Rules for <span id="ua-label" class="ua-pill">*</span></div>
+        <div id="rules-list"></div>
+
+        <div style="margin-top: 1rem;">
+          <div class="viz-section-title">How it was decided</div>
+          <div id="explain" class="step-log"></div>
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7;">
+            robots.txt is <strong style="color:var(--warning);">advisory only</strong> — well-behaved crawlers (Googlebot, Bingbot) obey it, but it is <strong>not enforced</strong>. It is not a security mechanism; sensitive paths still need real authentication.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const SAMPLE = `# Sample robots.txt for example.com
+User-agent: *
+Disallow: /private/
+Disallow: /admin/
+Allow: /private/public-report.html
+Crawl-delay: 5
+
+User-agent: Googlebot
+Disallow: /no-google/
+Crawl-delay: 2`;
+
+    const robotsEl  = document.getElementById('robots');
+    const pathEl    = document.getElementById('path');
+
+    function resetAll() {
+      robotsEl.value = SAMPLE;
+      pathEl.value = '/private/data.html';
+      render();
+    }
+    function setPath(p) { pathEl.value = p; render(); }
+
+    // Parse robots.txt into per-user-agent groups.
+    function parse(text) {
+      const groups = {};        // ua -> { rules:[{type, pattern}], delay:null }
+      let currentUAs = [];
+      let sawDirectiveSinceUA = false;
+
+      text.split(/\r?\n/).forEach(raw => {
+        let line = raw.replace(/#.*$/, '').trim();   // strip comments
+        if (!line) return;
+        const ci = line.indexOf(':');
+        if (ci === -1) return;
+        const field = line.slice(0, ci).trim().toLowerCase();
+        const value = line.slice(ci + 1).trim();
+
+        if (field === 'user-agent') {
+          // A new User-agent after directives starts a fresh group.
+          if (sawDirectiveSinceUA) { currentUAs = []; sawDirectiveSinceUA = false; }
+          const ua = value.toLowerCase();
+          currentUAs.push(ua);
+          if (!groups[ua]) groups[ua] = { rules: [], delay: null };
+        } else if (field === 'disallow' || field === 'allow') {
+          sawDirectiveSinceUA = true;
+          currentUAs.forEach(ua => {
+            if (groups[ua]) groups[ua].rules.push({ type: field, pattern: value });
+          });
+        } else if (field === 'crawl-delay') {
+          sawDirectiveSinceUA = true;
+          const d = parseFloat(value);
+          currentUAs.forEach(ua => {
+            if (groups[ua] && !isNaN(d)) groups[ua].delay = d;
+          });
+        }
+      });
+      return groups;
+    }
+
+    // Does a robots pattern match a path? Supports * wildcard and $ end-anchor.
+    function patternMatches(pattern, path) {
+      if (pattern === '') return false; // empty Disallow/Allow value matches nothing
+      let re = '^';
+      for (const ch of pattern) {
+        if (ch === '*') re += '.*';
+        else if (ch === '$') re += '$';
+        else re += ch.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+      }
+      // No explicit $ means prefix match (default robots semantics).
+      try { return new RegExp(re).test(path); }
+      catch (e) { return false; }
+    }
+
+    // Effective length used for precedence (wildcards/anchors don't add literal length the same way,
+    // but standard practice ranks by the pattern's character length).
+    function patLen(pattern) { return pattern.length; }
+
+    function render() {
+      const groups = parse(robotsEl.value);
+      const path = pathEl.value.trim() || '/';
+
+      // We crawl as the generic '*' agent for this demo.
+      const ua = '*';
+      const group = groups[ua] || { rules: [], delay: null };
+      document.getElementById('ua-label').textContent = ua;
+
+      // Evaluate every rule; find longest match. Allow wins exact-length ties.
+      let winner = null;
+      let matchCount = 0;
+      group.rules.forEach(r => {
+        const m = patternMatches(r.pattern, path);
+        r._match = m;
+        if (m) {
+          matchCount++;
+          const len = patLen(r.pattern);
+          if (!winner ||
+              len > winner._len ||
+              (len === winner._len && r.type === 'allow' && winner.type === 'disallow')) {
+            winner = { ...r, _len: len };
+          }
+        }
+      });
+
+      // Default when nothing matches: ALLOWED (robots.txt is permit-by-default).
+      const allowed = !winner || winner.type === 'allow';
+
+      // ── Verdict box ──
+      const vBox = document.getElementById('verdict');
+      vBox.className = 'verdict ' + (allowed ? 'allowed' : 'blocked');
+      vBox.querySelector('.v-icon').textContent = allowed ? '✅' : '🚫';
+      vBox.querySelector('.v-title').textContent = allowed ? 'ALLOWED' : 'DISALLOWED';
+      vBox.querySelector('.v-sub').textContent =
+        (winner
+          ? `Decided by ${winner.type === 'allow' ? 'Allow' : 'Disallow'}: ${winner.pattern}`
+          : 'No rule matched — permitted by default')
+        + ` · path = ${path}`;
+
+      // ── Metrics ──
+      document.getElementById('m-delay').textContent =
+        group.delay != null ? group.delay : '—';
+      document.getElementById('m-rules').textContent = matchCount;
+
+      // ── Rule list ──
+      let html = '';
+      if (group.rules.length === 0) {
+        html = `<div class="rule-line dimmed"><span class="rl-pat">No Allow/Disallow rules for this agent.</span></div>`;
+      }
+      group.rules.forEach(r => {
+        const isWinner = winner && r.pattern === winner.pattern && r.type === winner.type && r._match;
+        let cls = 'rule-line';
+        if (isWinner) cls += ' winner';
+        else if (r._match) cls += ' matched';
+        else cls += ' dimmed';
+        html += `<div class="${cls}">
+          <span class="rl-dir ${r.type}">${r.type === 'allow' ? 'Allow' : 'Disallow'}</span>
+          <span class="rl-pat">${r.pattern || '(empty)'}</span>
+          <span class="rl-len">len ${patLen(r.pattern)}</span>
+          ${isWinner ? '<span class="badge-win">WINS</span>' : ''}
+        </div>`;
+      });
+      document.getElementById('rules-list').innerHTML = html;
+
+      // ── Explanation log ──
+      const lines = [];
+      lines.push(`<div class="step-entry">Testing path <span class="step-highlight">${path}</span> against agent <span class="step-value">${ua}</span></div>`);
+      if (matchCount === 0) {
+        lines.push(`<div class="step-entry">No pattern matched → fall back to <span class="step-value">ALLOWED</span> (default).</div>`);
+      } else {
+        lines.push(`<div class="step-entry"><span class="step-highlight">${matchCount}</span> rule${matchCount > 1 ? 's' : ''} matched. Longest pattern wins.</div>`);
+        lines.push(`<div class="step-entry">Winner: <span class="step-value">${winner.type === 'allow' ? 'Allow' : 'Disallow'}: ${winner.pattern}</span> (length ${winner._len}).</div>`);
+        lines.push(`<div class="step-entry">Therefore the crawler is <span class="step-value">${allowed ? 'ALLOWED' : 'DISALLOWED'}</span>.</div>`);
+      }
+      if (group.delay != null) {
+        lines.push(`<div class="step-entry">Crawl-delay: wait <span class="step-highlight">${group.delay}s</span> between requests.</div>`);
+      }
+      document.getElementById('explain').innerHTML = lines.join('');
+    }
+
+    robotsEl.addEventListener('input', render);
+    pathEl.addEventListener('input', render);
+    resetAll();
+
+    showTutorial({ id: 'c8v2', icon: '🤖', title: 'robots.txt Parser', subtitle: 'How crawlers decide what they may fetch.',
+      steps: [
+        'robots.txt lists <strong>Allow</strong> / <strong>Disallow</strong> path rules per <strong>User-agent</strong>',
+        'Type any <strong>URL path</strong> to test it against the rules live',
+        'The <strong>longest matching pattern</strong> wins (Allow breaks ties)',
+        'If no rule matches, the path is <strong>ALLOWED</strong> by default',
+        'It is <strong>advisory</strong> — polite crawlers obey, but it is not enforced'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What is the primary purpose of robots.txt?',
+        options: [
+          'To encrypt pages from crawlers',
+          'To tell crawlers (via the Robots Exclusion Protocol) which paths they may or may not fetch',
+          'To speed up page loading',
+          'To rank pages higher in search results'
+        ], correct: 1,
+        explanation: 'robots.txt implements the Robots Exclusion Protocol: it advises crawlers which URL paths are off-limits. It does not encrypt, accelerate, or rank pages.' },
+      { question: 'A file has "Disallow: /private/" and "Allow: /private/data.html". Can a crawler fetch /private/data.html?',
+        options: [
+          'No — any Disallow always blocks it',
+          'Yes — the longer, more specific Allow rule takes precedence',
+          'Only if Crawl-delay is 0',
+          'It is undefined behavior'
+        ], correct: 1,
+        explanation: 'Standard precedence uses the longest matching pattern. "/private/data.html" (Allow) is longer/more specific than "/private/" (Disallow), so the page is allowed.' },
+      { question: 'What does "Crawl-delay: 5" instruct a crawler to do?',
+        options: [
+          'Wait 5 seconds between successive requests to the site',
+          'Crawl only 5 pages total',
+          'Retry failed pages 5 times',
+          'Block the site for 5 hours'
+        ], correct: 0,
+        explanation: 'Crawl-delay asks the crawler to pause that many seconds between requests, reducing server load. It is a politeness hint, not a hard limit.' },
+      { question: 'If a server has no robots.txt and a path is not covered by any rule, what happens?',
+        options: [
+          'The crawler must stop entirely',
+          'The path is disallowed by default',
+          'The path is allowed by default — robots.txt is permit-by-default and only advisory',
+          'The crawler reports an error'
+        ], correct: 2,
+        explanation: 'robots.txt is advisory and permit-by-default: anything not explicitly Disallowed is allowed. A missing file means the whole site may be crawled. It is not a security control.' }
+    ]);
+  </script>
+</body>
+</html>

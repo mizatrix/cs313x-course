@@ -388,7 +388,138 @@ export const chapters = {
       },
     ]
   },
+
+  'chapter07': {
+    title: 'Link Analysis & PageRank',
+    week: 7,
+    description: 'Rank pages by the structure of the web — from the random surfer and PageRank to HITS hubs and authorities.',
+    pdf: '/static/chapter07/Week_7_Link_Analysis_and_PageRank.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'foundations', label: 'Foundations' },
+      { id: 'pagerank', label: 'PageRank' },
+      { id: 'hits', label: 'HITS' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'Web Graph & Random Surfer', aim: 'Understand the web as a directed graph and the random-surfer intuition behind PageRank.', use: 'When you need to see how links act as votes and how a random walk approximates importance.', desc: 'Build a small web graph and watch a random surfer hop along links, approximating PageRank.', href: '/static/chapter07/visualizations/01-web-graph.html', diff: 'beginner', cat: 'foundations', hasQuiz: true, time: 8 },
+      { id: 2, title: 'PageRank Power Iteration', aim: 'Compute PageRank iteratively and watch the scores converge.', use: 'When you need to understand the PageRank formula and the power-iteration method.', desc: 'Run the power method on a graph, tune the damping factor, and watch ranks converge.', href: '/static/chapter07/visualizations/02-pagerank.html', diff: 'intermediate', cat: 'pagerank', hasQuiz: true, time: 12 },
+      { id: 3, title: 'Damping Factor & Teleport', aim: 'See how the damping factor and teleport handle dangling nodes and rank sinks.', use: 'When you need to understand why PageRank teleports and what d≈0.85 means.', desc: 'Slide the damping factor and watch teleport rescue rank mass from sinks and dead ends.', href: '/static/chapter07/visualizations/03-damping-factor.html', diff: 'intermediate', cat: 'pagerank', hasQuiz: true, time: 10 },
+      { id: 4, title: 'HITS: Hubs & Authorities', aim: 'Understand how HITS computes mutually reinforcing hub and authority scores.', use: 'When comparing query-dependent link analysis to PageRank.', desc: 'Iterate hub and authority scores on a graph and watch them converge by mutual reinforcement.', href: '/static/chapter07/visualizations/04-hits.html', diff: 'intermediate', cat: 'hits', hasQuiz: true, time: 12 },
+      { id: 5, title: 'PageRank vs HITS', aim: 'Contrast PageRank and HITS on query dependence, scoring, and when each runs.', use: 'When you need to choose between or explain the two link-analysis algorithms.', desc: 'Toggle a graph between PageRank and HITS views and compare their properties side by side.', href: '/static/chapter07/visualizations/05-pagerank-vs-hits.html', diff: 'beginner', cat: 'hits', hasQuiz: true, time: 8 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of link analysis, PageRank, the damping factor, and HITS.', use: 'When revising Chapter 7 for the exam.', desc: '8-10 questions covering every Chapter 7 topic with instant feedback.', href: '/static/chapter07/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
+
+  'chapter08': {
+    title: 'Web Crawling & Indexing Architecture',
+    week: 8,
+    description: 'Crawl the web at scale and politely — the crawler loop, robots.txt, the URL frontier, near-duplicate detection, and consistent hashing.',
+    pdf: '/static/chapter08/Week_8_Web_Crawling_and_Indexing_Architecture.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'crawling', label: 'Crawling' },
+      { id: 'dedup', label: 'Deduplication' },
+      { id: 'distributed', label: 'Distributed' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'Crawler Architecture & Loop', aim: 'Understand the Mercator crawl loop from seed URLs through fetch, parse, and indexing.', use: 'When you need the big picture of how a web crawler is structured.', desc: 'Step a URL through the crawl loop — frontier, fetch, parse, extract, dedup, index — and back again.', href: '/static/chapter08/visualizations/01-crawler-architecture.html', diff: 'beginner', cat: 'crawling', hasQuiz: true, time: 8 },
+      { id: 2, title: 'robots.txt Parser', aim: 'Learn how robots.txt declares which paths a crawler may fetch.', use: 'When implementing crawler politeness and the Robots Exclusion Protocol.', desc: 'Edit a robots.txt and test URLs to see allowed/disallowed verdicts and the crawl-delay.', href: '/static/chapter08/visualizations/02-robots-txt.html', diff: 'beginner', cat: 'crawling', hasQuiz: true, time: 7 },
+      { id: 3, title: 'URL Frontier: Politeness & Priority', aim: 'Understand how the Mercator frontier balances priority and per-host politeness.', use: 'When managing a large URL queue without hammering any single server.', desc: 'Route URLs through front (priority) and back (politeness) queues and step the polite scheduler.', href: '/static/chapter08/visualizations/03-url-frontier.html', diff: 'intermediate', cat: 'crawling', hasQuiz: true, time: 10 },
+      { id: 4, title: 'Shingling & Near-Duplicate Detection', aim: 'Learn how k-shingles and Jaccard similarity detect near-duplicate pages.', use: 'When de-duplicating crawled content so the index is not bloated with copies.', desc: 'Compare two documents by k-shingles and Jaccard similarity, and see MinHash estimate it.', href: '/static/chapter08/visualizations/04-shingling-minhash.html', diff: 'intermediate', cat: 'dedup', hasQuiz: true, time: 10 },
+      { id: 5, title: 'Consistent Hashing Ring', aim: 'Understand why distributed crawl/index systems use consistent hashing.', use: 'When sharding URLs or index data across nodes that come and go.', desc: 'Place nodes and keys on a hash ring and add/remove nodes to see how few keys move.', href: '/static/chapter08/visualizations/05-consistent-hashing.html', diff: 'advanced', cat: 'distributed', hasQuiz: true, time: 12 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of crawling, robots.txt, the frontier, dedup, and consistent hashing.', use: 'When revising Chapter 8 for the exam.', desc: '8-10 questions covering every Chapter 8 topic with instant feedback.', href: '/static/chapter08/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
+
+  'chapter09': {
+    title: 'Neural Information Retrieval & RAG',
+    week: 9,
+    description: 'Modern neural retrieval — dense embeddings, sparse vs dense, bi- and cross-encoders, vector search, and Retrieval-Augmented Generation.',
+    pdf: '/static/chapter09/Week_9_Neural_IR_and_RAG.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'embeddings', label: 'Embeddings' },
+      { id: 'retrieval', label: 'Neural Retrieval' },
+      { id: 'rag', label: 'RAG' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'Embeddings & Semantic Similarity', aim: 'Understand dense embeddings and how cosine similarity captures meaning.', use: 'When you need to see why semantic search beats exact keyword matching.', desc: 'Drag a query in embedding space and rank documents by cosine similarity — synonyms cluster.', href: '/static/chapter09/visualizations/01-embeddings.html', diff: 'beginner', cat: 'embeddings', hasQuiz: true, time: 8 },
+      { id: 2, title: 'Sparse vs Dense Retrieval', aim: 'Contrast lexical (BM25) matching with dense embedding retrieval.', use: 'When deciding between keyword and semantic retrieval, or combining them.', desc: 'See a synonym query that sparse matching misses but dense retrieval catches.', href: '/static/chapter09/visualizations/02-sparse-vs-dense.html', diff: 'intermediate', cat: 'retrieval', hasQuiz: true, time: 10 },
+      { id: 3, title: 'Bi-Encoder vs Cross-Encoder', aim: 'Understand the speed/accuracy trade-off between bi- and cross-encoders.', use: 'When designing a two-stage retrieve-then-rerank pipeline.', desc: 'Compare separate vs joint encoding and the typical retrieve-then-rerank pipeline.', href: '/static/chapter09/visualizations/03-bi-vs-cross-encoder.html', diff: 'intermediate', cat: 'retrieval', hasQuiz: true, time: 10 },
+      { id: 4, title: 'Vector Search & ANN', aim: 'Learn how approximate nearest-neighbour search trades exactness for speed.', use: 'When searching millions of embeddings fast.', desc: 'Compare exact nearest-neighbour with ANN bucketing — see the speedup and any recall miss.', href: '/static/chapter09/visualizations/04-vector-search-ann.html', diff: 'advanced', cat: 'retrieval', hasQuiz: true, time: 12 },
+      { id: 5, title: 'RAG Pipeline', aim: 'Understand how Retrieval-Augmented Generation grounds an LLM in retrieved evidence.', use: 'When building question-answering that must cite sources and avoid hallucination.', desc: 'Run retrieve-then-generate and watch grounded, cited answers vs a hallucinating no-RAG mode.', href: '/static/chapter09/visualizations/05-rag-pipeline.html', diff: 'intermediate', cat: 'rag', hasQuiz: true, time: 12 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of embeddings, dense retrieval, encoders, ANN, and RAG.', use: 'When revising Chapter 9 for the exam.', desc: '8-10 questions covering every Chapter 9 topic with instant feedback.', href: '/static/chapter09/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
+
+  'chapter10': {
+    title: 'Recommender Systems',
+    week: 10,
+    description: 'Predict what users will like — the rating matrix, user-user and item-item collaborative filtering, content-based methods, cold start, and matrix factorization.',
+    pdf: '/static/chapter10/Week_10_Recommender_Systems.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'collaborative', label: 'Collaborative Filtering' },
+      { id: 'content', label: 'Content-Based' },
+      { id: 'advanced', label: 'Advanced' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'User–Item Rating Matrix', aim: 'Understand the rating matrix and the sparsity that recommenders must overcome.', use: 'When you need the data foundation that collaborative filtering builds on.', desc: 'Edit a user×item rating matrix, see its sparsity and averages, and mark a cell to predict.', href: '/static/chapter10/visualizations/01-rating-matrix.html', diff: 'beginner', cat: 'collaborative', hasQuiz: true, time: 7 },
+      { id: 2, title: 'User-User Collaborative Filtering', aim: 'Learn how similar users predict a missing rating.', use: 'When recommending based on people with similar taste.', desc: 'Find users similar to the target and predict a rating as a similarity-weighted average.', href: '/static/chapter10/visualizations/02-user-user-cf.html', diff: 'intermediate', cat: 'collaborative', hasQuiz: true, time: 12 },
+      { id: 3, title: 'Item-Item Collaborative Filtering', aim: 'Learn how item similarity predicts ratings and why it scales better.', use: 'When building a production recommender like Amazon or Netflix.', desc: 'Compute item-item similarity from co-ratings and predict from the user’s own ratings.', href: '/static/chapter10/visualizations/03-item-item-cf.html', diff: 'intermediate', cat: 'collaborative', hasQuiz: true, time: 12 },
+      { id: 4, title: 'Content-Based Filtering', aim: 'Understand how item features and a user profile drive recommendations.', use: 'When you have item metadata and want recommendations without other users.', desc: 'Like items to build a feature profile, then recommend by cosine similarity to item vectors.', href: '/static/chapter10/visualizations/04-content-based.html', diff: 'beginner', cat: 'content', hasQuiz: true, time: 8 },
+      { id: 5, title: 'Cold Start & Matrix Factorization', aim: 'Understand the cold-start problem and latent-factor models (R≈U·Vᵀ).', use: 'When handling new users/items and learning compact rating predictors.', desc: 'Fix cold start with content/popularity, then see matrix factorization reconstruct ratings.', href: '/static/chapter10/visualizations/05-cold-start-mf.html', diff: 'advanced', cat: 'advanced', hasQuiz: true, time: 12 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of CF, content-based methods, cold start, and factorization.', use: 'When revising Chapter 10 for the exam.', desc: '8-10 questions covering every Chapter 10 topic with instant feedback.', href: '/static/chapter10/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
+
+  'chapter11': {
+    title: 'Conversational AI & Dialogue Systems',
+    week: 11,
+    description: 'Build dialogue systems — the NLU·DST·Policy·NLG pipeline, intent & slot tagging, state tracking, ReAct agents, and chatbot architectures.',
+    pdf: '/static/chapter11/Week_11_Conversational_AI.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'pipeline', label: 'Dialogue Pipeline' },
+      { id: 'agents', label: 'Agents & Bots' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'Task-Oriented Dialogue Pipeline', aim: 'Understand the NLU → DST → Policy → NLG pipeline and each component’s job.', use: 'When designing a goal-oriented assistant like flight booking.', desc: 'Run a sample turn through NLU, DST, Policy, and NLG and watch each stage produce its output.', href: '/static/chapter11/visualizations/01-dialogue-pipeline.html', diff: 'beginner', cat: 'pipeline', hasQuiz: true, time: 8 },
+      { id: 2, title: 'Intent & Slot Tagging (NLU)', aim: 'Learn how NLU extracts intent and fills slots from an utterance.', use: 'When parsing user input into a structured semantic frame.', desc: 'Type an utterance and watch the intent classified and entity slots tagged in real time.', href: '/static/chapter11/visualizations/02-intent-slots.html', diff: 'intermediate', cat: 'pipeline', hasQuiz: true, time: 10 },
+      { id: 3, title: 'Dialogue State Tracking', aim: 'Understand how the belief state accumulates and corrects across turns.', use: 'When maintaining context over a multi-turn conversation.', desc: 'Step through turns and watch the slot-value state update, overwrite, and resolve references.', href: '/static/chapter11/visualizations/03-dialogue-state-tracking.html', diff: 'intermediate', cat: 'pipeline', hasQuiz: true, time: 10 },
+      { id: 4, title: 'ReAct Agent Loop', aim: 'Learn how ReAct interleaves reasoning, tool actions, and observations.', use: 'When building agents that plan and call tools instead of answering in one shot.', desc: 'Step a ReAct trace: Thought → Action → Observation → … → Answer, vs a one-shot pass.', href: '/static/chapter11/visualizations/04-react-agent.html', diff: 'advanced', cat: 'agents', hasQuiz: true, time: 12 },
+      { id: 5, title: 'Chatbot Types Compared', aim: 'Contrast rule-based, retrieval-based, and generative chatbots.', use: 'When choosing a chatbot architecture and weighing control vs flexibility.', desc: 'Switch one query between rule-based, retrieval, and generative bots and compare the replies.', href: '/static/chapter11/visualizations/05-chatbot-types.html', diff: 'beginner', cat: 'agents', hasQuiz: true, time: 8 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of the dialogue pipeline, NLU, DST, ReAct, and chatbot types.', use: 'When revising Chapter 11 for the exam.', desc: '8-10 questions covering every Chapter 11 topic with instant feedback.', href: '/static/chapter11/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
+
+  'chapter12': {
+    title: 'Future of Search',
+    week: 12,
+    description: 'Where search is heading — multimodal and generative search, knowledge graphs, agentic systems, and privacy-preserving federated learning.',
+    pdf: '/static/chapter12/Week_12_Future_of_Search.pdf',
+    categories: [
+      { id: 'all', label: 'All Topics' },
+      { id: 'modalities', label: 'Multimodal & Generative' },
+      { id: 'agents', label: 'Agentic' },
+      { id: 'privacy', label: 'Privacy' },
+      { id: 'practice', label: 'Practice' },
+    ],
+    visualizations: [
+      { id: 1, title: 'Multimodal Search', aim: 'Understand a shared embedding space where text retrieves images.', use: 'When building cross-modal search across text, images, and more.', desc: 'Type a text query and rank images in a shared embedding space by cosine similarity.', href: '/static/chapter12/visualizations/01-multimodal-search.html', diff: 'beginner', cat: 'modalities', hasQuiz: true, time: 8 },
+      { id: 2, title: 'Generative / Answer-Engine Search', aim: 'Contrast ten blue links with a synthesized, cited answer.', use: 'When understanding SGE-style answer engines and their trade-offs.', desc: 'Toggle a query between ranked links and a synthesized answer that cites its sources.', href: '/static/chapter12/visualizations/02-generative-search.html', diff: 'intermediate', cat: 'modalities', hasQuiz: true, time: 10 },
+      { id: 3, title: 'Knowledge Graph Explorer', aim: 'Understand entities, relations, and entity search over a knowledge graph.', use: 'When powering entity search, knowledge panels, and question answering.', desc: 'Explore an entity-relation graph, click entities, and query for a node and its neighbours.', href: '/static/chapter12/visualizations/03-knowledge-graph.html', diff: 'intermediate', cat: 'modalities', hasQuiz: true, time: 10 },
+      { id: 4, title: 'Agentic Search', aim: 'Understand how an agent plans and acts to complete multi-step tasks.', use: 'When search must do things, not just return links.', desc: 'Step an agent through plan → act → observe → iterate to complete a sample task.', href: '/static/chapter12/visualizations/04-agentic-search.html', diff: 'advanced', cat: 'agents', hasQuiz: true, time: 12 },
+      { id: 5, title: 'Federated Learning & Privacy', aim: 'Understand on-device training and server aggregation of model updates.', use: 'When personalizing search without pooling raw user data.', desc: 'Run federated rounds: devices train locally and send only updates to a global model.', href: '/static/chapter12/visualizations/05-federated-learning.html', diff: 'advanced', cat: 'privacy', hasQuiz: true, time: 12 },
+      { id: 6, title: 'Practice Quiz', aim: 'Test your mastery of multimodal, generative, agentic search, and federated learning.', use: 'When revising Chapter 12 for the exam.', desc: '8-10 questions covering every Chapter 12 topic with instant feedback.', href: '/static/chapter12/visualizations/06-practice-quiz.html', diff: 'beginner', cat: 'practice', hasQuiz: true, time: 12 },
+    ]
+  },
 };
 
 // Chapter order for homepage display
-export const chapterOrder = ['chapter01', 'chapter02', 'chapter03', 'chapter04', 'chapter05', 'chapter06'];
+export const chapterOrder = ['chapter01', 'chapter02', 'chapter03', 'chapter04', 'chapter05', 'chapter06', 'chapter07', 'chapter08', 'chapter09', 'chapter10', 'chapter11', 'chapter12'];

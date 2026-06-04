@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · Web Graph & Random Surfer — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .graph-svg { width: 100%; height: auto; display: block; }
+    .gnode-circle {
+      fill: var(--bg-card); stroke: var(--accent-violet); stroke-width: 2.5;
+      cursor: pointer; transition: fill 0.15s ease, stroke 0.15s ease;
+    }
+    .gnode-circle.dangling { stroke: var(--warning); stroke-dasharray: 5 4; }
+    .gnode-circle.surfer {
+      fill: var(--accent-violet); stroke: var(--accent-teal); stroke-width: 4;
+    }
+    .gnode-label {
+      fill: var(--text-primary); font-weight: 800; font-size: 16px;
+      text-anchor: middle; dominant-baseline: central; pointer-events: none;
+    }
+    .gnode-circle.surfer + .gnode-label { fill: #fff; }
+    .edge-line { stroke: var(--border-glass); stroke-width: 2; transition: stroke 0.15s ease; }
+    .edge-line.active { stroke: var(--accent-teal); stroke-width: 3.5; }
+    .surfer-glow {
+      fill: var(--accent-teal); opacity: 0.18; pointer-events: none;
+    }
+    .deg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .deg-table th, .deg-table td {
+      padding: 0.5rem 0.4rem; text-align: center; border-bottom: 1px solid var(--border-glass);
+    }
+    .deg-table th { color: var(--text-muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .deg-table td.node-cell { font-weight: 800; color: var(--accent-violet); }
+    .deg-table tr.dangle-row td.node-cell { color: var(--warning); }
+    .deg-table tr.here-row { background: rgba(0,206,201,0.12); }
+    .pr-bar-track { background: var(--border-glass); border-radius: 99px; height: 8px; width: 60px; overflow: hidden; display: inline-block; vertical-align: middle; }
+    .pr-bar-fill { background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal)); height: 100%; border-radius: 99px; transition: width 0.25s ease; }
+    .legend-row { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.75rem; }
+    .legend-row span { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 7</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 01 · Beginner</div>
+      <h1>Web Graph & Random Surfer</h1>
+      <p>The web is a directed graph: pages are nodes, links are arrows. A "random surfer" follows links — and occasionally teleports — building up visit counts that approximate <strong>PageRank</strong>.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Press <em>Auto-walk</em> and watch the visit bars. Which page gets the most visits? Notice it is usually the one with many high-quality <em>in-links</em>, not the one that links out the most.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Directed Web Graph</div>
+        <div class="canvas-container" style="padding: 0.5rem;">
+          <svg id="graph" class="graph-svg" viewBox="0 0 460 360" aria-label="Directed web graph">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)"></path>
+              </marker>
+              <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-teal)"></path>
+              </marker>
+            </defs>
+            <g id="edges-layer"></g>
+            <g id="glow-layer"></g>
+            <g id="nodes-layer"></g>
+          </svg>
+        </div>
+
+        <div class="legend-row">
+          <span><span class="legend-dot" style="background: var(--accent-violet);"></span> Page (node)</span>
+          <span><span class="legend-dot" style="background: var(--accent-teal);"></span> Surfer is here</span>
+          <span><span class="legend-dot" style="background: var(--warning);"></span> Dangling (no out-links)</span>
+        </div>
+
+        <div class="control-row" style="margin-top: 1rem;">
+          <button class="btn btn-primary" onclick="step()">Step →</button>
+          <button class="btn btn-teal" id="autoBtn" onclick="toggleAuto()">▶ Auto-walk</button>
+          <button class="btn" onclick="reset()">Reset</button>
+        </div>
+
+        <div class="control-group" style="margin-top: 1rem;">
+          <label>Teleport probability (1 − damping): <strong id="tpVal">0.15</strong></label>
+          <input type="range" id="tpSlider" min="0" max="50" value="15" oninput="onTeleport()" style="width: 100%;">
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Degrees & Visit Tally</div>
+        <div class="metric-grid" style="margin-bottom: 1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-steps">0</div>
+            <div class="metric-label">Steps taken</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-teleports">0</div>
+            <div class="metric-label">Teleports</div>
+          </div>
+        </div>
+
+        <table class="deg-table">
+          <thead>
+            <tr><th>Page</th><th>In-deg</th><th>Out-deg</th><th>Visits</th><th>Share ≈ PR</th></tr>
+          </thead>
+          <tbody id="deg-body"></tbody>
+        </table>
+
+        <div class="formula-box" style="margin-top: 1.25rem;">surfer: with prob (1−t) follow a random out-link · with prob t teleport to a random page</div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">Why links are votes</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            Each link is a <strong style="color: var(--accent-violet);">vote</strong> for the page it points to. A page is important if many pages link <em>to</em> it (in-links) — and even more so if those linking pages are themselves important. The surfer's long-run <strong style="color: var(--accent-teal);">visit share</strong> converges to exactly this idea: <strong>PageRank</strong>.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Graph definition: 6 pages (A..F), positions on the 460×360 canvas ──
+    const R = 26;
+    const nodes = [
+      { id: 'A', x: 110, y: 70 },
+      { id: 'B', x: 350, y: 70 },
+      { id: 'C', x: 70,  y: 210 },
+      { id: 'D', x: 230, y: 180 },
+      { id: 'E', x: 390, y: 210 },
+      { id: 'F', x: 230, y: 320 },
+    ];
+    const idx = {}; nodes.forEach((n, i) => idx[n.id] = i);
+    // Directed edges: [from, to]. Note F has NO out-links → dangling node.
+    const edges = [
+      ['A','B'], ['A','D'],
+      ['B','D'], ['B','E'],
+      ['C','A'], ['C','D'],
+      ['D','E'], ['D','F'],
+      ['E','D'], ['E','B'],
+    ];
+
+    const N = nodes.length;
+    let outAdj = [], inDeg = [], outDeg = [];
+    let visits = [], current = 0, steps = 0, teleports = 0, lastEdge = null;
+    let teleport = 0.15;
+    let autoTimer = null;
+
+    function buildAdj() {
+      outAdj = nodes.map(() => []);
+      inDeg = nodes.map(() => 0);
+      outDeg = nodes.map(() => 0);
+      edges.forEach(([f, t]) => {
+        outAdj[idx[f]].push(idx[t]);
+        outDeg[idx[f]]++;
+        inDeg[idx[t]]++;
+      });
+    }
+
+    function isDangling(i) { return outAdj[i].length === 0; }
+
+    // ── Rendering the static graph (edges + nodes) ──
+    function renderGraph() {
+      const eLayer = document.getElementById('edges-layer');
+      let eHtml = '';
+      edges.forEach(([f, t], ei) => {
+        const a = nodes[idx[f]], b = nodes[idx[t]];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        // shorten both ends so arrow sits on the rim
+        const x1 = a.x + ux * R, y1 = a.y + uy * R;
+        const x2 = b.x - ux * (R + 6), y2 = b.y - uy * (R + 6);
+        eHtml += `<line class="edge-line" id="edge-${ei}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#arrow)"></line>`;
+      });
+      eLayer.innerHTML = eHtml;
+
+      const nLayer = document.getElementById('nodes-layer');
+      let nHtml = '';
+      nodes.forEach((n, i) => {
+        const dCls = isDangling(i) ? ' dangling' : '';
+        nHtml += `<g onclick="jumpTo(${i})" style="cursor:pointer">
+          <circle class="gnode-circle${dCls}" id="circ-${i}" cx="${n.x}" cy="${n.y}" r="${R}"></circle>
+          <text class="gnode-label" x="${n.x}" y="${n.y}">${n.id}</text>
+        </g>`;
+      });
+      nLayer.innerHTML = nHtml;
+    }
+
+    function paintSurfer() {
+      // edges
+      edges.forEach((_, ei) => {
+        const el = document.getElementById('edge-' + ei);
+        if (ei === lastEdge) { el.classList.add('active'); el.setAttribute('marker-end', 'url(#arrow-active)'); }
+        else { el.classList.remove('active'); el.setAttribute('marker-end', 'url(#arrow)'); }
+      });
+      // nodes
+      nodes.forEach((n, i) => {
+        const c = document.getElementById('circ-' + i);
+        c.classList.toggle('surfer', i === current);
+      });
+      // glow
+      const g = document.getElementById('glow-layer');
+      const n = nodes[current];
+      g.innerHTML = `<circle class="surfer-glow" cx="${n.x}" cy="${n.y}" r="${R + 14}"></circle>`;
+    }
+
+    // ── One surfer move ──
+    function step() {
+      const roll = Math.random();
+      const dangling = isDangling(current);
+      let next, viaTeleport;
+      if (dangling || roll < teleport) {
+        // teleport: dangling nodes always teleport (no out-links to follow)
+        next = Math.floor(Math.random() * N);
+        viaTeleport = true;
+        lastEdge = null;
+        teleports++;
+      } else {
+        const outs = outAdj[current];
+        next = outs[Math.floor(Math.random() * outs.length)];
+        viaTeleport = false;
+        // find the edge index for highlight
+        lastEdge = edges.findIndex(([f, t]) => idx[f] === current && idx[t] === next);
+      }
+      current = next;
+      visits[current]++;
+      steps++;
+      paintSurfer();
+      updatePanel();
+    }
+
+    function jumpTo(i) {
+      current = i;
+      lastEdge = null;
+      paintSurfer();
+      updatePanel();
+    }
+
+    function toggleAuto() {
+      const btn = document.getElementById('autoBtn');
+      if (autoTimer) {
+        clearInterval(autoTimer); autoTimer = null;
+        btn.textContent = '▶ Auto-walk';
+        btn.classList.remove('btn-primary'); btn.classList.add('btn-teal');
+      } else {
+        autoTimer = setInterval(step, 280);
+        btn.textContent = '⏸ Pause';
+        btn.classList.remove('btn-teal'); btn.classList.add('btn-primary');
+      }
+    }
+
+    function onTeleport() {
+      teleport = parseInt(document.getElementById('tpSlider').value, 10) / 100;
+      document.getElementById('tpVal').textContent = teleport.toFixed(2);
+    }
+
+    function reset() {
+      if (autoTimer) toggleAuto();
+      visits = nodes.map(() => 0);
+      steps = 0; teleports = 0; lastEdge = null;
+      current = idx['A'];
+      visits[current] = 1; // count starting page as one visit
+      paintSurfer();
+      updatePanel();
+    }
+
+    // ── Side panel ──
+    function updatePanel() {
+      document.getElementById('m-steps').textContent = steps;
+      document.getElementById('m-teleports').textContent = teleports;
+      const total = visits.reduce((a, b) => a + b, 0) || 1;
+      const maxVisit = Math.max(...visits, 1);
+
+      let rows = '';
+      nodes.forEach((n, i) => {
+        const share = visits[i] / total;
+        const dangleCls = isDangling(i) ? ' dangle-row' : '';
+        const hereCls = i === current ? ' here-row' : '';
+        const barW = Math.round((visits[i] / maxVisit) * 100);
+        rows += `<tr class="${dangleCls}${hereCls}">
+          <td class="node-cell">${n.id}${isDangling(i) ? ' ⚠' : ''}</td>
+          <td>${inDeg[i]}</td>
+          <td>${outDeg[i]}</td>
+          <td>${visits[i]}</td>
+          <td>
+            <span class="pr-bar-track"><span class="pr-bar-fill" style="width:${barW}%"></span></span>
+            <span style="margin-left:6px;color:var(--accent-teal);font-weight:700;">${(share * 100).toFixed(1)}%</span>
+          </td>
+        </tr>`;
+      });
+      document.getElementById('deg-body').innerHTML = rows;
+    }
+
+    // ── Init ──
+    buildAdj();
+    renderGraph();
+    reset();
+
+    showTutorial({ id: 'c7v1', icon: '🕸️', title: 'Web Graph & Random Surfer',
+      subtitle: 'How a wandering surfer reveals page importance.',
+      steps: [
+        'Pages are <strong>nodes</strong> and links are <strong>directed arrows</strong> (votes).',
+        'Press <strong>Step</strong> to move the surfer along a random out-link.',
+        'With the <strong>teleport</strong> chance, the surfer jumps to a random page instead.',
+        'Node <strong>F is dangling</strong> (no out-links) — it always teleports.',
+        'Watch the <strong>visit share</strong> bars converge to <strong>PageRank</strong>.'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In PageRank, an incoming link to a page is best understood as…',
+        options: ['A penalty that lowers rank', 'A vote of importance for that page', 'A copy of the page content', 'A request to remove the page'],
+        correct: 1,
+        explanation: 'Each link is a vote: a link from page X to page Y passes some of X\'s importance to Y. More (and better) in-links → higher rank.'
+      },
+      {
+        question: 'Which usually contributes MORE to a page\'s PageRank?',
+        options: ['Its number of out-links', 'The links it sends to itself', 'High-quality in-links from important pages', 'The length of its URL'],
+        correct: 2,
+        explanation: 'In-links from important pages drive rank. Out-links spread your rank to others; they do not raise your own score.'
+      },
+      {
+        question: 'What does the random surfer\'s long-run visit share approximate?',
+        options: ['The PageRank of each page', 'The number of out-links per page', 'The alphabetical order of pages', 'The page load time'],
+        correct: 0,
+        explanation: 'PageRank is defined as the stationary distribution of the random surfer — the fraction of time spent on each page over a very long walk.'
+      },
+      {
+        question: 'A "dangling node" is a page with no out-links. How does the surfer handle it?',
+        options: ['It gets stuck there forever', 'It teleports to a random page', 'It deletes the node', 'It reverses the last link'],
+        correct: 1,
+        explanation: 'A dangling node has nowhere to follow, so the surfer teleports (jumps) to a random page — exactly how PageRank avoids rank "leaking" into dead ends.'
+      }
+    ]);
+  </script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Knowledge Graph Explorer — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .kg-stage {
+      position: relative;
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .kg-stage svg { display: block; width: 100%; height: auto; }
+    .kg-node circle {
+      cursor: pointer;
+      transition: r 0.15s ease, opacity 0.2s ease, stroke-width 0.15s ease;
+    }
+    .kg-node text {
+      pointer-events: none;
+      font-size: 12px;
+      font-weight: 700;
+      fill: #fff;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    .kg-edge-line { transition: opacity 0.2s ease, stroke-width 0.15s ease; }
+    .kg-edge-label {
+      font-size: 10px;
+      font-weight: 600;
+      fill: var(--text-muted);
+      text-anchor: middle;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .kg-search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .kg-search-row input {
+      flex: 1; padding: 0.6rem 0.8rem;
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      font-size: 0.9rem; font-family: inherit;
+    }
+    .kg-search-row input:focus { outline: none; border-color: var(--accent-violet); }
+    .kg-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+    .kg-chip {
+      padding: 0.3rem 0.7rem; border-radius: 999px; cursor: pointer;
+      font-size: 0.78rem; font-weight: 600;
+      background: rgba(108,92,231,0.12); color: var(--accent-violet);
+      border: 1px solid rgba(108,92,231,0.25); transition: var(--transition);
+    }
+    .kg-chip:hover { background: rgba(108,92,231,0.25); transform: translateY(-1px); }
+    .kg-panel-head {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding-bottom: 0.7rem; margin-bottom: 0.7rem;
+      border-bottom: 1px solid var(--border-glass);
+    }
+    .kg-panel-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0; color: #fff; font-weight: 800;
+    }
+    .kg-panel-title { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); }
+    .kg-panel-type { font-size: 0.78rem; color: var(--text-muted); }
+    .kg-fact { display: flex; gap: 0.5rem; padding: 0.45rem 0; font-size: 0.85rem; border-bottom: 1px dashed var(--border-glass); }
+    .kg-fact:last-child { border-bottom: none; }
+    .kg-fact-pred { color: var(--accent-teal); font-weight: 700; min-width: 92px; }
+    .kg-fact-obj { color: var(--text-secondary); }
+    .kg-fact-obj.linked { color: var(--accent-violet); cursor: pointer; font-weight: 600; }
+    .kg-fact-obj.linked:hover { text-decoration: underline; }
+    .kg-triple { font-family: monospace; font-size: 0.8rem; }
+    .kg-triple .s { color: var(--accent-violet); }
+    .kg-triple .p { color: var(--accent-teal); }
+    .kg-triple .o { color: var(--success); }
+    .kg-empty { color: var(--text-muted); font-size: 0.88rem; padding: 1rem 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 12</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>Knowledge Graph Explorer</h1>
+      <p>A knowledge graph stores facts as <strong>(subject)–[predicate]→(object)</strong> triples. Click an entity to open its knowledge panel, or search to highlight a node and its neighbours.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Search for "Einstein" to highlight him and everything he connects to. Then click a node to read its knowledge panel — and follow the violet links inside it to walk the graph like a search engine does.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Entity Graph</div>
+        <div class="kg-search-row">
+          <input id="kg-search" type="text" placeholder="Search an entity (e.g. Einstein, Germany)…" autocomplete="off">
+          <button class="btn btn-primary btn-sm" onclick="runSearch()">Search</button>
+          <button class="btn btn-sm" onclick="clearSel()">Reset</button>
+        </div>
+        <div class="kg-stage">
+          <svg id="kg-svg" viewBox="0 0 560 420" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="kg-chips" id="kg-chips"></div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Knowledge Panel</div>
+        <div id="kg-panel"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Selected Triples</div>
+        <div id="kg-triples" class="step-log"></div>
+
+        <div class="metric-grid" style="margin-top: 1.25rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-entities">0</div>
+            <div class="metric-label">Entities</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-triples">0</div>
+            <div class="metric-label">Triples</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-degree">0</div>
+            <div class="metric-label">Facts on Node</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <div class="viz-section-title">How a search engine uses this</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            When you query an <strong style="color: var(--accent-violet);">entity</strong>, the engine resolves your text to a node, then assembles a <strong style="color: var(--accent-teal);">knowledge panel</strong> from its triples. The same structured facts power direct <strong>question answering</strong> — e.g. "Where was Einstein born?" reads the <code>born_in</code> edge instead of ranking ten blue links.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Knowledge base: entities (nodes) + typed relations (edges) ──
+    const NODES = {
+      einstein:  { label: 'Einstein',     type: 'Person',   icon: '🧠', color: '#6c5ce7', x: 280, y: 90 },
+      ulm:       { label: 'Ulm',          type: 'City',     icon: '🏙️', color: '#00cec9', x: 110, y: 200 },
+      germany:   { label: 'Germany',      type: 'Country',  icon: '🇩🇪', color: '#00b894', x: 250, y: 290 },
+      relativity:{ label: 'Relativity',   type: 'Theory',   icon: '🌌', color: '#fd79a8', x: 460, y: 180 },
+      nobel:     { label: 'Nobel Prize',  type: 'Award',    icon: '🏅', color: '#fdcb6e', x: 470, y: 320 },
+      physics:   { label: 'Physics',      type: 'Field',    icon: '⚛️', color: '#0984e3', x: 300, y: 370 }
+    };
+    // edges: subject -[predicate]-> object
+    const EDGES = [
+      { s: 'einstein',  p: 'born_in',      o: 'ulm' },
+      { s: 'einstein',  p: 'nationality',  o: 'germany' },
+      { s: 'einstein',  p: 'developed',    o: 'relativity' },
+      { s: 'einstein',  p: 'won',          o: 'nobel' },
+      { s: 'einstein',  p: 'field',        o: 'physics' },
+      { s: 'ulm',       p: 'located_in',   o: 'germany' },
+      { s: 'relativity',p: 'branch_of',    o: 'physics' },
+      { s: 'nobel',     p: 'awarded_in',   o: 'physics' }
+    ];
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('kg-svg');
+    let selected = null;   // currently focused entity id
+    let highlight = new Set(); // ids highlighted by a search/selection
+
+    function neighbours(id) {
+      const set = new Set();
+      EDGES.forEach(e => {
+        if (e.s === id) set.add(e.o);
+        if (e.o === id) set.add(e.s);
+      });
+      return set;
+    }
+
+    function el(name, attrs, parent) {
+      const n = document.createElementNS(SVG_NS, name);
+      for (const k in attrs) n.setAttribute(k, attrs[k]);
+      if (parent) parent.appendChild(n);
+      return n;
+    }
+
+    function draw() {
+      svg.innerHTML = '';
+      const active = highlight.size > 0;
+
+      // edges first
+      EDGES.forEach(e => {
+        const a = NODES[e.s], b = NODES[e.o];
+        const onPath = active && highlight.has(e.s) && highlight.has(e.o) &&
+                       (e.s === selected || e.o === selected || selected === null);
+        const dim = active && !onPath;
+        const g = el('g', {}, svg);
+        el('line', {
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          class: 'kg-edge-line',
+          stroke: onPath ? 'var(--accent-violet)' : 'var(--border-glass)',
+          'stroke-width': onPath ? 2.5 : 1.4,
+          opacity: dim ? 0.12 : (onPath ? 0.9 : 0.5)
+        }, g);
+        el('text', {
+          x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 3,
+          class: 'kg-edge-label',
+          opacity: dim ? 0.1 : 1,
+          fill: onPath ? 'var(--accent-teal)' : 'var(--text-muted)'
+        }, g).textContent = e.p;
+      });
+
+      // nodes
+      Object.entries(NODES).forEach(([id, n]) => {
+        const isSel = id === selected;
+        const isHi = highlight.has(id);
+        const dim = active && !isHi;
+        const g = el('g', { class: 'kg-node' }, svg);
+        g.style.cursor = 'pointer';
+        g.addEventListener('click', () => selectNode(id));
+        el('circle', {
+          cx: n.x, cy: n.y, r: isSel ? 30 : 24,
+          fill: n.color,
+          stroke: isSel ? '#fff' : 'rgba(255,255,255,0.25)',
+          'stroke-width': isSel ? 3 : 1.5,
+          opacity: dim ? 0.2 : 1
+        }, g);
+        el('text', { x: n.x, y: n.y + 1, opacity: dim ? 0.25 : 1 }, g).textContent = n.icon;
+        el('text', {
+          x: n.x, y: n.y + (isSel ? 46 : 40),
+          opacity: dim ? 0.25 : 1,
+          fill: 'var(--text-secondary)', 'font-size': 11
+        }, g).textContent = n.label;
+      });
+    }
+
+    function selectNode(id) {
+      selected = id;
+      highlight = new Set([id, ...neighbours(id)]);
+      document.getElementById('kg-search').value = NODES[id].label;
+      renderPanel(id);
+      draw();
+    }
+
+    function clearSel() {
+      selected = null;
+      highlight = new Set();
+      document.getElementById('kg-search').value = '';
+      renderPanel(null);
+      draw();
+    }
+
+    function runSearch() {
+      const q = document.getElementById('kg-search').value.trim().toLowerCase();
+      if (!q) { clearSel(); return; }
+      // entity resolution: match label substring
+      const hit = Object.keys(NODES).find(id =>
+        NODES[id].label.toLowerCase().includes(q) || id.includes(q));
+      if (hit) {
+        selectNode(hit);
+      } else {
+        selected = null;
+        highlight = new Set();
+        renderPanel('__nohit__', q);
+        draw();
+      }
+    }
+
+    function factsFor(id) {
+      // outgoing + incoming triples, normalised for display
+      const out = EDGES.filter(e => e.s === id).map(e => ({ pred: e.p, obj: e.o, dir: 'out' }));
+      const inc = EDGES.filter(e => e.o === id).map(e => ({ pred: e.p, obj: e.s, dir: 'in' }));
+      return { out, inc, total: out.length + inc.length };
+    }
+
+    function renderPanel(id, q) {
+      const panel = document.getElementById('kg-panel');
+      const triplesBox = document.getElementById('kg-triples');
+
+      if (id === '__nohit__') {
+        panel.innerHTML = `<div class="kg-empty">No entity matched "<strong>${q}</strong>". Try Einstein, Ulm, Germany, Relativity, Nobel, or Physics.</div>`;
+        triplesBox.innerHTML = '';
+        document.getElementById('m-degree').textContent = '0';
+        return;
+      }
+      if (!id) {
+        panel.innerHTML = `<div class="kg-empty">Click an entity in the graph, or search for one, to open its knowledge panel.</div>`;
+        triplesBox.innerHTML = '';
+        document.getElementById('m-degree').textContent = '0';
+        return;
+      }
+
+      const n = NODES[id];
+      const f = factsFor(id);
+
+      let facts = '';
+      f.out.forEach(x => {
+        facts += `<div class="kg-fact"><span class="kg-fact-pred">${x.pred}</span><span class="kg-fact-obj linked" onclick="selectNode('${x.obj}')">${NODES[x.obj].label}</span></div>`;
+      });
+      f.inc.forEach(x => {
+        facts += `<div class="kg-fact"><span class="kg-fact-pred">← ${x.pred}</span><span class="kg-fact-obj linked" onclick="selectNode('${x.obj}')">${NODES[x.obj].label}</span></div>`;
+      });
+
+      panel.innerHTML = `
+        <div class="kg-panel-head">
+          <div class="kg-panel-avatar" style="background:${n.color}">${n.icon}</div>
+          <div>
+            <div class="kg-panel-title">${n.label}</div>
+            <div class="kg-panel-type">${n.type}</div>
+          </div>
+        </div>
+        ${facts}
+      `;
+
+      // triples view (subject-predicate-object)
+      const lines = [];
+      f.out.forEach(x => {
+        lines.push(`<div class="step-entry kg-triple">(<span class="s">${n.label}</span>) —[<span class="p">${x.pred}</span>]→ (<span class="o">${NODES[x.obj].label}</span>)</div>`);
+      });
+      f.inc.forEach(x => {
+        lines.push(`<div class="step-entry kg-triple" style="opacity:0.75">(<span class="s">${NODES[x.obj].label}</span>) —[<span class="p">${x.pred}</span>]→ (<span class="o">${n.label}</span>)</div>`);
+      });
+      triplesBox.innerHTML = lines.join('');
+      document.getElementById('m-degree').textContent = f.total;
+    }
+
+    function buildChips() {
+      const box = document.getElementById('kg-chips');
+      box.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);align-self:center;margin-right:0.2rem;">Jump to:</span>';
+      Object.entries(NODES).forEach(([id, n]) => {
+        const c = document.createElement('span');
+        c.className = 'kg-chip';
+        c.textContent = n.label;
+        c.onclick = () => selectNode(id);
+        box.appendChild(c);
+      });
+    }
+
+    function initStats() {
+      document.getElementById('m-entities').textContent = Object.keys(NODES).length;
+      document.getElementById('m-triples').textContent = EDGES.length;
+    }
+
+    document.getElementById('kg-search').addEventListener('keydown', e => {
+      if (e.key === 'Enter') runSearch();
+    });
+
+    // init
+    initStats();
+    buildChips();
+    renderPanel(null);
+    draw();
+
+    showTutorial({ id: 'c12v3', icon: '🕸️', title: 'Knowledge Graph Explorer',
+      subtitle: 'Entities, typed relations, and knowledge panels.',
+      steps: [
+        'Each node is an <strong>entity</strong>; each labeled edge is a <strong>predicate</strong> forming a (subject)–[predicate]→(object) triple',
+        '<strong>Search</strong> an entity name — the engine resolves it to a node and highlights its neighbours',
+        'Click a node to open its <strong>knowledge panel</strong> and list of triples',
+        'Follow the <strong>violet links</strong> inside the panel to traverse the graph, just like answering a follow-up question'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'In the triple (Einstein)–[born_in]→(Ulm), what role does "born_in" play?',
+        options: ['The subject', 'The object', 'The predicate (relation)', 'An entity'],
+        correct: 2,
+        explanation: 'A knowledge graph fact is a subject–predicate–object triple. "born_in" is the predicate (the typed relation) linking the subject Einstein to the object Ulm.' },
+      { question: 'When you type "Einstein" into search, what must the system do first?',
+        options: ['Rank ten web pages', 'Resolve the text to an entity (node) in the graph', 'Run a SQL JOIN on documents', 'Compute TF-IDF scores'],
+        correct: 1,
+        explanation: 'Entity search starts with entity resolution / linking: mapping the surface text to a specific node before reading its facts.' },
+      { question: 'What is the main purpose of a knowledge panel?',
+        options: ['To rank documents by relevance', 'To crawl new web pages', 'To present an entity\'s structured facts (its triples) directly', 'To store the inverted index'],
+        correct: 2,
+        explanation: 'A knowledge panel assembles an entity\'s triples (relations and attributes) into a compact summary shown beside results.' },
+      { question: 'How does a knowledge graph help answer "Where was Einstein born?"',
+        options: ['By averaging document scores', 'By reading the born_in edge from the Einstein node', 'By expanding the query with synonyms only', 'By counting term frequencies'],
+        correct: 1,
+        explanation: 'Structured QA traverses the relevant edge: from the Einstein entity, follow born_in to the object Ulm — returning a direct answer instead of a ranked list.' }
+    ]);
+  </script>
+</body>
+</html>

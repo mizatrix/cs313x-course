@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · Practice Quiz — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .topic-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem; margin-top: 0.5rem;
+    }
+    .topic-pill {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 0.75rem; background: var(--bg-card);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      font-size: 0.82rem; color: var(--text-secondary); transition: var(--transition);
+    }
+    .topic-pill .t-icon { font-size: 1.1rem; }
+    .topic-pill strong { color: var(--text-primary); font-weight: 700; }
+    .score-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; margin-top: 1.25rem;
+      padding: 0.85rem 1rem; background: rgba(108,92,231,0.08);
+      border: 1px solid rgba(108,92,231,0.25); border-radius: var(--radius-md);
+    }
+    .score-banner .sb-label { font-size: 0.8rem; color: var(--text-secondary); }
+    .score-banner .sb-bar {
+      flex: 1; height: 10px; min-width: 120px; background: var(--bg-card);
+      border-radius: 99px; overflow: hidden; border: 1px solid var(--border-glass);
+    }
+    .score-banner .sb-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+      transition: width 0.5s ease;
+    }
+    .score-banner .sb-count { font-weight: 800; color: var(--accent-violet); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 12</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Beginner</div>
+      <h1>Practice Quiz</h1>
+      <p>Test yourself on the <strong>Future of Search</strong>: multimodal retrieval, generative answer engines, knowledge graphs, agentic search, and federated learning.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🎓</div>
+      <div class="challenge-text"><strong>Try This:</strong> Answer all questions to fill the mastery bar. Aim for a perfect score — read each explanation, even when you get it right!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">What's Covered</div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.7; margin-bottom:0.75rem;">
+          Chapter 12 closes the course by looking past the "10 blue links" — toward systems that <strong>see</strong>, <strong>reason</strong>, <strong>act</strong>, and <strong>protect privacy</strong>. These 9 questions span every major idea from Week 12.
+        </p>
+        <div class="topic-grid">
+          <div class="topic-pill"><span class="t-icon">🖼️</span><span><strong>Multimodal</strong> · CLIP, ViT</span></div>
+          <div class="topic-pill"><span class="t-icon">💬</span><span><strong>Answer Engines</strong> · GraphRAG</span></div>
+          <div class="topic-pill"><span class="t-icon">🕸️</span><span><strong>Knowledge Graphs</strong> · triples</span></div>
+          <div class="topic-pill"><span class="t-icon">🤖</span><span><strong>Agentic</strong> · ReAct, tools</span></div>
+          <div class="topic-pill"><span class="t-icon">🔐</span><span><strong>Federated</strong> · on-device</span></div>
+          <div class="topic-pill"><span class="t-icon">⚖️</span><span><strong>Neuro-Symbolic</strong> · logic + LLM</span></div>
+        </div>
+
+        <div class="score-banner">
+          <div>
+            <div class="sb-label">Mastery progress</div>
+            <div class="sb-count" id="sb-count">0 / 9 answered</div>
+          </div>
+          <div class="sb-bar"><div class="sb-fill" id="sb-fill"></div></div>
+        </div>
+
+        <div style="margin-top:1.5rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.7;">
+            The thread tying it all together: search has shifted from <strong style="color:var(--accent-violet);">matching keywords</strong> to <strong style="color:var(--accent-teal);">understanding intent</strong> and <strong style="color:var(--accent-teal);">completing tasks</strong>. LLMs supply fluency; knowledge graphs supply facts; agents supply action.
+          </p>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Quiz</div>
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'CLIP is trained with a contrastive objective. What does it maximize and minimize?',
+        options: [
+          'Maximize similarity of mismatched image–text pairs, minimize matched pairs',
+          'Maximize cosine similarity of correct (image, text) pairs, minimize the incorrect ones',
+          'Maximize the size of the vocabulary, minimize the number of images',
+          'Maximize pixel reconstruction error, minimize caption length'
+        ],
+        correct: 1,
+        explanation: 'CLIP maximizes the cosine similarity of the matching (image, text) pairs — the diagonal of the loss matrix — while minimizing similarity for the incorrect off-diagonal pairs.'
+      },
+      {
+        question: 'CLIP’s "zero-shot" classification ability means it can:',
+        options: [
+          'Classify images into categories it has never seen, by prompting "A photo of a [CLASS]"',
+          'Only classify the exact classes it was trained on',
+          'Run with zero GPUs at inference time',
+          'Generate images from text without any training'
+        ],
+        correct: 0,
+        explanation: 'Because CLIP maps images and text into one shared space, you can classify into brand-new categories just by writing a text prompt like "A photo of a [CLASS]" — no task-specific training needed.'
+      },
+      {
+        question: 'A multimodal search system maps images, text, and audio into the same vector space. What is this called?',
+        options: [
+          'An inverted index',
+          'A unified (shared latent) embedding space',
+          'A bag-of-words model',
+          'A relational database schema'
+        ],
+        correct: 1,
+        explanation: 'Multimodal search relies on a unified embedding / shared latent space so that a query in one modality (e.g., text) can retrieve content in another (e.g., images), using a similarity like cosine.'
+      },
+      {
+        question: 'To find the exact moment in a video ("04:12"), frame-level retrieval treats the video as:',
+        options: [
+          'A single global embedding for the whole clip',
+          'A sequence of sampled frames (e.g., 1 fps) that are each embedded',
+          'A text transcript only',
+          'A list of metadata tags'
+        ],
+        correct: 1,
+        explanation: 'For temporal localization, videos are sampled into frames (e.g., 1 frame per second) and each frame is embedded, so the system can match a query to the specific moment it appears.'
+      },
+      {
+        question: 'In a knowledge graph, the fundamental unit of data is the triple. Which is a valid triple?',
+        options: [
+          '(Document, Score, 0.87)',
+          '(Subject, Predicate, Object) — e.g., (Einstein, born_in, Germany)',
+          'A single 768-dimensional vector',
+          'A list of inverted postings'
+        ],
+        correct: 1,
+        explanation: 'A knowledge-graph triple is (Subject, Predicate, Object), e.g., (Einstein, born_in, Germany). Billions of triples form a web of knowledge like the Google Knowledge Graph.'
+      },
+      {
+        question: 'GraphRAG (neuro-symbolic) reduces LLM hallucinations primarily by:',
+        options: [
+          'Making the LLM larger so it memorizes more facts',
+          'Extracting triples and querying a knowledge graph for ground-truth facts',
+          'Lowering the temperature to zero',
+          'Removing the retrieval step entirely'
+        ],
+        correct: 1,
+        explanation: 'GraphRAG grounds generation in structured facts: it extracts triples and queries a knowledge graph for ground truth. "LLMs provide the fluency, Knowledge Graphs provide the facts."'
+      },
+      {
+        question: 'The ReAct pattern (Yao et al., 2023) combines reasoning and acting in a loop of:',
+        options: [
+          'Train → Validate → Test',
+          'Thought → Action → Observation',
+          'Map → Shuffle → Reduce',
+          'Crawl → Index → Rank'
+        ],
+        correct: 1,
+        explanation: 'ReAct loops Thought (reason) → Action (call a tool) → Observation (read the result). It fixes the gap where LLMs can reason but can’t act, and plain agents act but reason poorly.'
+      },
+      {
+        question: 'In agentic search, "tool use" (function calling) means the model:',
+        options: [
+          'Guesses the answer to math instead of computing it',
+          'Outputs structured calls like call_tool("calculator", "25 * 4") to invoke real APIs',
+          'Stores documents in an inverted index',
+          'Replaces the LLM with a rule-based system'
+        ],
+        correct: 1,
+        explanation: 'Tools give the model "hands": it emits a structured (JSON) call such as call_tool("calculator", "25 * 4") to invoke a real API, rather than guessing the result itself.'
+      },
+      {
+        question: 'How does federated learning protect a user’s privacy?',
+        options: [
+          'It encrypts the search results before showing them',
+          'The model trains locally on the device; only learned patterns (gradients/weights) are sent, raw data never leaves the phone',
+          'It deletes the user’s data from the server every night',
+          'It anonymizes queries by hashing them on the server'
+        ],
+        correct: 1,
+        explanation: 'In federated learning the model is trained locally on your device and only the learned updates (gradients/weights) are sent to the server. The guarantee: "Your raw data never leaves your phone."'
+      }
+    ]);
+
+    // Live mastery bar synced to quiz progress
+    function updateMastery() {
+      const total = quiz.questions.length;
+      const answered = quiz.answered.filter(a => a !== null).length;
+      const pct = Math.round((answered / total) * 100);
+      document.getElementById('sb-fill').style.width = pct + '%';
+      document.getElementById('sb-count').textContent = `${answered} / ${total} answered`;
+    }
+    // Wrap answer() so the side panel updates on every response
+    const _origAnswer = quiz.answer.bind(quiz);
+    quiz.answer = function (idx) { _origAnswer(idx); updateMastery(); };
+    const _origReset = quiz.reset.bind(quiz);
+    quiz.reset = function () { _origReset(); updateMastery(); };
+    updateMastery();
+
+    showTutorial({
+      id: 'c12v6', icon: '🎓', title: 'Chapter 12 Practice Quiz',
+      subtitle: 'Nine questions across the Future of Search.',
+      steps: [
+        'Pick an answer — it locks in and reveals an <strong>explanation</strong>',
+        'Correct answers turn <strong>green</strong>, wrong ones <strong>red</strong>',
+        'Watch the <strong>mastery bar</strong> fill as you progress',
+        'Hit <strong>See Results</strong> on the last question for your score'
+      ]
+    });
+  </script>
+</body>
+</html>

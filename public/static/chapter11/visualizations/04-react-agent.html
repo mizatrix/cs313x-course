@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · ReAct Agent Loop — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .question-box {
+      padding: 1rem 1.25rem; margin-bottom: 1rem;
+      background: rgba(108,92,231,0.08); border: 1px solid rgba(108,92,231,0.25);
+      border-radius: var(--radius-md); font-size: 0.95rem; line-height: 1.6;
+    }
+    .question-box .q-tag { font-weight: 800; color: var(--accent-violet); }
+
+    /* Loop diagram */
+    .loop-diagram { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.5rem 0 1rem; }
+    .loop-node {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.7rem 0.9rem; border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-glass); background: var(--bg-card);
+      font-size: 0.85rem; transition: var(--transition); opacity: 0.45;
+    }
+    .loop-node.active { opacity: 1; transform: translateX(4px); box-shadow: 0 0 14px rgba(108,92,231,0.25); }
+    .loop-node .node-dot {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+    }
+    .loop-node.thought .node-dot { background: rgba(108,92,231,0.18); }
+    .loop-node.action .node-dot { background: rgba(0,206,201,0.18); }
+    .loop-node.observation .node-dot { background: rgba(253,121,168,0.18); }
+    .loop-node.answer .node-dot { background: rgba(0,184,148,0.18); }
+    .loop-node .node-label { font-weight: 700; }
+    .loop-node.thought.active { border-color: var(--accent-violet); }
+    .loop-node.action.active { border-color: var(--accent-teal); }
+    .loop-node.observation.active { border-color: var(--accent-pink); }
+    .loop-node.answer.active { border-color: var(--success); }
+    .loop-arrow { text-align: center; color: var(--text-muted); font-size: 1.1rem; line-height: 0.5; }
+
+    /* Step-log roles */
+    .trace-entry { animation: fadeIn 0.35s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .role-tag {
+      display: inline-block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 1px 7px; border-radius: 6px; margin-right: 6px;
+    }
+    .role-thought { background: rgba(108,92,231,0.18); color: var(--accent-violet); }
+    .role-action { background: rgba(0,206,201,0.18); color: var(--accent-teal); }
+    .role-observation { background: rgba(253,121,168,0.18); color: var(--accent-pink); }
+    .role-answer { background: rgba(0,184,148,0.18); color: var(--success); }
+    .tool-call { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--accent-teal); }
+    .obs-result { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--text-secondary); }
+
+    .mode-note { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.6; }
+    .empty-trace { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Advanced</div>
+      <h1>ReAct Agent Loop</h1>
+      <p>Watch an agent interleave <strong>Reasoning</strong> and <strong>Acting</strong>: it thinks, calls a tool, observes the result, then thinks again — repeating until it can answer.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🤖</div>
+      <div class="challenge-text"><strong>Try This:</strong> Run the <strong>One-Shot</strong> mode first and see it guess from a single retrieval. Then run <strong>ReAct</strong> and step through the Thought → Action → Observation loop to reach the correct multi-step answer.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">The Question</div>
+        <div class="question-box">
+          <span class="q-tag">Q:</span> "What is the population of the city where the 2016 Summer Olympics were held?"
+        </div>
+
+        <div class="viz-section-title">Mode</div>
+        <div class="toggle-group" style="margin-bottom: 1rem;">
+          <button class="toggle-opt active" id="opt-react" onclick="setMode('react')">ReAct (iterative)</button>
+          <button class="toggle-opt" id="opt-oneshot" onclick="setMode('oneshot')">One-Shot (retrieve→answer)</button>
+        </div>
+
+        <div class="viz-section-title">Reasoning–Acting Cycle</div>
+        <div class="loop-diagram" id="loop-diagram">
+          <div class="loop-node thought" id="node-thought">
+            <div class="node-dot">💭</div>
+            <div><span class="node-label">Thought</span> — reason about what to do next</div>
+          </div>
+          <div class="loop-arrow">↓</div>
+          <div class="loop-node action" id="node-action">
+            <div class="node-dot">🔧</div>
+            <div><span class="node-label">Action</span> — call a tool / search API</div>
+          </div>
+          <div class="loop-arrow">↓</div>
+          <div class="loop-node observation" id="node-observation">
+            <div class="node-dot">👁️</div>
+            <div><span class="node-label">Observation</span> — read the tool's result</div>
+          </div>
+          <div class="loop-arrow">↺ loop until ready</div>
+          <div class="loop-node answer" id="node-answer">
+            <div class="node-dot">✅</div>
+            <div><span class="node-label">Answer</span> — final grounded response</div>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <button class="btn btn-primary" id="btn-step" onclick="step()">Step ▸</button>
+          <button class="btn btn-teal" id="btn-run" onclick="run()">Run ▸▸</button>
+          <button class="btn" onclick="reset()">Reset</button>
+        </div>
+        <div class="mode-note" id="mode-note"></div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Agent Trace</div>
+        <div class="metric-grid" style="margin-bottom: 1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-steps">0</div>
+            <div class="metric-label">Steps Taken</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-tools">0</div>
+            <div class="metric-label">Tool Calls</div>
+          </div>
+        </div>
+
+        <div class="step-log" id="trace-log">
+          <div class="empty-trace">Press <strong>Step</strong> or <strong>Run</strong> to begin the agent loop…</div>
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">Why It Matters</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            ReAct <strong style="color: var(--accent-violet);">interleaves</strong> chain-of-thought reasoning with external <strong style="color: var(--accent-teal);">actions</strong>. Each <strong style="color: var(--accent-pink);">observation</strong> grounds the next thought in real evidence, reducing hallucination. A one-shot pass can't recover from a wrong first retrieval — the agent never gets to revise.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Scripted traces ─────────────────────────────────
+    // Each entry: { role, label, text, tool?, result?, node }
+    const REACT_TRACE = [
+      { role: 'thought', node: 'thought',
+        text: "I need the host city of the 2016 Summer Olympics first, then look up its population. Let me search for the host city." },
+      { role: 'action', node: 'action', tool: "Search['2016 Summer Olympics host city']",
+        text: "Call the search tool to find the host city." },
+      { role: 'observation', node: 'observation',
+        result: "The 2016 Summer Olympics were held in Rio de Janeiro, Brazil.",
+        text: "Tool returned the host city." },
+      { role: 'thought', node: 'thought',
+        text: "The host city is Rio de Janeiro. Now I need the population of Rio de Janeiro." },
+      { role: 'action', node: 'action', tool: "Lookup['population of Rio de Janeiro']",
+        text: "Call the lookup tool for Rio's population." },
+      { role: 'observation', node: 'observation',
+        result: "Rio de Janeiro has a population of about 6.7 million (city proper).",
+        text: "Tool returned the population figure." },
+      { role: 'thought', node: 'thought',
+        text: "I now have both facts: host city = Rio de Janeiro, population ≈ 6.7 million. I can answer." },
+      { role: 'answer', node: 'answer',
+        text: "The 2016 Summer Olympics were held in Rio de Janeiro, whose population is about 6.7 million." }
+    ];
+
+    const ONESHOT_TRACE = [
+      { role: 'action', node: 'action', tool: "Retrieve['population 2016 Olympics city']",
+        text: "Single retrieval over the question as-is." },
+      { role: 'observation', node: 'observation',
+        result: "Top passage: '...the 2016 Olympics drew record crowds... Tokyo prepares for 2020...'",
+        text: "Retrieved a passage that mentions multiple cities and years." },
+      { role: 'answer', node: 'answer',
+        text: "⚠️ The population is about 9 million (Tokyo?). — Wrong city: with no reasoning step, the model can't separate the host city from distractor mentions, so it can't reliably ground the answer." }
+    ];
+
+    let mode = 'react';
+    let trace = REACT_TRACE;
+    let idx = 0;          // next step to reveal
+    let toolCount = 0;
+    let running = false;
+
+    const roleMeta = {
+      thought:     { tag: 'Thought',     icon: '💭', cls: 'role-thought' },
+      action:      { tag: 'Action',      icon: '🔧', cls: 'role-action' },
+      observation: { tag: 'Observation', icon: '👁️', cls: 'role-observation' },
+      answer:      { tag: 'Answer',      icon: '✅', cls: 'role-answer' }
+    };
+
+    function setMode(m) {
+      if (running) return;
+      mode = m;
+      trace = m === 'react' ? REACT_TRACE : ONESHOT_TRACE;
+      document.getElementById('opt-react').classList.toggle('active', m === 'react');
+      document.getElementById('opt-oneshot').classList.toggle('active', m === 'oneshot');
+      reset();
+    }
+
+    function highlightNode(node) {
+      ['thought', 'action', 'observation', 'answer'].forEach(n => {
+        document.getElementById('node-' + n).classList.toggle('active', n === node);
+      });
+    }
+
+    function clearNodes() {
+      ['thought', 'action', 'observation', 'answer'].forEach(n => {
+        document.getElementById('node-' + n).classList.remove('active');
+      });
+    }
+
+    function renderStep(s) {
+      const meta = roleMeta[s.role];
+      const log = document.getElementById('trace-log');
+      let body = '';
+      if (s.tool)   body += `<div class="tool-call">↳ ${s.tool}</div>`;
+      if (s.text)   body += `<div style="margin-top:2px;">${s.text}</div>`;
+      if (s.result) body += `<div class="obs-result" style="margin-top:2px;">→ ${s.result}</div>`;
+
+      const entry = document.createElement('div');
+      entry.className = 'step-entry trace-entry';
+      entry.innerHTML = `<span class="role-tag ${meta.cls}">${meta.icon} ${meta.tag}</span>${body}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+
+      highlightNode(s.node);
+      if (s.role === 'action') toolCount++;
+    }
+
+    function updateMetrics() {
+      document.getElementById('m-steps').textContent = idx;
+      document.getElementById('m-tools').textContent = toolCount;
+    }
+
+    function step() {
+      if (idx >= trace.length) return;
+      // First real step clears the placeholder
+      if (idx === 0) document.getElementById('trace-log').innerHTML = '';
+      renderStep(trace[idx]);
+      idx++;
+      updateMetrics();
+      if (idx >= trace.length) {
+        document.getElementById('btn-step').disabled = true;
+        document.getElementById('btn-run').disabled = true;
+        const note = mode === 'react'
+          ? '✅ ReAct reached a grounded answer using 2 tool calls and 3 reasoning steps — each observation guided the next thought.'
+          : '⚠️ One-shot made a single retrieval and answered with no chance to reason or correct itself — the answer is wrong.';
+        document.getElementById('mode-note').innerHTML = note;
+      }
+    }
+
+    function run() {
+      if (running) return;
+      running = true;
+      document.getElementById('btn-step').disabled = true;
+      document.getElementById('btn-run').disabled = true;
+      document.getElementById('opt-react').disabled = true;
+      document.getElementById('opt-oneshot').disabled = true;
+      const timer = setInterval(() => {
+        if (idx >= trace.length) {
+          clearInterval(timer);
+          running = false;
+          document.getElementById('opt-react').disabled = false;
+          document.getElementById('opt-oneshot').disabled = false;
+          return;
+        }
+        step();
+      }, 900);
+    }
+
+    function reset() {
+      idx = 0; toolCount = 0; running = false;
+      clearNodes();
+      updateMetrics();
+      document.getElementById('btn-step').disabled = false;
+      document.getElementById('btn-run').disabled = false;
+      document.getElementById('opt-react').disabled = false;
+      document.getElementById('opt-oneshot').disabled = false;
+      document.getElementById('trace-log').innerHTML =
+        '<div class="empty-trace">Press <strong>Step</strong> or <strong>Run</strong> to begin the agent loop…</div>';
+      document.getElementById('mode-note').innerHTML = mode === 'react'
+        ? 'ReAct mode: the agent reasons, acts, and observes in a loop until it can answer.'
+        : 'One-shot mode: a single retrieve-then-answer pass with no reasoning loop.';
+    }
+
+    reset();
+
+    showTutorial({ id: 'c11v4', icon: '🤖', title: 'ReAct Agent Loop', subtitle: 'Interleaving reasoning and acting to answer multi-step questions.',
+      steps: [
+        '<strong>ReAct</strong> = <strong>Rea</strong>soning + <strong>Act</strong>ing, interleaved in a loop',
+        '<strong>Thought</strong>: the agent reasons about what to do next',
+        '<strong>Action</strong>: it calls a tool (search / lookup / API)',
+        '<strong>Observation</strong>: it reads the tool result, then loops back to a new Thought',
+        'Use <strong>Step</strong> to advance one node, or <strong>Run</strong> to auto-play. Compare with <strong>One-Shot</strong> mode!'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'What does the "ReAct" pattern interleave?',
+        options: [
+          'Retrieval and re-ranking',
+          'Reasoning (Thought) and Acting (tool calls), guided by Observations',
+          'Recall and precision',
+          'Training and inference'
+        ],
+        correct: 1,
+        explanation: 'ReAct interleaves chain-of-thought Reasoning with Actions (tool/API calls); each Observation from a tool grounds the next reasoning step.'
+      },
+      {
+        question: 'In the ReAct loop, what is an "Observation"?',
+        options: [
+          'The user\'s original question',
+          'The model\'s internal reasoning step',
+          'The result returned by the tool/action the agent just invoked',
+          'The final answer shown to the user'
+        ],
+        correct: 2,
+        explanation: 'An Observation is the feedback the agent reads after taking an Action — e.g., the text a search tool returns — which it then reasons over.'
+      },
+      {
+        question: 'Why can iterative ReAct succeed where a one-shot retrieve-then-answer pass fails on a multi-step question?',
+        options: [
+          'It uses a larger model',
+          'It can take intermediate actions and revise its plan based on each observation',
+          'It skips retrieval entirely',
+          'It always answers faster'
+        ],
+        correct: 1,
+        explanation: 'Multi-step questions need intermediate facts. ReAct can search, observe, then search again — grounding each step. One-shot commits to a single retrieval with no chance to correct a wrong start.'
+      },
+      {
+        question: 'What is the main benefit of letting the agent call external tools during reasoning (agentic search)?',
+        options: [
+          'It removes the need for any language model',
+          'It grounds answers in fresh external evidence, reducing hallucination',
+          'It guarantees the shortest possible answer',
+          'It eliminates the need to evaluate the system'
+        ],
+        correct: 1,
+        explanation: 'Tool use lets the agent fetch up-to-date, external evidence mid-reasoning, so its conclusions are grounded in real observations instead of only the model\'s parametric memory.'
+      }
+    ]);
+  </script>
+</body>
+</html>

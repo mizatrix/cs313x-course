@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 · Practice Quiz — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .topic-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.6rem; margin-top: 0.5rem;
+    }
+    .topic-pill {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.7rem 0.85rem; background: var(--bg-card);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+      font-size: 0.82rem; color: var(--text-secondary); transition: var(--transition);
+    }
+    .topic-pill .t-icon { font-size: 1.1rem; }
+    .topic-pill strong { color: var(--text-primary); font-weight: 700; }
+    .progress-wrap { margin-top: 1.25rem; }
+    .progress-bar-track {
+      height: 12px; background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: 999px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent-violet), var(--accent-teal));
+      border-radius: 999px; transition: width 0.4s ease;
+    }
+    .progress-meta {
+      display: flex; justify-content: space-between; margin-top: 0.5rem;
+      font-size: 0.8rem; color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 9</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 06 · Beginner</div>
+      <h1>Practice Quiz</h1>
+      <p>Check your understanding of <strong>Chapter 9: Neural IR &amp; RAG</strong> — embeddings &amp; cosine similarity, sparse vs. dense retrieval, bi- vs. cross-encoders, ANN / vector search, and Retrieval-Augmented Generation.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Answer all 9 questions and aim for a perfect score. Read every explanation — they pack the key takeaway for each topic. Watch the progress bar fill as you go!</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">What This Quiz Covers</div>
+        <div class="topic-grid">
+          <div class="topic-pill"><span class="t-icon">🧭</span><div><strong>Embeddings</strong><br>&amp; cosine</div></div>
+          <div class="topic-pill"><span class="t-icon">🔀</span><div><strong>Sparse vs.</strong><br>dense</div></div>
+          <div class="topic-pill"><span class="t-icon">⚖️</span><div><strong>Bi- vs.</strong><br>cross-encoder</div></div>
+          <div class="topic-pill"><span class="t-icon">⚡</span><div><strong>ANN /</strong><br>vector search</div></div>
+          <div class="topic-pill"><span class="t-icon">📚</span><div><strong>RAG</strong><br>pipeline</div></div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="viz-section-title">Your Progress</div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="prog-fill"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="prog-answered">0 of 9 answered</span>
+            <span id="prog-score">Score: 0</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <div class="viz-section-title">Quick Reference</div>
+          <div class="formula-box">cos(q, d) = (q · d) / (‖q‖ · ‖d‖)</div>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; margin-top: 0.75rem;">
+            <strong style="color: var(--accent-violet);">Bi-encoder</strong> encodes query and document <em>separately</em> → embeddings can be pre-computed and indexed for fast retrieval.<br>
+            <strong style="color: var(--accent-teal);">Cross-encoder</strong> processes the query–document <em>pair jointly</em> → far more accurate but too slow to score the whole corpus, so it is used to <strong>re-rank</strong> a shortlist.
+          </p>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Test Your Knowledge</div>
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    showTutorial({ id: 'c9v6', icon: '📝', title: 'Chapter 9 Practice Quiz', subtitle: 'Nine questions across the whole Neural IR & RAG chapter.',
+      steps: [
+        'Pick one answer per question — it locks in once you click',
+        'Read the <strong>explanation</strong> that appears to reinforce the concept',
+        'The <strong>progress bar</strong> on the left fills as you answer',
+        'Reach the last question to <strong>See Results</strong>, then retry for a perfect score!'
+      ]
+    });
+
+    const quizData = [
+      {
+        question: 'Two unit-length embeddings point in nearly the same direction. What is their cosine similarity?',
+        options: ['Close to −1', 'Close to 0', 'Close to +1', 'Exactly equal to their Euclidean distance'],
+        correct: 2,
+        explanation: 'Cosine similarity measures the angle between vectors. Nearly parallel vectors have an angle near 0°, so cos(θ) ≈ +1 — meaning they are semantically very similar.'
+      },
+      {
+        question: 'Why is cosine similarity preferred over raw dot product when comparing text embeddings?',
+        options: ['It is faster to compute', 'It normalizes for vector magnitude, focusing on direction (meaning)', 'It always returns an integer', 'It only works on sparse vectors'],
+        correct: 1,
+        explanation: 'Cosine divides the dot product by both magnitudes, so longer documents (larger norms) are not unfairly favored. It compares orientation — the semantic direction — rather than length.'
+      },
+      {
+        question: 'Which statement best describes a SPARSE representation like TF-IDF or BM25?',
+        options: ['A short dense vector where every dimension is non-zero', 'A high-dimensional vector with one dimension per vocabulary term, mostly zeros', 'A learned 768-dim embedding from a transformer', 'An index built with HNSW graphs'],
+        correct: 1,
+        explanation: 'Sparse (lexical) vectors have a dimension for each vocabulary term; a single document touches only a few terms, so almost all entries are zero. They match on exact words, not meaning.'
+      },
+      {
+        question: 'A key advantage of DENSE retrieval over sparse (lexical) retrieval is that it can:',
+        options: ['Guarantee exact keyword matches', 'Match semantically related text even with no shared words (e.g. "car" ↔ "automobile")', 'Avoid using any neural network', 'Run without an embedding model'],
+        correct: 1,
+        explanation: 'Dense embeddings place semantically similar text near each other in vector space, so "car" and "automobile" can match even with zero lexical overlap — solving the vocabulary mismatch problem.'
+      },
+      {
+        question: 'In a BI-ENCODER, how are the query and document processed?',
+        options: ['Concatenated and fed jointly through one transformer', 'Encoded independently into separate vectors, then compared by similarity', 'Compared only with exact string matching', 'Encoded only at query time, never offline'],
+        correct: 1,
+        explanation: 'A bi-encoder (dual-encoder) encodes query and document SEPARATELY. Because documents are encoded independently, their vectors can be computed offline and indexed for fast nearest-neighbor search.'
+      },
+      {
+        question: 'Why are CROSS-ENCODERS typically used only to re-rank a small candidate set rather than to search the whole corpus?',
+        options: ['They are less accurate than bi-encoders', 'They cannot pre-compute document vectors, so each query–document pair must be run through the model — too slow at scale', 'They only work with sparse vectors', 'They require no GPU'],
+        correct: 1,
+        explanation: 'A cross-encoder jointly encodes each query–document PAIR, so nothing can be pre-indexed. Scoring millions of docs per query is infeasible, so it re-ranks the top-k candidates from a faster retriever.'
+      },
+      {
+        question: 'What is the purpose of Approximate Nearest Neighbor (ANN) search (e.g. HNSW, IVF)?',
+        options: ['To return the mathematically exact nearest neighbors every time', 'To trade a small amount of accuracy for a massive speedup when searching millions of vectors', 'To convert dense vectors into sparse ones', 'To train the embedding model'],
+        correct: 1,
+        explanation: 'Exact nearest-neighbor search over millions of high-dim vectors is too slow. ANN indexes like HNSW or IVF accept slightly imperfect (approximate) results in exchange for sub-linear, much faster queries.'
+      },
+      {
+        question: 'In a Retrieval-Augmented Generation (RAG) system, what does the RETRIEVAL step do?',
+        options: ['Fine-tunes the language model on new data', 'Fetches relevant passages from a knowledge base to add as context for the generator', 'Generates the final answer directly', 'Deletes irrelevant documents from the corpus'],
+        correct: 1,
+        explanation: 'RAG first retrieves relevant passages (often via dense vector search) and injects them into the LLM prompt as grounding context. The generator then answers using that retrieved evidence.'
+      },
+      {
+        question: 'Which problem is RAG specifically designed to reduce in large language models?',
+        options: ['Slow training speed', 'Hallucination and stale knowledge, by grounding answers in retrieved, up-to-date sources', 'Tokenization errors', 'GPU memory usage during inference'],
+        correct: 1,
+        explanation: 'By grounding generation in freshly retrieved documents, RAG reduces hallucinations and lets the model cite current, verifiable information without retraining the model itself.'
+      }
+    ];
+
+    const quiz = new QuizEngine('quiz-container', quizData);
+
+    // ── Live progress bar synced to the quiz state ──
+    const total = quizData.length;
+    const fillEl = document.getElementById('prog-fill');
+    const answeredEl = document.getElementById('prog-answered');
+    const scoreEl = document.getElementById('prog-score');
+
+    function updateProgress() {
+      const answeredCount = quiz.answered.filter(a => a !== null).length;
+      fillEl.style.width = (answeredCount / total * 100) + '%';
+      answeredEl.textContent = `${answeredCount} of ${total} answered`;
+      scoreEl.textContent = `Score: ${quiz.score}`;
+    }
+
+    // Wrap the engine's answer + reset so the sidebar stays in sync.
+    const _answer = quiz.answer.bind(quiz);
+    quiz.answer = function (idx) { _answer(idx); updateProgress(); };
+    const _reset = quiz.reset.bind(quiz);
+    quiz.reset = function () { _reset(); updateProgress(); };
+
+    updateProgress();
+  </script>
+</body>
+</html>

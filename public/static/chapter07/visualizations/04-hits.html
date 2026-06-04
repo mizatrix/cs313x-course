@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · HITS: Hubs & Authorities — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .graph-wrap { display: flex; justify-content: center; }
+    #graph-svg { width: 100%; max-width: 460px; height: auto; }
+    .edge { stroke: var(--text-muted); stroke-width: 2; opacity: 0.55; }
+    .node-circle {
+      stroke-width: 2.5; cursor: pointer;
+      transition: r 0.25s ease, fill 0.25s ease;
+    }
+    .node-label { font-size: 14px; font-weight: 800; fill: #fff; pointer-events: none; }
+    .node-circle.top-hub { stroke: var(--accent-teal); }
+    .node-circle.top-auth { stroke: var(--accent-pink); }
+
+    .bar-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .bar-row .bar-name { font-weight: 800; min-width: 24px; color: var(--text-primary); }
+    .bar-track {
+      flex: 1; height: 18px; background: var(--bg-card);
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      position: relative; overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: var(--radius-sm); transition: width 0.4s ease; }
+    .bar-fill.hub { background: linear-gradient(90deg, rgba(0,206,201,0.5), var(--accent-teal)); }
+    .bar-fill.auth { background: linear-gradient(90deg, rgba(253,121,168,0.5), var(--accent-pink)); }
+    .bar-val { min-width: 52px; text-align: right; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); }
+    .bar-row.is-top .bar-name { color: var(--accent-violet); }
+
+    .col-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.hub { background: var(--accent-teal); }
+    .dot.auth { background: var(--accent-pink); }
+    .legend { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.75rem; }
+    .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 7</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Intermediate</div>
+      <h1>HITS: Hubs &amp; Authorities</h1>
+      <p>Authorities are pages many good hubs point to; hubs are pages that point to many good authorities. Iterate to watch the two scores mutually reinforce and converge.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">🔁</div>
+      <div class="challenge-text"><strong>Try This:</strong> Click <strong>Iterate</strong> repeatedly and watch the bars settle. Click any node in the graph to flip an outgoing edge — then re-run and see which page becomes the top authority.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Directed Web Graph</div>
+        <p style="font-size:0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          Arrows are hyperlinks (q → p means q links to p). Click a node to toggle the edge to its clockwise neighbor.
+        </p>
+        <div class="graph-wrap">
+          <svg id="graph-svg" viewBox="0 0 380 320">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-muted)"></path>
+              </marker>
+            </defs>
+            <g id="edges"></g>
+            <g id="nodes"></g>
+          </svg>
+        </div>
+        <div class="legend">
+          <span><span class="dot hub"></span> teal ring = top hub</span>
+          <span><span class="dot auth"></span> pink ring = top authority</span>
+        </div>
+        <div class="control-row" style="margin-top: 1rem;">
+          <button class="btn btn-teal" onclick="iterate()">Iterate ▶</button>
+          <button class="btn" onclick="iterate(5)">×5</button>
+          <button class="btn btn-primary" onclick="randomize()">Randomize</button>
+          <button class="btn" onclick="reset()">Reset</button>
+        </div>
+        <div class="metric-grid" style="margin-top: 1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-iter">0</div>
+            <div class="metric-label">Iterations</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-delta">—</div>
+            <div class="metric-label">Δ (max change)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Scores per Node (normalized)</div>
+
+        <div class="col-head"><span class="dot auth"></span><strong style="color:var(--accent-pink)">Authority</strong>&nbsp;= Σ hub(q) over q → p</div>
+        <div id="auth-bars"></div>
+
+        <div class="col-head" style="margin-top:1.25rem;"><span class="dot hub"></span><strong style="color:var(--accent-teal)">Hub</strong>&nbsp;= Σ authority(q) over p → q</div>
+        <div id="hub-bars"></div>
+
+        <div class="formula-box" style="margin-top: 1.25rem;">
+          a(p) ← Σ<sub>q→p</sub> h(q)&nbsp;&nbsp;·&nbsp;&nbsp;h(p) ← Σ<sub>p→q</sub> a(q)<br>then normalize so Σa² = Σh² = 1
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.25rem;">Iteration Log</div>
+        <div id="log" class="step-log"></div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">Mutual Reinforcement</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            A page gains <strong style="color:var(--accent-pink)">authority</strong> by being linked from strong
+            <strong style="color:var(--accent-teal)">hubs</strong>, and gains hub strength by linking to strong authorities.
+            Each round feeds the other, so the scores reinforce until they converge to the dominant eigenvectors of
+            A<sup>T</sup>A and AA<sup>T</sup>.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Node layout (5 nodes around a pentagon) ───────────
+    const NAMES = ['A', 'B', 'C', 'D', 'E'];
+    const N = NAMES.length;
+    const POS = [];
+    (function () {
+      const cx = 190, cy = 160, r = 120;
+      for (let i = 0; i < N; i++) {
+        const ang = -Math.PI / 2 + i * 2 * Math.PI / N;
+        POS.push({ x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) });
+      }
+    })();
+
+    // adj[i][j] = 1 means i → j (i links to j)
+    let adj;
+    let hub, auth, iterCount, lastDelta;
+
+    const DEFAULT_EDGES = [
+      [0, 1], [0, 2], [0, 3],   // A is a strong hub
+      [1, 2], [3, 2],           // C gets many in-links → authority
+      [4, 2], [4, 0],
+      [3, 4]
+    ];
+
+    function blankAdj() {
+      return Array.from({ length: N }, () => new Array(N).fill(0));
+    }
+
+    function reset() {
+      adj = blankAdj();
+      DEFAULT_EDGES.forEach(([i, j]) => { adj[i][j] = 1; });
+      resetScores();
+      renderAll();
+    }
+
+    function randomize() {
+      adj = blankAdj();
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          if (i !== j && Math.random() < 0.4) adj[i][j] = 1;
+        }
+      }
+      resetScores();
+      renderAll();
+    }
+
+    // Click a node → toggle the edge to its clockwise neighbor
+    function toggleNode(i) {
+      const j = (i + 1) % N;
+      adj[i][j] = adj[i][j] ? 0 : 1;
+      resetScores();
+      renderAll();
+    }
+
+    function resetScores() {
+      hub = new Array(N).fill(1);
+      auth = new Array(N).fill(1);
+      normalize(hub); normalize(auth);
+      iterCount = 0; lastDelta = null;
+      document.getElementById('log').innerHTML =
+        '<div class="step-entry" style="opacity:0.6;">Scores initialized to 1, then normalized. Press Iterate.</div>';
+    }
+
+    function normalize(v) {
+      const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
+      for (let i = 0; i < N; i++) v[i] /= norm;
+    }
+
+    // ── One HITS iteration ────────────────────────────────
+    function iterate(times = 1) {
+      for (let t = 0; t < times; t++) {
+        const prevAuth = auth.slice();
+        const prevHub = hub.slice();
+
+        // Authority update: a(p) = Σ_{q→p} h(q)
+        const newAuth = new Array(N).fill(0);
+        for (let p = 0; p < N; p++)
+          for (let q = 0; q < N; q++)
+            if (adj[q][p]) newAuth[p] += hub[q];
+
+        // Hub update: h(p) = Σ_{p→q} a(q)  (uses freshly computed authorities)
+        const newHub = new Array(N).fill(0);
+        for (let p = 0; p < N; p++)
+          for (let q = 0; q < N; q++)
+            if (adj[p][q]) newHub[p] += newAuth[q];
+
+        normalize(newAuth);
+        normalize(newHub);
+
+        let d = 0;
+        for (let i = 0; i < N; i++) {
+          d = Math.max(d, Math.abs(newAuth[i] - prevAuth[i]), Math.abs(newHub[i] - prevHub[i]));
+        }
+        auth = newAuth; hub = newHub;
+        iterCount++; lastDelta = d;
+        logStep();
+      }
+      renderAll();
+    }
+
+    function logStep() {
+      const topA = argmax(auth), topH = argmax(hub);
+      const logEl = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = 'step-entry';
+      entry.innerHTML =
+        `Iter <span class="step-highlight">${iterCount}</span>: ` +
+        `top authority = <span class="step-value">${NAMES[topA]}</span> (${auth[topA].toFixed(3)}), ` +
+        `top hub = <span class="step-value">${NAMES[topH]}</span> (${hub[topH].toFixed(3)}), ` +
+        `Δ = <span class="step-value">${lastDelta.toFixed(4)}</span>`;
+      logEl.prepend(entry);
+      while (logEl.children.length > 7) logEl.removeChild(logEl.lastChild);
+    }
+
+    function argmax(arr) {
+      let bi = 0;
+      for (let i = 1; i < arr.length; i++) if (arr[i] > arr[bi]) bi = i;
+      return bi;
+    }
+
+    // ── Rendering ─────────────────────────────────────────
+    function renderAll() {
+      drawGraph();
+      drawBars();
+      document.getElementById('m-iter').textContent = iterCount;
+      document.getElementById('m-delta').textContent = lastDelta === null ? '—' : lastDelta.toFixed(4);
+    }
+
+    function drawGraph() {
+      const topA = argmax(auth), topH = argmax(hub);
+      const eg = document.getElementById('edges');
+      const ng = document.getElementById('nodes');
+      eg.innerHTML = ''; ng.innerHTML = '';
+
+      // edges
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          if (!adj[i][j]) continue;
+          const a = POS[i], b = POS[j];
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const R = 22;
+          const x1 = a.x + ux * R, y1 = a.y + uy * R;
+          const x2 = b.x - ux * (R + 6), y2 = b.y - uy * (R + 6);
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+          line.setAttribute('class', 'edge');
+          line.setAttribute('marker-end', 'url(#arrow)');
+          eg.appendChild(line);
+        }
+      }
+
+      // nodes — radius scaled by authority, ring color marks top hub/auth
+      for (let i = 0; i < N; i++) {
+        const p = POS[i];
+        const radius = 18 + auth[i] * 16;
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
+        c.setAttribute('r', radius);
+        let cls = 'node-circle';
+        if (i === topA) cls += ' top-auth';
+        else if (i === topH) cls += ' top-hub';
+        c.setAttribute('class', cls);
+        const mix = Math.round(auth[i] * 100);
+        c.setAttribute('fill', `rgba(108,92,231,${0.45 + auth[i] * 0.45})`);
+        if (i !== topA && i !== topH) c.setAttribute('stroke', 'var(--border-glass)');
+        c.style.cursor = 'pointer';
+        c.addEventListener('click', () => toggleNode(i));
+        ng.appendChild(c);
+
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', p.x); t.setAttribute('y', p.y + 5);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('class', 'node-label');
+        t.textContent = NAMES[i];
+        ng.appendChild(t);
+      }
+    }
+
+    function drawBars() {
+      const topA = argmax(auth), topH = argmax(hub);
+      const maxA = Math.max(...auth, 1e-9);
+      const maxH = Math.max(...hub, 1e-9);
+
+      let aHtml = '', hHtml = '';
+      for (let i = 0; i < N; i++) {
+        aHtml += `<div class="bar-row ${i === topA ? 'is-top' : ''}">
+          <div class="bar-name">${NAMES[i]}</div>
+          <div class="bar-track"><div class="bar-fill auth" style="width:${(auth[i] / maxA * 100).toFixed(1)}%"></div></div>
+          <div class="bar-val">${auth[i].toFixed(3)}</div>
+        </div>`;
+        hHtml += `<div class="bar-row ${i === topH ? 'is-top' : ''}">
+          <div class="bar-name">${NAMES[i]}</div>
+          <div class="bar-track"><div class="bar-fill hub" style="width:${(hub[i] / maxH * 100).toFixed(1)}%"></div></div>
+          <div class="bar-val">${hub[i].toFixed(3)}</div>
+        </div>`;
+      }
+      document.getElementById('auth-bars').innerHTML = aHtml;
+      document.getElementById('hub-bars').innerHTML = hHtml;
+    }
+
+    // ── Init ──────────────────────────────────────────────
+    reset();
+
+    showTutorial({
+      id: 'c7v4', icon: '🔁', title: 'HITS: Hubs & Authorities',
+      subtitle: 'Two scores that reinforce each other on a link graph.',
+      steps: [
+        '<strong>Authority</strong> a(p) = sum of hub scores of pages that link <em>to</em> p',
+        '<strong>Hub</strong> h(p) = sum of authority scores of pages that p links <em>to</em>',
+        'Each <strong>Iterate</strong> recomputes both, then normalizes so the vectors stay bounded',
+        'Watch the bars converge — the <strong>pink ring</strong> marks the top authority, the <strong>teal ring</strong> the top hub'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'In HITS, what makes a page a strong AUTHORITY?',
+        options: [
+          'It links out to many other pages',
+          'It is pointed to by many strong hubs',
+          'It has the most total text content',
+          'It is visited most often by users'
+        ],
+        correct: 1,
+        explanation: 'Authority a(p) = Σ of hub scores of pages linking to p. A page is authoritative when many good hubs point at it.'
+      },
+      {
+        question: 'What does "mutual reinforcement" mean in HITS?',
+        options: [
+          'Hubs and authorities are computed independently',
+          'Good hubs point to good authorities, and good authorities are pointed to by good hubs — each updates the other',
+          'Every page gets the same hub and authority score',
+          'Scores decrease on every iteration'
+        ],
+        correct: 1,
+        explanation: 'The two scores feed each other: a(p) uses hub scores and h(p) uses authority scores, so improving one improves the other until they converge.'
+      },
+      {
+        question: 'Why are the hub and authority vectors normalized after each iteration?',
+        options: [
+          'To make all scores equal',
+          'To keep the values from growing without bound and let them converge to a stable direction',
+          'To remove pages with no links',
+          'Normalization is optional and changes the ranking'
+        ],
+        correct: 1,
+        explanation: 'Without normalization the sums grow each round. Normalizing (e.g. so Σ of squares = 1) bounds the values so the vectors converge to the dominant eigenvectors.'
+      },
+      {
+        question: 'How does HITS differ from PageRank regarding the query?',
+        options: [
+          'HITS is query-independent like PageRank',
+          'HITS runs on a query-specific subgraph (the root/base set), so scores are query-dependent',
+          'HITS ignores the link structure entirely',
+          'HITS only works on undirected graphs'
+        ],
+        correct: 1,
+        explanation: 'Classic HITS builds a base set of pages relevant to the query and computes hubs/authorities on that subgraph, making it query-dependent — unlike PageRank, which scores the whole web once.'
+      }
+    ]);
+  </script>
+</body>
+</html>

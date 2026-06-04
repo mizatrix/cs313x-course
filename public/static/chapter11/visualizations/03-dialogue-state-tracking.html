@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Dialogue State Tracking — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .chat-window {
+      display: flex; flex-direction: column; gap: 0.6rem;
+      max-height: 360px; overflow-y: auto; padding: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .bubble {
+      max-width: 82%; padding: 0.7rem 0.95rem; border-radius: var(--radius-md);
+      font-size: 0.88rem; line-height: 1.5; animation: bubbleIn 0.35s ease;
+    }
+    @keyframes bubbleIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .bubble.user {
+      align-self: flex-end;
+      background: rgba(108,92,231,0.18); border: 1px solid rgba(108,92,231,0.35);
+      color: var(--text-primary); border-bottom-right-radius: 4px;
+    }
+    .bubble.bot {
+      align-self: flex-start;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      color: var(--text-secondary); border-bottom-left-radius: 4px;
+    }
+    .bubble .turn-tag {
+      display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; margin-bottom: 0.2rem; opacity: 0.7;
+    }
+    .bubble.user .turn-tag { color: var(--accent-violet); }
+    .bubble.bot .turn-tag { color: var(--accent-teal); }
+
+    .state-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .state-table th {
+      text-align: left; padding: 0.5rem 0.7rem; font-size: 0.7rem;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+      border-bottom: 1px solid var(--border-glass);
+    }
+    .state-table td {
+      padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border-glass);
+      vertical-align: middle;
+    }
+    .state-table tr:last-child td { border-bottom: none; }
+    .slot-name { font-weight: 700; color: var(--accent-violet); }
+    .slot-value { font-weight: 600; color: var(--text-primary); }
+    .slot-empty { color: var(--text-muted); font-style: italic; font-weight: 400; }
+    .state-table tr.changed td {
+      background: rgba(0,206,201,0.12);
+      box-shadow: inset 3px 0 0 var(--accent-teal);
+    }
+    .chg-badge {
+      display: inline-block; font-size: 0.62rem; font-weight: 800; padding: 0.12rem 0.45rem;
+      border-radius: 999px; margin-left: 0.45rem; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .chg-fill { background: rgba(0,184,148,0.2); color: var(--success); }
+    .chg-overwrite { background: rgba(253,121,168,0.2); color: var(--accent-pink); }
+    .old-val { color: var(--text-muted); text-decoration: line-through; margin-right: 0.35rem; font-weight: 400; }
+    .nlu-chip {
+      display: inline-block; font-family: monospace; font-size: 0.78rem;
+      background: rgba(108,92,231,0.12); border: 1px solid rgba(108,92,231,0.25);
+      color: var(--accent-violet); border-radius: var(--radius-sm);
+      padding: 0.15rem 0.5rem; margin: 0.15rem 0.2rem 0.15rem 0;
+    }
+    .nlu-chip .corefer { color: var(--accent-pink); font-weight: 700; }
+    .turn-counter { font-size: 0.78rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 11</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>Dialogue State Tracking</h1>
+      <p>Step through a multi-turn conversation. Each user turn updates a running <strong>belief state</strong> — slots accumulate, get overwritten on correction, and resolve coreferences.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Advance to the turn where the user says <em>"actually, make it Dubai"</em> and watch the <strong>destination</strong> slot overwrite its previous value instead of adding a new one. Notice the pink <span style="color:var(--accent-pink);font-weight:700;">OVERWRITE</span> badge.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Conversation</div>
+        <div id="chat" class="chat-window"></div>
+        <div class="control-row">
+          <button class="btn btn-primary" id="next-btn" onclick="nextTurn()">Next turn →</button>
+          <button class="btn" onclick="resetDialogue()">Reset</button>
+          <span class="turn-counter" id="turn-counter">Turn 0 / 6</span>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">NLU output for this turn</div>
+        <div id="nlu-output" style="min-height: 2rem; color: var(--text-muted); font-size: 0.85rem;">Press <strong>Next turn</strong> to begin the dialogue.</div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Belief State (slot–value store)</div>
+        <table class="state-table">
+          <thead>
+            <tr><th>Slot</th><th>Value</th></tr>
+          </thead>
+          <tbody id="state-body"></tbody>
+        </table>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">What changed this turn</div>
+        <div id="change-log" class="step-log"></div>
+
+        <div class="formula-box" style="margin-top: 1.25rem;">stateₜ = update( stateₜ₋₁ , NLU(uₜ) )</div>
+
+        <div style="margin-top: 1.25rem;">
+          <div class="viz-section-title">DST ≠ NLU</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+            <strong style="color:var(--accent-violet);">NLU</strong> reads <em>one</em> utterance into intents &amp; slots. <strong style="color:var(--accent-teal);">DST</strong> maintains the
+            <em>cumulative</em> belief state across <em>all</em> turns — accumulating new slots, overwriting on correction, and resolving references like "that" or "the same day".
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Scripted multi-turn flight-booking dialogue ──────────────
+    // Each turn: user utterance, NLU chips (display), bot reply, and
+    // the slot-value updates DST applies to the running belief state.
+    const SLOTS = ['intent', 'origin', 'destination', 'date', 'passengers', 'seat_class'];
+    const SLOT_LABELS = {
+      intent: 'intent', origin: 'origin', destination: 'destination',
+      date: 'date', passengers: 'passengers', seat_class: 'seat_class'
+    };
+
+    const TURNS = [
+      {
+        user: 'I want to book a flight from Boston.',
+        nlu: ['intent=<b>book_flight</b>', 'origin=<b>Boston</b>'],
+        bot: 'Sure! Where would you like to fly to?',
+        updates: { intent: 'book_flight', origin: 'Boston' }
+      },
+      {
+        user: 'To Cairo, next Friday.',
+        nlu: ['destination=<b>Cairo</b>', 'date=<b>next Friday</b>'],
+        bot: 'Got it — Boston to Cairo, departing next Friday. How many passengers?',
+        updates: { destination: 'Cairo', date: 'next Friday (Jun 12)' }
+      },
+      {
+        user: 'Two people.',
+        nlu: ['passengers=<b>2</b>'],
+        bot: 'Two passengers, noted. Any seat-class preference?',
+        updates: { passengers: '2' }
+      },
+      {
+        user: 'Actually, make it Dubai instead.',
+        nlu: ['destination=<b>Dubai</b>', '<span class="corefer">[correction]</span>'],
+        bot: 'No problem — I\'ve changed the destination to Dubai.',
+        updates: { destination: 'Dubai' }   // overwrites Cairo
+      },
+      {
+        user: 'Business class, and keep the same day.',
+        nlu: ['seat_class=<b>business</b>', 'date=<span class="corefer">"the same day"→ next Friday</span>'],
+        bot: 'Business class it is, still departing next Friday.',
+        updates: { seat_class: 'business' }  // coref: "same day" resolves to existing date — no change to date value
+      },
+      {
+        user: 'Make it three passengers.',
+        nlu: ['passengers=<b>3</b>', '<span class="corefer">[correction]</span>'],
+        bot: 'Updated to three passengers. Confirming: Boston → Dubai, next Friday, 3 in business class.',
+        updates: { passengers: '3' }         // overwrites 2
+      }
+    ];
+
+    let turnIdx = 0;            // how many turns have been applied
+    let state = {};            // current belief state
+    let lastChanges = [];      // change records for the most recent turn
+
+    function blankState() {
+      const s = {};
+      SLOTS.forEach(k => s[k] = null);
+      return s;
+    }
+
+    function resetDialogue() {
+      turnIdx = 0;
+      state = blankState();
+      lastChanges = [];
+      document.getElementById('chat').innerHTML = '';
+      document.getElementById('nlu-output').innerHTML = 'Press <strong>Next turn</strong> to begin the dialogue.';
+      renderState();
+      renderChanges();
+      updateControls();
+    }
+
+    function nextTurn() {
+      if (turnIdx >= TURNS.length) return;
+      const t = TURNS[turnIdx];
+
+      // Compute changes by diffing against the previous belief state.
+      lastChanges = [];
+      Object.entries(t.updates).forEach(([slot, val]) => {
+        const prev = state[slot];
+        if (prev === null) {
+          lastChanges.push({ slot, type: 'fill', oldVal: null, newVal: val });
+        } else if (prev !== val) {
+          lastChanges.push({ slot, type: 'overwrite', oldVal: prev, newVal: val });
+        } else {
+          lastChanges.push({ slot, type: 'same', oldVal: prev, newVal: val });
+        }
+        state[slot] = val; // DST applies the update onto the running state
+      });
+
+      // Render chat bubbles for this turn.
+      const chat = document.getElementById('chat');
+      chat.insertAdjacentHTML('beforeend',
+        `<div class="bubble user"><span class="turn-tag">User · turn ${turnIdx + 1}</span>${t.user}</div>`);
+      chat.insertAdjacentHTML('beforeend',
+        `<div class="bubble bot"><span class="turn-tag">System</span>${t.bot}</div>`);
+      chat.scrollTop = chat.scrollHeight;
+
+      // Render NLU output for this turn.
+      const coref = /correction|same day|→/.test(JSON.stringify(t.nlu));
+      document.getElementById('nlu-output').innerHTML =
+        t.nlu.map(c => `<span class="nlu-chip">${c}</span>`).join('') +
+        (coref ? '<div style="margin-top:0.5rem;font-size:0.78rem;color:var(--accent-pink);">NLU emits per-turn signals; DST decides how they affect the cumulative state.</div>' : '');
+
+      turnIdx++;
+      renderState();
+      renderChanges();
+      updateControls();
+    }
+
+    function renderState() {
+      const changedSlots = new Set(lastChanges.filter(c => c.type !== 'same').map(c => c.slot));
+      const body = document.getElementById('state-body');
+      body.innerHTML = SLOTS.map(slot => {
+        const val = state[slot];
+        const changed = changedSlots.has(slot);
+        const chg = lastChanges.find(c => c.slot === slot);
+        let valCell;
+        if (val === null) {
+          valCell = '<span class="slot-empty">— empty —</span>';
+        } else {
+          let prefix = '';
+          let badge = '';
+          if (chg && chg.type === 'overwrite') {
+            prefix = `<span class="old-val">${chg.oldVal}</span>`;
+            badge = '<span class="chg-badge chg-overwrite">overwrite</span>';
+          } else if (chg && chg.type === 'fill') {
+            badge = '<span class="chg-badge chg-fill">filled</span>';
+          }
+          valCell = `${prefix}<span class="slot-value">${val}</span>${badge}`;
+        }
+        return `<tr class="${changed ? 'changed' : ''}">
+          <td class="slot-name">${SLOT_LABELS[slot]}</td>
+          <td>${valCell}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderChanges() {
+      const log = document.getElementById('change-log');
+      if (turnIdx === 0) {
+        log.innerHTML = '<div class="step-entry" style="opacity:0.6;">No turns processed yet — belief state is empty.</div>';
+        return;
+      }
+      if (lastChanges.length === 0) {
+        log.innerHTML = '<div class="step-entry" style="opacity:0.6;">This turn added no new slot information.</div>';
+        return;
+      }
+      log.innerHTML = lastChanges.map(c => {
+        if (c.type === 'fill') {
+          return `<div class="step-entry"><span class="step-highlight">${c.slot}</span> filled → <span class="step-value">${c.newVal}</span></div>`;
+        }
+        if (c.type === 'overwrite') {
+          return `<div class="step-entry"><span class="step-highlight">${c.slot}</span> corrected: <span style="text-decoration:line-through;color:var(--text-muted);">${c.oldVal}</span> → <span class="step-value">${c.newVal}</span> <em style="color:var(--accent-pink);">(overwrite, not append)</em></div>`;
+        }
+        return `<div class="step-entry" style="opacity:0.7;"><span class="step-highlight">${c.slot}</span> reaffirmed (coreference resolved to existing value <span class="step-value">${c.newVal}</span>)</div>`;
+      }).join('');
+    }
+
+    function updateControls() {
+      const btn = document.getElementById('next-btn');
+      document.getElementById('turn-counter').textContent = `Turn ${turnIdx} / ${TURNS.length}`;
+      if (turnIdx >= TURNS.length) {
+        btn.disabled = true;
+        btn.textContent = 'Dialogue complete ✓';
+        btn.classList.remove('btn-primary');
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Next turn →';
+        btn.classList.add('btn-primary');
+      }
+    }
+
+    resetDialogue();
+
+    showTutorial({ id: 'c11v3', icon: '🗣️', title: 'Dialogue State Tracking',
+      subtitle: 'How a chatbot remembers everything said so far.',
+      steps: [
+        'Click <strong>Next turn</strong> to play each user utterance and system reply',
+        'The <strong>belief state</strong> table is the cumulative slot–value memory across all turns',
+        'A <span style="color:var(--success);font-weight:700;">filled</span> slot is brand new; an <span style="color:var(--accent-pink);font-weight:700;">overwrite</span> replaces a corrected value',
+        'Coreference (e.g. "the same day") resolves to a value already in the state — DST is more than per-turn NLU'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'What does the belief state represent in dialogue state tracking?',
+        options: [
+          'The intents detected in only the current utterance',
+          'A cumulative slot–value summary of everything understood so far',
+          'The raw text of the last user message',
+          'A ranked list of candidate system replies'
+        ],
+        correct: 1,
+        explanation: 'The belief state is the running, cumulative slot–value store summarizing all turns so far — not just the latest utterance.'
+      },
+      {
+        question: 'The user first says "to Cairo", then later "actually, make it Dubai". What happens to the destination slot?',
+        options: [
+          'Both Cairo and Dubai are stored as a list',
+          'Cairo is overwritten by Dubai',
+          'A new slot destination_2 is created',
+          'The destination is cleared and left empty'
+        ],
+        correct: 1,
+        explanation: 'A correction overwrites the existing slot value. Destination becomes Dubai — DST replaces, it does not append.'
+      },
+      {
+        question: 'When the user says "keep the same day", DST must figure out which date that refers to. This is an example of:',
+        options: [
+          'Intent classification',
+          'Coreference resolution against the belief state',
+          'Speech recognition',
+          'Response generation'
+        ],
+        correct: 1,
+        explanation: 'Phrases like "the same day" or "that one" are references that DST resolves against values already in the state — coreference resolution.'
+      },
+      {
+        question: 'Why is DST more than just NLU run on each turn?',
+        options: [
+          'NLU is faster, so DST just caches it',
+          'NLU reads a single utterance; DST accumulates, corrects, and resolves references across the whole dialogue',
+          'They are identical — DST is another name for NLU',
+          'DST only handles speech, while NLU handles text'
+        ],
+        correct: 1,
+        explanation: 'NLU interprets one utterance in isolation. DST maintains state over the whole conversation: accumulating slots, overwriting on correction, and resolving coreference. Same NLU per turn, very different job.'
+      }
+    ]);
+  </script>
+</body>
+</html>

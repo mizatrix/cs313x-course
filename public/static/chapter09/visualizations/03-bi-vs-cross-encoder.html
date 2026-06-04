@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · Bi-Encoder vs Cross-Encoder — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .arch-diagram {
+      position: relative;
+      padding: 1rem 0.5rem;
+      min-height: 280px;
+    }
+    .node {
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: center;
+      border: 1.5px solid var(--border-glass);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: var(--transition);
+    }
+    .node.input { background: rgba(108,92,231,0.12); border-color: rgba(108,92,231,0.4); color: var(--accent-violet); }
+    .node.input.doc { background: rgba(0,206,201,0.12); border-color: rgba(0,206,201,0.4); color: var(--accent-teal); }
+    .node.encoder { background: rgba(253,121,168,0.10); border-color: rgba(253,121,168,0.4); color: var(--accent-pink); font-weight: 700; }
+    .node.vector { font-family: monospace; font-size: 0.75rem; letter-spacing: 0.5px; }
+    .node.score {
+      background: rgba(0,184,148,0.15); border-color: var(--success); color: var(--success);
+      font-weight: 800; font-size: 1.05rem; box-shadow: 0 0 14px rgba(0,184,148,0.25);
+    }
+    .arch-row { display: flex; gap: 0.75rem; align-items: stretch; justify-content: center; margin-bottom: 0.65rem; }
+    .arch-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+    .arrow-down { color: var(--text-muted); font-size: 1.1rem; line-height: 1; text-align: center; }
+    .flow-note {
+      font-size: 0.72rem; color: var(--text-muted); text-align: center;
+      margin: 0.2rem 0 0.4rem; font-style: italic;
+    }
+    .meter-row { margin: 0.5rem 0; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+    .meter-label strong { color: var(--text-primary); }
+    .meter-track { height: 14px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border-glass); overflow: hidden; }
+    .meter-fill { height: 100%; border-radius: 8px; transition: width 0.5s ease; }
+    .meter-fill.speed { background: linear-gradient(90deg, var(--accent-teal), var(--success)); }
+    .meter-fill.acc { background: linear-gradient(90deg, var(--accent-violet), var(--accent-pink)); }
+    .pipeline {
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: center;
+      margin-top: 0.5rem;
+    }
+    .pipe-stage {
+      flex: 1; min-width: 130px; padding: 0.7rem; border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-glass); background: var(--bg-card); text-align: center;
+      transition: var(--transition);
+    }
+    .pipe-stage.bi { border-color: rgba(0,206,201,0.5); }
+    .pipe-stage.cross { border-color: rgba(108,92,231,0.5); }
+    .pipe-stage .ps-title { font-weight: 800; font-size: 0.9rem; }
+    .pipe-stage.bi .ps-title { color: var(--accent-teal); }
+    .pipe-stage.cross .ps-title { color: var(--accent-violet); }
+    .pipe-stage .ps-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .pipe-arrow { font-size: 1.4rem; color: var(--text-muted); }
+    .corpus-num { font-weight: 800; color: var(--accent-pink); }
+    .badge-pill {
+      display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 700; margin-top: 0.5rem;
+    }
+    .badge-pill.fast { background: rgba(0,184,148,0.15); color: var(--success); }
+    .badge-pill.slow { background: rgba(214,48,49,0.12); color: var(--error); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 9</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 03 · Intermediate</div>
+      <h1>Bi-Encoder vs Cross-Encoder</h1>
+      <p>Two ways to score a (query, document) pair with neural models — one trades accuracy for speed, the other speed for accuracy.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">⚖️</div>
+      <div class="challenge-text"><strong>Try This:</strong> Toggle between architectures and watch the data flow change. Then crank the corpus-size slider — see why the cross-encoder is unusable for first-stage retrieval, and why the two-stage pipeline pairs them together.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: architecture diagram -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Architecture</div>
+
+        <div class="toggle-group" style="margin-bottom: 1rem;">
+          <button class="toggle-opt active" id="t-bi" onclick="setArch('bi')">Bi-Encoder</button>
+          <button class="toggle-opt" id="t-cross" onclick="setArch('cross')">Cross-Encoder</button>
+        </div>
+
+        <div class="arch-diagram" id="arch-diagram"></div>
+
+        <div class="formula-box" id="arch-formula">—</div>
+        <p class="flow-note" id="arch-caption"></p>
+      </div>
+
+      <!-- RIGHT: trade-off, metrics, pipeline -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Speed / Accuracy Trade-off</div>
+
+        <div class="meter-row">
+          <div class="meter-label"><span>⚡ Speed (online latency)</span><strong id="lbl-speed">—</strong></div>
+          <div class="meter-track"><div class="meter-fill speed" id="bar-speed" style="width:0%"></div></div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label"><span>🎯 Ranking accuracy</span><strong id="lbl-acc">—</strong></div>
+          <div class="meter-track"><div class="meter-fill acc" id="bar-acc" style="width:0%"></div></div>
+        </div>
+
+        <div class="control-group" style="margin-top: 1.25rem;">
+          <div class="control-row" style="justify-content: space-between;">
+            <label style="font-size:0.85rem;">Corpus size: <strong class="corpus-num" id="lbl-corpus">10,000</strong> docs</label>
+          </div>
+          <input type="range" id="corpus" min="2" max="8" step="1" value="4" style="width:100%;" oninput="render()">
+        </div>
+
+        <div class="metric-grid" style="margin-top: 1rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-encpass">—</div>
+            <div class="metric-label">Encoder passes / query</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-precomp">—</div>
+            <div class="metric-label">Doc vectors precomputed?</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Why it matters</div>
+        <div class="step-log" id="why-log"></div>
+
+        <div class="viz-section-title" style="margin-top: 1.5rem;">Two-Stage Retrieval Pipeline</div>
+        <p style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:0.5rem; line-height:1.6;">
+          Real systems use <strong>both</strong>: a fast bi-encoder shortlists, then a slow cross-encoder re-ranks.
+        </p>
+        <div class="pipeline">
+          <div class="pipe-stage bi">
+            <div class="ps-title">① Bi-Encoder</div>
+            <div class="ps-sub">First-stage retrieval<br>scan all <span class="corpus-num" id="pipe-corpus">10,000</span> via vectors</div>
+            <span class="badge-pill fast">fast · precomputed</span>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-stage cross">
+            <div class="ps-title">② Cross-Encoder</div>
+            <div class="ps-sub">Re-rank only<br>top-<strong id="pipe-k">100</strong> candidates</div>
+            <span class="badge-pill slow">accurate · joint</span>
+          </div>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    let arch = 'bi';
+    const TOPK = 100; // candidates re-ranked by the cross-encoder
+
+    function setArch(a) {
+      arch = a;
+      document.getElementById('t-bi').classList.toggle('active', a === 'bi');
+      document.getElementById('t-cross').classList.toggle('active', a === 'cross');
+      render();
+    }
+
+    function biDiagram() {
+      return `
+        <div class="arch-row">
+          <div class="arch-col">
+            <div class="node input">"machine learning" (query)</div>
+            <div class="arrow-down">↓</div>
+            <div class="node encoder">Query Encoder</div>
+            <div class="arrow-down">↓</div>
+            <div class="node vector">q = [0.21, -0.4, 0.7, …]</div>
+          </div>
+          <div class="arch-col">
+            <div class="node input doc">doc text (document)</div>
+            <div class="arrow-down">↓</div>
+            <div class="node encoder">Doc Encoder</div>
+            <div class="arrow-down">↓</div>
+            <div class="node vector">d = [0.18, -0.3, 0.6, …]</div>
+          </div>
+        </div>
+        <div class="arrow-down">↓ &nbsp; cosine(q, d) &nbsp; ↓</div>
+        <div class="arch-row" style="margin-top:0.5rem;">
+          <div class="node score">similarity = 0.83</div>
+        </div>`;
+    }
+
+    function crossDiagram() {
+      return `
+        <div class="arch-row">
+          <div class="node input" style="flex:1;">[CLS] "machine learning" [SEP] doc text [SEP]</div>
+        </div>
+        <div class="flow-note">query and document concatenated into ONE input</div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-row">
+          <div class="node encoder" style="flex:1; padding:1rem;">Cross-Encoder (full self-attention<br>across every query↔doc token pair)</div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="arch-row" style="margin-top:0.3rem;">
+          <div class="node score">relevance = 0.91</div>
+        </div>`;
+    }
+
+    function render() {
+      const exp = +document.getElementById('corpus').value;
+      const N = Math.pow(10, exp);
+      const corpusStr = N.toLocaleString();
+      document.getElementById('lbl-corpus').textContent = corpusStr;
+      document.getElementById('pipe-corpus').textContent = corpusStr;
+      document.getElementById('pipe-k').textContent = TOPK;
+
+      const diagram = document.getElementById('arch-diagram');
+      const formula = document.getElementById('arch-formula');
+      const caption = document.getElementById('arch-caption');
+      const why = document.getElementById('why-log');
+
+      if (arch === 'bi') {
+        diagram.innerHTML = biDiagram();
+        formula.innerHTML = 'score(q, d) = cos(E(q), E(d)) = (q · d) / (‖q‖ ‖d‖)';
+        caption.textContent = 'Query and doc are encoded SEPARATELY, so every document vector can be computed offline and stored in an index (e.g. for ANN search).';
+
+        // Speed: high (vectors precomputed, only 1 query encode + cheap dot products)
+        document.getElementById('bar-speed').style.width = '90%';
+        document.getElementById('lbl-speed').textContent = 'Fast';
+        document.getElementById('bar-acc').style.width = '62%';
+        document.getElementById('lbl-acc').textContent = 'Good';
+
+        document.getElementById('m-encpass').textContent = '1';
+        document.getElementById('m-precomp').textContent = 'Yes ✓';
+
+        why.innerHTML =
+          `<div class="step-entry">Doc vectors are <span class="step-highlight">precomputed once</span> and indexed — independent of the query.</div>` +
+          `<div class="step-entry">At query time: encode the query <span class="step-value">1×</span>, then just dot-products / ANN lookup.</div>` +
+          `<div class="step-entry">Scanning all <span class="step-highlight">${corpusStr}</span> docs is cheap → great for <span class="step-value">first-stage retrieval</span>.</div>` +
+          `<div class="step-entry" style="opacity:0.85;">Cost: query &amp; doc never interact, so subtle relevance signals are missed.</div>`;
+      } else {
+        diagram.innerHTML = crossDiagram();
+        formula.innerHTML = 'score(q, d) = CrossEncoder([q ; d])  — no reusable vectors';
+        caption.textContent = 'Query and doc go JOINTLY through one model with full attention. Most accurate, but a fresh forward pass is needed for EVERY pair — nothing can be precomputed.';
+
+        document.getElementById('bar-speed').style.width = '15%';
+        document.getElementById('lbl-speed').textContent = 'Slow';
+        document.getElementById('bar-acc').style.width = '95%';
+        document.getElementById('lbl-acc').textContent = 'Best';
+
+        document.getElementById('m-encpass').textContent = N.toLocaleString();
+        document.getElementById('m-precomp').textContent = 'No ✗';
+
+        why.innerHTML =
+          `<div class="step-entry">Input is <span class="step-highlight">[q ; d]</span> joined — the model attends across query and doc tokens together.</div>` +
+          `<div class="step-entry">Nothing can be cached: scoring the whole corpus needs <span class="step-value">${corpusStr}</span> forward passes <em>per query</em>.</div>` +
+          `<div class="step-entry" style="color:var(--error);">Infeasible as a first-stage retriever over <span class="step-highlight">${corpusStr}</span> docs.</div>` +
+          `<div class="step-entry">Used as a <span class="step-value">re-ranker</span> on a small shortlist (top-${TOPK}) where its accuracy pays off.</div>`;
+      }
+    }
+
+    setArch('bi');
+
+    showTutorial({ id: 'c9v3', icon: '⚖️', title: 'Bi-Encoder vs Cross-Encoder',
+      subtitle: 'Two neural scoring architectures and the speed/accuracy trade-off.',
+      steps: [
+        '<strong>Bi-encoder:</strong> query &amp; doc are encoded <strong>separately</strong> → two vectors → cosine. Doc vectors are precomputable.',
+        '<strong>Cross-encoder:</strong> [query ; doc] go <strong>jointly</strong> through one model with full attention → a relevance score. Accurate but slow.',
+        'Toggle the architecture and watch the <strong>speed/accuracy meters</strong> swap.',
+        'Move the <strong>corpus-size slider</strong> to see why a cross-encoder cannot score the whole corpus — and how the two-stage pipeline solves it.'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'What is the defining difference between a bi-encoder and a cross-encoder?',
+        options: [
+          'Bi-encoders use cosine similarity; cross-encoders use Euclidean distance',
+          'A bi-encoder encodes query and document separately; a cross-encoder encodes them jointly with full attention',
+          'Cross-encoders are always smaller models',
+          'Bi-encoders cannot be used for text'
+        ],
+        correct: 1,
+        explanation: 'A bi-encoder runs query and document through separate encoders to get two independent vectors. A cross-encoder feeds the concatenated [query; doc] through one model so every query token can attend to every doc token.'
+      },
+      {
+        question: 'Why can a bi-encoder serve as a fast first-stage retriever over millions of documents?',
+        options: [
+          'It skips the encoder entirely',
+          'Document vectors are independent of the query, so they are precomputed and indexed offline; only a dot product / ANN lookup happens at query time',
+          'It only looks at the first 10 documents',
+          'Cosine similarity is more accurate than joint attention'
+        ],
+        correct: 1,
+        explanation: 'Because the doc encoder never sees the query, every document embedding is computed once, offline, and stored in an ANN index. At query time you encode the query once and do cheap similarity lookups — scaling to huge corpora.'
+      },
+      {
+        question: 'Why is a cross-encoder typically used for re-ranking rather than first-stage retrieval?',
+        options: [
+          'It produces vectors that are too long to store',
+          'It needs a fresh forward pass for every (query, doc) pair, so scoring the whole corpus per query is far too slow',
+          'It can only score one document ever',
+          'It ignores the query'
+        ],
+        correct: 1,
+        explanation: 'A cross-encoder cannot precompute anything — each pair requires its own joint forward pass. Running that across an entire corpus per query is infeasible, so it is reserved for re-ranking a small shortlist.'
+      },
+      {
+        question: 'In the standard two-stage pipeline, how are the two architectures combined?',
+        options: [
+          'Cross-encoder retrieves, then bi-encoder re-ranks',
+          'Bi-encoder retrieves a top-k shortlist, then the cross-encoder re-ranks those few candidates',
+          'Both run on every document independently and the scores are averaged',
+          'Only the cross-encoder is used end-to-end'
+        ],
+        correct: 1,
+        explanation: 'The fast bi-encoder retrieves a top-k candidate set from the full corpus, then the accurate cross-encoder re-ranks only those k candidates — getting both speed and accuracy.'
+      }
+    ]);
+  </script>
+</body>
+</html>

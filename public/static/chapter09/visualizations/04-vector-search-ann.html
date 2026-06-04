@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · Vector Search & ANN — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .ann-canvas-wrap { position: relative; }
+    #ann-canvas {
+      width: 100%; height: auto; display: block;
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      cursor: crosshair;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.8rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-secondary); }
+    .legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .legend-dot.exact { background: var(--success); }
+    .legend-dot.cand { background: rgba(0,206,201,0.45); border: 1px solid var(--accent-teal); }
+    .legend-dot.miss { background: var(--error); }
+    .legend-dot.skip { background: rgba(160,160,180,0.35); }
+    .legend-dot.query { background: var(--accent-violet); }
+    .legend-dot.cell { background: transparent; border: 2px dashed var(--accent-teal); border-radius: 3px; }
+    .slider-val { color: var(--accent-teal); font-weight: 800; }
+    .recall-good { color: var(--success); }
+    .recall-bad { color: var(--error); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 9</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 04 · Advanced</div>
+      <h1>Vector Search &amp; ANN</h1>
+      <p>Compare <strong>exact</strong> nearest-neighbour search (scan every vector) against <strong>approximate</strong> search (probe only the query's grid cell + its neighbours). See the speedup — and the recall you sacrifice.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Click anywhere on the map to move the query. Find a spot near a cell boundary where ANN <em>skips</em> a true nearest neighbour — recall drops below 100% even though it scanned far fewer points.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Vector Space (2-D embeddings)</div>
+        <div class="ann-canvas-wrap">
+          <canvas id="ann-canvas" width="560" height="420"></canvas>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot query"></span> Query vector</div>
+          <div class="legend-item"><span class="legend-dot exact"></span> True top-k</div>
+          <div class="legend-item"><span class="legend-dot cand"></span> ANN candidate (scanned)</div>
+          <div class="legend-item"><span class="legend-dot miss"></span> Missed by ANN</div>
+          <div class="legend-item"><span class="legend-dot skip"></span> Skipped (not scanned)</div>
+          <div class="legend-item"><span class="legend-dot cell"></span> Probed cells</div>
+        </div>
+
+        <div class="control-group" style="margin-top:1.2rem;">
+          <label>Neighbours to retrieve — k = <span class="slider-val" id="k-val">3</span></label>
+          <input type="range" id="k-slider" min="1" max="8" value="3" step="1" style="width:100%;">
+        </div>
+        <div class="control-group">
+          <label>Index resolution — grid = <span class="slider-val" id="g-val">4</span> × <span class="slider-val" id="g-val2">4</span> cells</label>
+          <input type="range" id="g-slider" min="2" max="7" value="4" step="1" style="width:100%;">
+        </div>
+        <div class="control-row" style="margin-top:1rem;">
+          <button class="btn btn-primary btn-sm" onclick="moveRandomQuery()">Move Query 🎯</button>
+          <button class="btn btn-teal btn-sm" onclick="randomizeDocs()">Randomize Docs</button>
+          <button class="btn btn-sm" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Search Results</div>
+        <div class="metric-grid" style="margin-bottom:1.2rem;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-scanned">0</div>
+            <div class="metric-label">Vectors scanned (ANN)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-speedup">1.0×</div>
+            <div class="metric-label">Speedup vs exact</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-recall">100%</div>
+            <div class="metric-label">Recall@k</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-total">0</div>
+            <div class="metric-label">Total vectors</div>
+          </div>
+        </div>
+
+        <div class="formula-box">Recall@k = |ANN ∩ Exact| / k &nbsp;·&nbsp; Speedup = N / candidates</div>
+
+        <div class="viz-section-title" style="margin-top:1.5rem;">What happened</div>
+        <div id="step-log" class="step-log"></div>
+
+        <div style="margin-top:1.5rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.7;">
+            Exact search is <strong style="color:var(--accent-violet);">O(N)</strong> — it compares the query to every vector. ANN partitions the space into <strong style="color:var(--accent-teal);">buckets / clusters</strong> and only scans the bucket the query falls into (plus neighbours). That makes it fast and scalable, but a true neighbour sitting just across a cell boundary can be <strong style="color:var(--error);">missed</strong> — the classic <strong>recall vs. latency</strong> trade-off.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    const canvas = document.getElementById('ann-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const PAD = 24;
+
+    let docs = [];          // {x, y}
+    let query = { x: W * 0.5, y: H * 0.5 };
+    let k = 3;
+    let grid = 4;
+    const NUM_DOCS = 40;
+
+    function cssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function rand(min, max) { return min + Math.random() * (max - min); }
+
+    function makeDocs() {
+      docs = [];
+      // a few loose clusters so structure is visible
+      const centers = [
+        { x: W * 0.28, y: H * 0.30 },
+        { x: W * 0.72, y: H * 0.32 },
+        { x: W * 0.40, y: H * 0.72 },
+        { x: W * 0.78, y: H * 0.70 },
+      ];
+      for (let i = 0; i < NUM_DOCS; i++) {
+        const c = centers[i % centers.length];
+        let x = c.x + rand(-70, 70);
+        let y = c.y + rand(-60, 60);
+        x = Math.max(PAD, Math.min(W - PAD, x));
+        y = Math.max(PAD, Math.min(H - PAD, y));
+        docs.push({ x, y });
+      }
+    }
+
+    function cellOf(p) {
+      const cw = (W - 2 * PAD) / grid;
+      const ch = (H - 2 * PAD) / grid;
+      let cx = Math.floor((p.x - PAD) / cw);
+      let cy = Math.floor((p.y - PAD) / ch);
+      cx = Math.max(0, Math.min(grid - 1, cx));
+      cy = Math.max(0, Math.min(grid - 1, cy));
+      return { cx, cy };
+    }
+
+    function dist(a, b) {
+      const dx = a.x - b.x, dy = a.y - b.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // ── Core search ──────────────────────────────────────
+    function compute() {
+      // exact: sort all by distance, take top-k
+      const ranked = docs.map((d, i) => ({ i, dd: dist(query, d) }))
+                         .sort((a, b) => a.dd - b.dd);
+      const exactSet = new Set(ranked.slice(0, k).map(r => r.i));
+
+      // ANN: probe query cell + 8 neighbours
+      const qc = cellOf(query);
+      const probedCells = new Set();
+      const candidateIdx = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const ncx = qc.cx + dx, ncy = qc.cy + dy;
+          if (ncx < 0 || ncx >= grid || ncy < 0 || ncy >= grid) continue;
+          probedCells.add(ncx + ',' + ncy);
+        }
+      }
+      docs.forEach((d, i) => {
+        const c = cellOf(d);
+        if (probedCells.has(c.cx + ',' + c.cy)) candidateIdx.push(i);
+      });
+      const annRanked = candidateIdx.map(i => ({ i, dd: dist(query, docs[i]) }))
+                                    .sort((a, b) => a.dd - b.dd);
+      const annSet = new Set(annRanked.slice(0, k).map(r => r.i));
+
+      // recall
+      let hits = 0;
+      exactSet.forEach(i => { if (annSet.has(i)) hits++; });
+      const recall = exactSet.size ? hits / exactSet.size : 1;
+      const missed = [...exactSet].filter(i => !annSet.has(i));
+
+      return {
+        exactSet, annSet, candidateIdx: new Set(candidateIdx),
+        probedCells, scanned: candidateIdx.length, recall, missed, qc,
+        annRanked
+      };
+    }
+
+    // ── Drawing ──────────────────────────────────────────
+    function draw(res) {
+      ctx.clearRect(0, 0, W, H);
+      const teal = cssVar('--accent-teal') || '#00cec9';
+      const violet = cssVar('--accent-violet') || '#6c5ce7';
+      const success = cssVar('--success') || '#00b894';
+      const error = cssVar('--error') || '#d63031';
+
+      const cw = (W - 2 * PAD) / grid;
+      const ch = (H - 2 * PAD) / grid;
+
+      // grid lines
+      ctx.strokeStyle = 'rgba(120,120,150,0.20)';
+      ctx.lineWidth = 1;
+      for (let g = 0; g <= grid; g++) {
+        ctx.beginPath();
+        ctx.moveTo(PAD + g * cw, PAD); ctx.lineTo(PAD + g * cw, H - PAD); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(PAD, PAD + g * ch); ctx.lineTo(W - PAD, PAD + g * ch); ctx.stroke();
+      }
+
+      // highlight probed cells
+      ctx.fillStyle = 'rgba(0,206,201,0.08)';
+      ctx.strokeStyle = teal;
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 1.6;
+      res.probedCells.forEach(key => {
+        const [cx, cy] = key.split(',').map(Number);
+        const x = PAD + cx * cw, y = PAD + cy * ch;
+        ctx.fillRect(x, y, cw, ch);
+        ctx.strokeRect(x + 1, y + 1, cw - 2, ch - 2);
+      });
+      ctx.setLineDash([]);
+
+      // connecting lines from query to true top-k
+      ctx.strokeStyle = 'rgba(0,184,148,0.45)';
+      ctx.lineWidth = 1.4;
+      res.exactSet.forEach(i => {
+        ctx.beginPath();
+        ctx.moveTo(query.x, query.y);
+        ctx.lineTo(docs[i].x, docs[i].y);
+        ctx.stroke();
+      });
+
+      // doc points
+      docs.forEach((d, i) => {
+        const isExact = res.exactSet.has(i);
+        const isAnn = res.annSet.has(i);
+        const isCand = res.candidateIdx.has(i);
+        const isMissed = isExact && !isAnn;
+
+        let r = 6, fill, stroke = null;
+        if (isMissed) { fill = error; r = 8; }
+        else if (isExact) { fill = success; r = 8; }
+        else if (isCand) { fill = 'rgba(0,206,201,0.45)'; stroke = teal; }
+        else { fill = 'rgba(160,160,180,0.35)'; }
+
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+        if (isExact || isMissed) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      });
+
+      // query point
+      ctx.beginPath();
+      ctx.arc(query.x, query.y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = violet;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      // small crosshair
+      ctx.strokeStyle = violet;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(query.x - 16, query.y); ctx.lineTo(query.x - 11, query.y);
+      ctx.moveTo(query.x + 11, query.y); ctx.lineTo(query.x + 16, query.y);
+      ctx.moveTo(query.x, query.y - 16); ctx.lineTo(query.x, query.y - 11);
+      ctx.moveTo(query.x, query.y + 11); ctx.lineTo(query.x, query.y + 16);
+      ctx.stroke();
+    }
+
+    // ── Report ───────────────────────────────────────────
+    function report(res) {
+      const total = docs.length;
+      const speedup = res.scanned ? total / res.scanned : total;
+      const recallPct = Math.round(res.recall * 100);
+
+      document.getElementById('m-scanned').textContent = res.scanned;
+      document.getElementById('m-total').textContent = total;
+      document.getElementById('m-speedup').textContent = speedup.toFixed(1) + '×';
+      const rc = document.getElementById('m-recall');
+      rc.textContent = recallPct + '%';
+      rc.className = 'metric-value ' + (recallPct === 100 ? 'recall-good' : 'recall-bad');
+
+      const lines = [];
+      lines.push(`<div class="step-entry">Query lands in cell <span class="step-highlight">(${res.qc.cx}, ${res.qc.cy})</span>; ANN probes that cell + its neighbours.</div>`);
+      lines.push(`<div class="step-entry">Exact search compares the query to all <span class="step-value">${total}</span> vectors — O(N).</div>`);
+      lines.push(`<div class="step-entry">ANN scans only <span class="step-value">${res.scanned}</span> candidates → <span class="step-highlight">${speedup.toFixed(1)}× fewer</span> distance computations.</div>`);
+      if (recallPct === 100) {
+        lines.push(`<div class="step-entry">Recall@${k} = <span class="step-value">100%</span> — ANN found every true neighbour. Free speedup here! ✅</div>`);
+      } else {
+        lines.push(`<div class="step-entry" style="color:var(--error);">Recall@${k} = ${recallPct}% — ANN <strong>missed ${res.missed.length}</strong> true neighbour(s) sitting outside the probed cells. ❌</div>`);
+        lines.push(`<div class="step-entry">Trade-off: lower latency, but some relevant vectors slipped through. Probe more cells (or a finer/coarser grid) to recover recall.</div>`);
+      }
+      document.getElementById('step-log').innerHTML = lines.join('');
+    }
+
+    function update() {
+      const res = compute();
+      draw(res);
+      report(res);
+    }
+
+    // ── Interaction ──────────────────────────────────────
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width, scaleY = H / rect.height;
+      let x = (e.clientX - rect.left) * scaleX;
+      let y = (e.clientY - rect.top) * scaleY;
+      query.x = Math.max(PAD, Math.min(W - PAD, x));
+      query.y = Math.max(PAD, Math.min(H - PAD, y));
+      update();
+    });
+
+    document.getElementById('k-slider').addEventListener('input', (e) => {
+      k = parseInt(e.target.value);
+      document.getElementById('k-val').textContent = k;
+      update();
+    });
+
+    document.getElementById('g-slider').addEventListener('input', (e) => {
+      grid = parseInt(e.target.value);
+      document.getElementById('g-val').textContent = grid;
+      document.getElementById('g-val2').textContent = grid;
+      update();
+    });
+
+    function moveRandomQuery() {
+      query.x = rand(PAD + 10, W - PAD - 10);
+      query.y = rand(PAD + 10, H - PAD - 10);
+      update();
+    }
+
+    function randomizeDocs() { makeDocs(); update(); }
+
+    function resetAll() {
+      k = 3; grid = 4;
+      document.getElementById('k-slider').value = 3;
+      document.getElementById('g-slider').value = 4;
+      document.getElementById('k-val').textContent = 3;
+      document.getElementById('g-val').textContent = 4;
+      document.getElementById('g-val2').textContent = 4;
+      query = { x: W * 0.5, y: H * 0.5 };
+      makeDocs();
+      update();
+    }
+
+    makeDocs();
+    update();
+
+    showTutorial({
+      id: 'c9v4', icon: '🧭', title: 'Vector Search & ANN',
+      subtitle: 'Exact vs. approximate nearest-neighbour search.',
+      steps: [
+        '<strong>Exact</strong> search compares the query to every vector and keeps the true top-k (green, linked).',
+        '<strong>ANN</strong> only scans vectors in the query\'s grid cell + its neighbours (teal candidates).',
+        'A true neighbour outside the probed cells turns <strong>red</strong> — a recall miss.',
+        '<strong>Click the map</strong> to move the query; use the sliders for k and index resolution.',
+        'Watch the <strong>speedup</strong> and <strong>recall</strong> metrics trade off against each other.'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'What does an exact nearest-neighbour search do to find the top-k vectors?',
+        options: [
+          'Computes the distance from the query to every vector in the collection',
+          'Looks only inside the query\'s bucket',
+          'Returns a random sample of vectors',
+          'Sorts vectors alphabetically by document ID'
+        ],
+        correct: 0,
+        explanation: 'Exact search is brute-force O(N): it measures the distance to all N vectors, then keeps the k closest — guaranteeing perfect recall but scaling poorly.'
+      },
+      {
+        question: 'What is the fundamental trade-off ANN makes versus exact search?',
+        options: [
+          'It uses more memory for the same accuracy',
+          'It trades some accuracy (recall) for much lower latency',
+          'It trades speed for guaranteed perfect results',
+          'It only works on text, not vectors'
+        ],
+        correct: 1,
+        explanation: 'ANN gives up the guarantee of finding the true neighbours (recall < 100% is possible) in exchange for scanning far fewer candidates — dramatically lower latency on huge collections.'
+      },
+      {
+        question: 'In this grid index, why might ANN MISS a true nearest neighbour?',
+        options: [
+          'The vector was deleted from the index',
+          'The query has too many dimensions',
+          'The true neighbour sits in a cell that was not probed (just across a boundary)',
+          'Exact search always misses neighbours too'
+        ],
+        correct: 2,
+        explanation: 'ANN only scans the query\'s cell and its neighbours. A close vector just outside those probed cells never gets compared, so it is skipped — lowering recall.'
+      },
+      {
+        question: 'You make the index buckets/cells coarser (fewer, larger cells). What is the likely effect?',
+        options: [
+          'Higher recall but more vectors scanned per query (slower)',
+          'Lower recall and faster queries always',
+          'No change to recall or speed',
+          'It makes the search exact'
+        ],
+        correct: 0,
+        explanation: 'Coarser buckets put more vectors in each probed cell, so ANN scans more candidates (slower) but is less likely to miss a neighbour at a boundary — recall rises. Finer buckets do the opposite. This is the recall vs. latency dial.'
+      }
+    ]);
+  </script>
+</body>
+</html>

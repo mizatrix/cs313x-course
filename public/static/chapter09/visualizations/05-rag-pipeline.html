@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 · RAG Pipeline — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .preset-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .preset-q {
+      padding: 0.45rem 0.8rem; font-size: 0.78rem; font-weight: 600;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); color: var(--text-secondary);
+      cursor: pointer; transition: var(--transition); font-family: var(--font-main);
+    }
+    .preset-q:hover { border-color: var(--accent-violet); color: var(--text-primary); transform: translateY(-1px); }
+    .preset-q.active { background: var(--accent-violet); color: #fff; border-color: var(--accent-violet); }
+    .q-input {
+      width: 100%; padding: 0.7rem 0.9rem; font-size: 0.9rem; font-family: var(--font-main);
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm); color: var(--text-primary); box-sizing: border-box;
+    }
+    .q-input:focus { outline: none; border-color: var(--accent-teal); }
+
+    /* Pipeline stages */
+    .pipeline { display: flex; align-items: stretch; gap: 0.4rem; margin: 1rem 0 0.5rem; }
+    .stage {
+      flex: 1; text-align: center; padding: 0.7rem 0.4rem;
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      background: var(--bg-card); transition: var(--transition); opacity: 0.45;
+    }
+    .stage.lit { opacity: 1; border-color: var(--accent-violet); box-shadow: 0 0 14px rgba(108,92,231,0.35); }
+    .stage.lit.gen { border-color: var(--accent-teal); box-shadow: 0 0 14px rgba(0,206,201,0.35); }
+    .stage .s-icon { font-size: 1.3rem; }
+    .stage .s-name { font-size: 0.68rem; font-weight: 700; margin-top: 0.25rem; color: var(--text-secondary); letter-spacing: 0.3px; }
+    .stage.lit .s-name { color: var(--text-primary); }
+    .arrow { display: flex; align-items: center; color: var(--text-muted); font-size: 1.1rem; }
+
+    /* Corpus passages */
+    .passage {
+      padding: 0.7rem 0.85rem; margin-bottom: 0.55rem;
+      border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+      background: var(--bg-card); transition: var(--transition); position: relative;
+    }
+    .passage.retrieved { border-color: var(--accent-teal); box-shadow: 0 0 0 1px var(--accent-teal) inset; }
+    .passage .p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+    .passage .p-id { font-size: 0.72rem; font-weight: 800; color: var(--accent-violet); }
+    .passage.retrieved .p-id { color: var(--accent-teal); }
+    .passage .p-score { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .passage.retrieved .p-score { color: var(--accent-teal); }
+    .passage .p-text { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
+    .passage .p-text mark { background: rgba(0,206,201,0.22); color: var(--text-primary); padding: 0 2px; border-radius: 3px; }
+    .rank-badge {
+      position: absolute; top: -8px; left: -8px; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent-teal); color: #fff; font-size: 0.7rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    /* Prompt + answer */
+    .prompt-box {
+      font-size: 0.78rem; line-height: 1.55; color: var(--text-secondary);
+      background: var(--bg-card); border: 1px dashed var(--border-glass);
+      border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; white-space: pre-wrap;
+      max-height: 190px; overflow-y: auto;
+    }
+    .prompt-box .ctx { color: var(--accent-teal); }
+    .prompt-box .sys { color: var(--accent-violet); font-weight: 600; }
+    .answer-box {
+      font-size: 0.88rem; line-height: 1.6; padding: 0.85rem 0.95rem;
+      border-radius: var(--radius-sm); border: 1px solid var(--border-glass); background: var(--bg-card);
+    }
+    .answer-box.grounded { border-left: 4px solid var(--success); }
+    .answer-box.hallucinated { border-left: 4px solid var(--error); }
+    .answer-box cite {
+      font-style: normal; font-weight: 800; font-size: 0.72rem; color: var(--accent-teal);
+      background: rgba(0,206,201,0.14); padding: 1px 5px; border-radius: 4px; margin: 0 1px;
+    }
+    .verdict { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; margin-top: 0.6rem; }
+    .verdict.ok { color: var(--success); }
+    .verdict.bad { color: var(--error); }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 9</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 05 · Intermediate</div>
+      <h1>RAG Pipeline</h1>
+      <p>Retrieval-Augmented Generation: <strong>retrieve</strong> relevant passages from a corpus, <strong>augment</strong> the prompt with them, then <strong>generate</strong> a grounded, cited answer.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Ask a question, watch the top-k passages get retrieved and fed into the prompt. Then flip to <strong>No-RAG</strong> mode and see the model answer from memory alone — sometimes inventing facts (hallucinating) with no citations.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: query + corpus -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">1 · Ask a Question</div>
+        <div class="preset-row" id="presets"></div>
+        <input class="q-input" id="q-input" placeholder="…or type your own question" autocomplete="off">
+
+        <div class="control-row" style="margin-top: 0.85rem; align-items: center;">
+          <div class="toggle-group" id="mode-toggle">
+            <button class="toggle-opt active" data-mode="rag">RAG (retrieve)</button>
+            <button class="toggle-opt" data-mode="norag">No-RAG (memory)</button>
+          </div>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; color:var(--text-secondary);">
+            top-k
+            <input type="range" id="k-slider" min="1" max="3" value="2" step="1" style="width:90px;">
+            <strong id="k-val" style="color:var(--accent-teal);">2</strong>
+          </label>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.4rem;">Knowledge Corpus</div>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin:-0.4rem 0 0.7rem;">Ranked by word-overlap similarity to your query. Top-k are retrieved.</p>
+        <div id="corpus"></div>
+      </div>
+
+      <!-- RIGHT: pipeline + prompt + answer -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">2 · Pipeline</div>
+        <div class="pipeline">
+          <div class="stage" id="st-query"><div class="s-icon">❓</div><div class="s-name">QUERY</div></div>
+          <div class="arrow">→</div>
+          <div class="stage" id="st-retrieve"><div class="s-icon">🔎</div><div class="s-name">RETRIEVE</div></div>
+          <div class="arrow">→</div>
+          <div class="stage" id="st-augment"><div class="s-icon">🧩</div><div class="s-name">AUGMENT</div></div>
+          <div class="arrow">→</div>
+          <div class="stage gen" id="st-generate"><div class="s-icon">✨</div><div class="s-name">GENERATE</div></div>
+        </div>
+
+        <div class="metric-grid" style="margin: 1rem 0;">
+          <div class="metric-box">
+            <div class="metric-value" id="m-retrieved">0</div>
+            <div class="metric-label">Passages Retrieved</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-value" id="m-cites">0</div>
+            <div class="metric-label">Citations in Answer</div>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top: 1.2rem;">3 · Augmented Prompt</div>
+        <div class="prompt-box" id="prompt-box">—</div>
+
+        <div class="viz-section-title" style="margin-top: 1.2rem;">4 · Generated Answer</div>
+        <div class="answer-box" id="answer-box">—</div>
+        <div id="verdict"></div>
+
+        <div style="margin-top: 1.4rem;">
+          <div class="viz-section-title">Why RAG?</div>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7;">
+            Grounding the answer in <strong style="color:var(--accent-teal);">retrieved evidence</strong> keeps the LLM honest: it can cite sources, stay current with <strong>fresh / private</strong> data the model never trained on, and is far less likely to <strong style="color:var(--error);">hallucinate</strong>.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Tiny knowledge corpus (private / fresh facts the LLM "never trained on") ──
+    const CORPUS = [
+      { id: 'D1', text: 'The CS313x final exam is scheduled for June 18, 2026, in Hall B, and covers chapters 1 through 12.' },
+      { id: 'D2', text: 'Retrieval-Augmented Generation (RAG) feeds retrieved passages into the prompt so the model answers from evidence instead of memory.' },
+      { id: 'D3', text: 'BM25 is a sparse lexical ranking function that scores documents by term frequency and inverse document frequency.' },
+      { id: 'D4', text: 'Dense retrieval encodes the query and documents into vectors and ranks them by cosine similarity in embedding space.' },
+      { id: 'D5', text: 'Grounding an answer in cited sources reduces hallucination, because every claim can be traced back to a retrieved passage.' },
+      { id: 'D6', text: 'The course office is in Building 4, room 210, and teaching-assistant hours run on Tuesdays from 2 to 4 pm.' },
+    ];
+
+    // Preset Q&A: answer templates reference the relevant doc ids.
+    const PRESETS = [
+      { q: 'When is the CS313x final exam?',
+        ragIds: ['D1'],
+        ragAns: 'The final exam is on <b>June 18, 2026</b> in <b>Hall B</b>, covering chapters 1–12 [CITE].',
+        noragAns: 'I believe the final is sometime in late spring — possibly the second week of June, though I am not certain of the exact date or room.' },
+      { q: 'What is Retrieval-Augmented Generation?',
+        ragIds: ['D2', 'D5'],
+        ragAns: 'RAG retrieves relevant passages and feeds them into the prompt so the model answers from evidence [CITE]; grounding answers in cited sources also reduces hallucination [CITE].',
+        noragAns: 'RAG is a technique that combines retrieval with generation. The details vary across papers, so the exact mechanism may differ.' },
+      { q: 'How does dense retrieval rank documents?',
+        ragIds: ['D4', 'D3'],
+        ragAns: 'Dense retrieval encodes query and documents into vectors and ranks by <b>cosine similarity</b> in embedding space [CITE], unlike sparse BM25 which scores by term frequency × IDF [CITE].',
+        noragAns: 'Dense retrieval uses neural embeddings and some distance metric to compare them — likely dot product or cosine, but I cannot point to a specific source.' },
+      { q: 'Where are the TA office hours held?',
+        ragIds: ['D6'],
+        ragAns: 'TA hours are in <b>Building 4, room 210</b>, on <b>Tuesdays 2–4 pm</b> [CITE].',
+        noragAns: 'Office hours are usually held in the department building, but I do not have access to this course’s specific schedule, so I am guessing.' },
+    ];
+
+    const STOP = new Set(['the','is','a','an','of','to','in','and','for','how','what','when','where','does','do','are','on','from','into','by','that','it','they','this','with','at','be','or','can']);
+    function tokens(s) { return s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w => w && !STOP.has(w)); }
+
+    function similarity(query, text) {
+      const q = tokens(query), t = new Set(tokens(text));
+      if (!q.length) return 0;
+      let overlap = 0;
+      const seen = new Set();
+      q.forEach(w => { if (t.has(w) && !seen.has(w)) { overlap++; seen.add(w); } });
+      return overlap / Math.sqrt(q.length * t.size || 1); // cosine-ish overlap
+    }
+
+    let mode = 'rag';
+    let k = 2;
+    let activePreset = null;
+    let currentQuery = PRESETS[0].q;
+
+    function renderPresets() {
+      document.getElementById('presets').innerHTML = PRESETS.map((p, i) =>
+        `<button class="preset-q ${activePreset === i ? 'active' : ''}" onclick="pickPreset(${i})">${p.q}</button>`
+      ).join('');
+    }
+
+    function pickPreset(i) {
+      activePreset = i;
+      currentQuery = PRESETS[i].q;
+      document.getElementById('q-input').value = '';
+      renderPresets();
+      run();
+    }
+
+    // Lexically rank the whole corpus against the query.
+    function rankCorpus(query) {
+      return CORPUS.map(d => ({ ...d, score: similarity(query, d.text) }))
+                   .sort((a, b) => b.score - a.score);
+    }
+
+    function highlight(text, query) {
+      const qset = new Set(tokens(query));
+      return text.replace(/\b([A-Za-z0-9]+)\b/g, (m) =>
+        qset.has(m.toLowerCase()) ? `<mark>${m}</mark>` : m);
+    }
+
+    function setStages(on) {
+      ['st-query','st-retrieve','st-augment','st-generate'].forEach(id =>
+        document.getElementById(id).classList.toggle('lit', false));
+      on.forEach(id => document.getElementById(id).classList.add('lit'));
+    }
+
+    function run() {
+      const ranked = rankCorpus(currentQuery);
+      const retrieved = mode === 'rag' ? ranked.slice(0, k).filter(d => d.score > 0) : [];
+      const retrievedIds = new Set(retrieved.map(d => d.id));
+
+      // Corpus list (always ranked so the user sees similarity ordering)
+      document.getElementById('corpus').innerHTML = ranked.map(d => {
+        const rank = retrieved.findIndex(r => r.id === d.id);
+        const isRet = retrievedIds.has(d.id);
+        return `<div class="passage ${isRet ? 'retrieved' : ''}">
+          ${isRet ? `<div class="rank-badge">${rank + 1}</div>` : ''}
+          <div class="p-head"><span class="p-id">${d.id}</span><span class="p-score">sim ${d.score.toFixed(2)}</span></div>
+          <div class="p-text">${highlight(d.text, currentQuery)}</div>
+        </div>`;
+      }).join('');
+
+      // Stages
+      if (mode === 'rag') setStages(['st-query','st-retrieve','st-augment','st-generate']);
+      else setStages(['st-query','st-generate']);
+
+      // Augmented prompt
+      const promptEl = document.getElementById('prompt-box');
+      if (mode === 'rag') {
+        const ctx = retrieved.length
+          ? retrieved.map((d, i) => `  [${i + 1}] (${d.id}) ${d.text}`).join('\n')
+          : '  (no relevant passage found)';
+        promptEl.innerHTML =
+          `<span class="sys">System:</span> Answer ONLY using the context below. Cite each fact as [n].\n\n` +
+          `<span class="sys">Context:</span>\n<span class="ctx">${ctx}</span>\n\n` +
+          `<span class="sys">Question:</span> ${currentQuery}`;
+      } else {
+        promptEl.innerHTML =
+          `<span class="sys">System:</span> Answer from your own parametric memory. No external context is provided.\n\n` +
+          `<span class="sys">Question:</span> ${currentQuery}`;
+      }
+
+      // Answer
+      const preset = activePreset !== null ? PRESETS[activePreset] : null;
+      const answerEl = document.getElementById('answer-box');
+      const verdictEl = document.getElementById('verdict');
+      let citeCount = 0;
+
+      if (mode === 'rag') {
+        let ans;
+        if (!retrieved.length) {
+          ans = 'I could not find any relevant passage in the corpus, so I will not guess.';
+          answerEl.className = 'answer-box grounded';
+          verdictEl.innerHTML = `<span class="verdict ok">✅ Grounded — refuses to hallucinate when no evidence exists.</span>`;
+        } else {
+          if (preset) {
+            // Map each [CITE] to the retrieved rank of the preset's relevant docs, in order.
+            let ci = 0;
+            ans = preset.ragAns.replace(/\[CITE\]/g, () => {
+              const docId = preset.ragIds[ci++] || retrieved[0].id;
+              const r = retrieved.findIndex(d => d.id === docId);
+              const n = r >= 0 ? r + 1 : 1;
+              return `<cite>[${n}]</cite>`;
+            });
+          } else {
+            // Custom query: synthesize a grounded answer that quotes the top passage.
+            const top = retrieved[0];
+            ans = `Based on the retrieved evidence: "${top.text}" <cite>[1]</cite>`;
+          }
+          citeCount = (ans.match(/<cite>/g) || []).length;
+          answerEl.className = 'answer-box grounded';
+          verdictEl.innerHTML = `<span class="verdict ok">✅ Grounded in ${retrieved.length} retrieved passage${retrieved.length > 1 ? 's' : ''} · ${citeCount} citation${citeCount !== 1 ? 's' : ''}.</span>`;
+        }
+        answerEl.innerHTML = ans;
+      } else {
+        const ans = preset ? preset.noragAns
+          : 'Without retrieval I can only answer from memory, and I have no grounded source for this — so this answer may be outdated or invented.';
+        answerEl.innerHTML = ans;
+        answerEl.className = 'answer-box hallucinated';
+        verdictEl.innerHTML = `<span class="verdict bad">⚠️ Ungrounded — no context, no citations. Risk of hallucination & stale facts.</span>`;
+      }
+
+      document.getElementById('m-retrieved').textContent = mode === 'rag' ? retrieved.length : 0;
+      document.getElementById('m-cites').textContent = citeCount;
+    }
+
+    // ── Wiring ──
+    document.getElementById('k-slider').addEventListener('input', (e) => {
+      k = +e.target.value;
+      document.getElementById('k-val').textContent = k;
+      run();
+    });
+
+    document.querySelectorAll('#mode-toggle .toggle-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        mode = btn.dataset.mode;
+        document.querySelectorAll('#mode-toggle .toggle-opt').forEach(b => b.classList.toggle('active', b === btn));
+        run();
+      });
+    });
+
+    document.getElementById('q-input').addEventListener('input', (e) => {
+      const v = e.target.value.trim();
+      if (v.length) {
+        activePreset = null;
+        currentQuery = v;
+        renderPresets();
+      } else if (activePreset === null) {
+        currentQuery = '';
+      }
+      run();
+    });
+
+    // ── Init ──
+    activePreset = 0;
+    renderPresets();
+    run();
+
+    showTutorial({ id: 'c9v5', icon: '🔎', title: 'RAG Pipeline', subtitle: 'Retrieve, augment, then generate a grounded answer.',
+      steps: [
+        'Pick a preset question or <strong>type your own</strong>',
+        'RAG <strong>retrieves the top-k passages</strong> by similarity and slots them into the prompt',
+        'The model <strong>generates a grounded answer that cites</strong> each retrieved passage [n]',
+        'Flip to <strong>No-RAG</strong> mode to see ungrounded, citation-free answers that may hallucinate'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      { question: 'What is the correct order of the core RAG pipeline?',
+        options: ['Generate, then retrieve to check', 'Retrieve relevant passages, then generate', 'Generate and retrieve in parallel, then merge', 'Retrieve, fine-tune, then generate'],
+        correct: 1,
+        explanation: 'RAG is "retrieve-then-generate": relevant passages are fetched first and injected into the prompt, so generation is conditioned on real evidence.' },
+      { question: 'Why does grounding generation in retrieved passages reduce hallucination?',
+        options: ['It makes the model larger', 'Every claim can be traced to a retrieved source instead of invented from memory', 'It disables the language model entirely', 'It increases the temperature setting'],
+        correct: 1,
+        explanation: 'When the answer must come from supplied context, the model has evidence to rely on and can cite it — rather than fabricating facts from its parametric memory.' },
+      { question: 'What is the main purpose of the [1], [2] citations in a RAG answer?',
+        options: ['To make the answer longer', 'To let the reader trace each fact back to a specific retrieved passage', 'To rank the passages by length', 'They are required by the language model API'],
+        correct: 1,
+        explanation: 'Citations link claims to the exact retrieved passages, making the answer verifiable and trustworthy.' },
+      { question: 'Which problem does RAG solve that a frozen LLM alone cannot?',
+        options: ['Answering with fresh or private knowledge not seen during training', 'Running faster than any other model', 'Eliminating the need for a prompt', 'Translating between programming languages'],
+        correct: 0,
+        explanation: 'RAG retrieves from an external corpus at query time, so it can use up-to-date or private documents the model never trained on.' }
+    ]);
+  </script>
+</body>
+</html>

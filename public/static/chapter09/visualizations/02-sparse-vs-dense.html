@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 · Sparse vs Dense Retrieval — CS313x</title>
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="../styles/student.css">
+  <style>
+    .query-pill {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.75rem 1rem; margin-bottom: 1rem;
+      background: rgba(108, 92, 231, 0.08);
+      border: 1px solid rgba(108, 92, 231, 0.25);
+      border-radius: var(--radius-md);
+    }
+    .query-pill .q-icon { font-size: 1.1rem; }
+    .query-pill .q-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+    .query-pill .q-text { font-weight: 800; color: var(--accent-violet); font-size: 1.05rem; }
+
+    .doc-card {
+      padding: 0.85rem 1rem; margin-bottom: 0.7rem;
+      background: var(--bg-card); border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md); transition: var(--transition);
+    }
+    .doc-card .doc-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .doc-card .doc-id {
+      width: 26px; height: 26px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; font-size: 0.72rem; font-weight: 700;
+      background: rgba(0, 206, 201, 0.15); color: var(--accent-teal);
+    }
+    .doc-card .doc-rank { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+    .doc-card .doc-text { font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary); }
+    .doc-card .doc-score {
+      margin-left: auto; font-weight: 800; font-size: 0.95rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .doc-card.top { border-color: var(--accent-violet); box-shadow: 0 0 16px rgba(108, 92, 231, 0.18); }
+    .doc-card.miss { opacity: 0.62; }
+
+    .tok { padding: 0.05rem 0.25rem; border-radius: 4px; transition: var(--transition); }
+    .tok.match-lex { background: rgba(0, 184, 148, 0.22); color: var(--success); font-weight: 700; }
+    .tok.synonym { background: rgba(253, 121, 168, 0.20); color: var(--accent-pink); font-weight: 700; text-decoration: underline dotted; }
+
+    .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 820px) { .panel-grid { grid-template-columns: 1fr; } }
+    .panel-tag {
+      display: inline-block; font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 0.2rem 0.55rem; border-radius: 100px; margin-left: 0.5rem;
+    }
+    .panel-tag.lex { background: rgba(0, 184, 148, 0.15); color: var(--success); }
+    .panel-tag.sem { background: rgba(108, 92, 231, 0.15); color: var(--accent-violet); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; }
+    .legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+  <nav class="navbar">
+    <a href="../index.html" class="navbar-brand">
+      <div class="brand-icon">IR</div>
+      <div class="brand-text">CS313x · <span>Chapter 9</span></div>
+    </a>
+    <a href="../index.html" class="nav-back">← Back to Hub</a>
+  </nav>
+
+  <div class="page-container">
+    <header class="page-header">
+      <div class="badge">Visualization 02 · Intermediate</div>
+      <h1>Sparse vs Dense Retrieval</h1>
+      <p>The same query, two scoring engines. <strong>Sparse</strong> matches exact terms (BM25-style); <strong>Dense</strong> compares meaning via embedding cosine similarity. Watch how a synonym breaks one but not the other.</p>
+    </header>
+
+    <div class="challenge-banner">
+      <div class="challenge-icon">💡</div>
+      <div class="challenge-text"><strong>Try This:</strong> Pick the query <strong>"automobile"</strong>. The sparse engine scores the "car" document <strong>zero</strong> (no shared word!), but the dense engine ranks it #1. Switch the ranking toggle to see the order flip.</div>
+    </div>
+
+    <div class="viz-container two-col">
+      <!-- LEFT: controls + corpus -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">Query</div>
+        <div class="query-pill">
+          <span class="q-icon">🔍</span>
+          <div>
+            <div class="q-label">User query</div>
+            <div class="q-text" id="q-text">automobile</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-row" style="flex-wrap:wrap; gap:0.4rem;">
+            <button class="btn btn-sm btn-primary" onclick="setQuery(0)" id="qb0">automobile</button>
+            <button class="btn btn-sm" onclick="setQuery(1)" id="qb1">happy puppy</button>
+            <button class="btn btn-sm" onclick="setQuery(2)" id="qb2">stock market</button>
+          </div>
+        </div>
+
+        <div class="viz-section-title" style="margin-top:1.25rem;">Rank documents by</div>
+        <div class="toggle-group" style="margin-bottom:1rem;">
+          <button class="toggle-opt active" id="mode-sparse" onclick="setMode('sparse')">Sparse (BM25)</button>
+          <button class="toggle-opt" id="mode-dense" onclick="setMode('dense')">Dense (cosine)</button>
+        </div>
+
+        <div class="viz-section-title">Corpus (ranked)</div>
+        <div id="corpus"></div>
+
+        <div class="legend">
+          <span><i class="swatch" style="background:rgba(0,184,148,0.5)"></i> exact term match</span>
+          <span><i class="swatch" style="background:rgba(253,121,168,0.5)"></i> synonym (dense only)</span>
+        </div>
+      </div>
+
+      <!-- RIGHT: side-by-side scoring -->
+      <div class="glass-card no-hover">
+        <div class="viz-section-title">How each engine scores <span id="active-doc-name" style="color:var(--accent-teal)">the top doc</span></div>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:-0.4rem 0 0.9rem;">Click any document on the left to inspect it here.</p>
+
+        <div class="panel-grid">
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">Sparse <span class="panel-tag lex">lexical</span></div>
+            <div class="metric-box" style="margin:0.6rem 0;">
+              <div class="metric-value" id="sparse-score">0.00</div>
+              <div class="metric-label">BM25-style score</div>
+            </div>
+            <div class="formula-box" style="font-size:0.78rem;">overlap = shared terms / |query|</div>
+            <div class="step-log" id="sparse-trace" style="max-height:180px;"></div>
+          </div>
+
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">Dense <span class="panel-tag sem">semantic</span></div>
+            <div class="metric-box" style="margin:0.6rem 0;">
+              <div class="metric-value" id="dense-score">0.00</div>
+              <div class="metric-label">cosine similarity</div>
+            </div>
+            <div class="formula-box" style="font-size:0.78rem;">cos(q,d) = q·d / (‖q‖‖d‖)</div>
+            <div class="step-log" id="dense-trace" style="max-height:180px;"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div class="viz-section-title">Key Insight</div>
+          <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.7;">
+            Sparse retrieval needs the <strong style="color:var(--success)">exact word</strong> to appear — fast, interpretable, but blind to synonyms (the <em>vocabulary mismatch</em> problem). Dense retrieval maps text into a vector space where <strong style="color:var(--accent-violet)">meaning is geometry</strong>, so "car" sits near "automobile" even with no shared letters. Hybrid systems combine both.
+          </p>
+        </div>
+
+        <div id="quiz-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/shared.js"></script>
+  <script src="../js/student.js"></script>
+  <script>
+    // ── Tiny hand-built "embedding" space (3 semantic axes) ───────────
+    // axes: [ vehicle/transport , animal/pet-affection , finance/money ]
+    // Each term gets a small preset vector. Synonyms point the same way.
+    const EMB = {
+      automobile: [0.95, 0.05, 0.05],
+      car:        [0.93, 0.04, 0.08],
+      vehicle:    [0.90, 0.03, 0.10],
+      sedan:      [0.88, 0.02, 0.06],
+      engine:     [0.70, 0.05, 0.10],
+      road:       [0.55, 0.05, 0.05],
+
+      puppy:      [0.05, 0.94, 0.05],
+      dog:        [0.06, 0.92, 0.04],
+      canine:     [0.04, 0.90, 0.03],
+      happy:      [0.05, 0.60, 0.10],
+      joyful:     [0.04, 0.58, 0.08],
+      pet:        [0.05, 0.80, 0.05],
+
+      stock:      [0.05, 0.04, 0.93],
+      market:     [0.08, 0.05, 0.85],
+      shares:     [0.04, 0.03, 0.91],
+      equity:     [0.05, 0.04, 0.88],
+      finance:    [0.06, 0.05, 0.84],
+      trading:    [0.05, 0.04, 0.86],
+    };
+
+    // ── Queries (each: terms + which doc is the "synonym trap") ──────
+    const QUERIES = [
+      { text: 'automobile', terms: ['automobile'] },
+      { text: 'happy puppy', terms: ['happy', 'puppy'] },
+      { text: 'stock market', terms: ['stock', 'market'] },
+    ];
+
+    // ── Documents (tokenized) ────────────────────────────────────────
+    const DOCS = [
+      { id: 'D1', tokens: ['the', 'red', 'car', 'has', 'a', 'powerful', 'engine'] },
+      { id: 'D2', tokens: ['i', 'sold', 'my', 'automobile', 'on', 'the', 'market'] },
+      { id: 'D3', tokens: ['a', 'joyful', 'dog', 'is', 'a', 'happy', 'pet'] },
+      { id: 'D4', tokens: ['traders', 'watch', 'the', 'stock', 'and', 'shares'] },
+      { id: 'D5', tokens: ['my', 'puppy', 'loves', 'a', 'ride', 'in', 'the', 'vehicle'] },
+    ];
+
+    let qIdx = 0;
+    let rankMode = 'sparse';
+    let inspectId = null;
+
+    // ── Vector math ──────────────────────────────────────────────────
+    function avgVec(terms) {
+      const v = [0, 0, 0];
+      let n = 0;
+      terms.forEach(t => { if (EMB[t]) { v[0]+=EMB[t][0]; v[1]+=EMB[t][1]; v[2]+=EMB[t][2]; n++; } });
+      if (n) { v[0]/=n; v[1]/=n; v[2]/=n; }
+      return v;
+    }
+    function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+    function norm(a) { return Math.sqrt(dot(a, a)) || 1e-9; }
+    function cosine(a, b) { return dot(a, b) / (norm(a) * norm(b)); }
+
+    // ── Scoring ──────────────────────────────────────────────────────
+    function sparseScore(qTerms, doc) {
+      const docSet = new Set(doc.tokens);
+      const matched = qTerms.filter(t => docSet.has(t));
+      return { score: matched.length / qTerms.length, matched };
+    }
+    function denseScore(qTerms, doc) {
+      const qv = avgVec(qTerms);
+      // doc vector = average of its content-word embeddings (skip stopwords w/o emb)
+      const contentToks = doc.tokens.filter(t => EMB[t]);
+      const dv = avgVec(contentToks);
+      return { score: Math.max(0, cosine(qv, dv)), qv, dv, contentToks };
+    }
+
+    // ── Render ───────────────────────────────────────────────────────
+    function render() {
+      const q = QUERIES[qIdx];
+      document.getElementById('q-text').textContent = q.text;
+
+      // score every doc
+      const scored = DOCS.map(doc => {
+        const sp = sparseScore(q.terms, doc);
+        const de = denseScore(q.terms, doc);
+        return { doc, sp, de };
+      });
+
+      // rank by active mode
+      scored.sort((a, b) => rankMode === 'sparse'
+        ? b.sp.score - a.sp.score
+        : b.de.score - a.de.score);
+
+      // default inspection = current top doc
+      if (!inspectId || !scored.find(s => s.doc.id === inspectId)) {
+        inspectId = scored[0].doc.id;
+      }
+
+      // corpus list
+      const corpus = document.getElementById('corpus');
+      corpus.innerHTML = scored.map((s, i) => {
+        const activeScore = rankMode === 'sparse' ? s.sp.score : s.de.score;
+        const isMiss = rankMode === 'sparse' && s.sp.score === 0;
+        const scoreColor = activeScore === 0 ? 'var(--error)'
+          : activeScore >= 0.66 ? 'var(--success)' : 'var(--accent-teal)';
+        // token highlighting
+        const html = s.doc.tokens.map(tok => {
+          if (s.sp.matched.includes(tok)) return `<span class="tok match-lex">${tok}</span>`;
+          // synonym = content word that is semantically close to query but NOT a lexical match
+          if (EMB[tok] && !q.terms.includes(tok)) {
+            const sim = cosine(avgVec(q.terms), EMB[tok]);
+            if (sim >= 0.7) return `<span class="tok synonym">${tok}</span>`;
+          }
+          return `<span class="tok">${tok}</span>`;
+        }).join(' ');
+
+        return `<div class="doc-card ${i === 0 ? 'top' : ''} ${isMiss ? 'miss' : ''}"
+                     onclick="inspect('${s.doc.id}')" style="cursor:pointer;">
+          <div class="doc-head">
+            <span class="doc-id">${s.doc.id}</span>
+            <span class="doc-rank">#${i + 1}</span>
+            <span class="doc-score" style="color:${scoreColor}">${activeScore.toFixed(2)}</span>
+          </div>
+          <div class="doc-text">${html}</div>
+        </div>`;
+      }).join('');
+
+      renderInspector(q, scored.find(s => s.doc.id === inspectId));
+    }
+
+    function renderInspector(q, entry) {
+      if (!entry) return;
+      const { doc, sp, de } = entry;
+      document.getElementById('active-doc-name').textContent = doc.id;
+
+      document.getElementById('sparse-score').textContent = sp.score.toFixed(2);
+      document.getElementById('dense-score').textContent = de.score.toFixed(2);
+
+      // sparse trace
+      const sparseT = document.getElementById('sparse-trace');
+      let st = `<div class="step-entry">Query terms: <span class="step-highlight">${q.terms.join(', ')}</span></div>`;
+      if (sp.matched.length) {
+        st += `<div class="step-entry">Exact matches: <span class="step-value">${sp.matched.join(', ')}</span></div>`;
+      } else {
+        st += `<div class="step-entry" style="color:var(--error)">No shared terms — vocabulary mismatch!</div>`;
+      }
+      st += `<div class="step-entry">${sp.matched.length} / ${q.terms.length} terms = <span class="step-value">${sp.score.toFixed(2)}</span></div>`;
+      sparseT.innerHTML = st;
+
+      // dense trace
+      const denseT = document.getElementById('dense-trace');
+      const qv = de.qv, dv = de.dv;
+      let dt = `<div class="step-entry">q⃗ = [${qv.map(x=>x.toFixed(2)).join(', ')}]</div>`;
+      dt += `<div class="step-entry">d⃗ = [${dv.map(x=>x.toFixed(2)).join(', ')}]</div>`;
+      dt += `<div class="step-entry">q·d = <span class="step-highlight">${dot(qv,dv).toFixed(3)}</span>, ‖q‖‖d‖ = ${(norm(qv)*norm(dv)).toFixed(3)}</div>`;
+      dt += `<div class="step-entry">cosine = <span class="step-value">${de.score.toFixed(2)}</span></div>`;
+      if (sp.score === 0 && de.score >= 0.6) {
+        dt += `<div class="step-entry" style="color:var(--accent-pink)">Sparse missed it, dense caught the meaning! 🎯</div>`;
+      }
+      denseT.innerHTML = dt;
+    }
+
+    // ── Interaction ──────────────────────────────────────────────────
+    function setQuery(i) {
+      qIdx = i;
+      inspectId = null;
+      [0,1,2].forEach(k => document.getElementById('qb'+k).classList.toggle('btn-primary', k === i));
+      render();
+    }
+    function setMode(m) {
+      rankMode = m;
+      document.getElementById('mode-sparse').classList.toggle('active', m === 'sparse');
+      document.getElementById('mode-dense').classList.toggle('active', m === 'dense');
+      inspectId = null; // re-anchor to new top doc
+      render();
+    }
+    function inspect(id) {
+      inspectId = id;
+      render();
+    }
+
+    render();
+
+    showTutorial({ id: 'c9v2', icon: '🧭', title: 'Sparse vs Dense Retrieval',
+      subtitle: 'Two ways to match a query to documents.',
+      steps: [
+        'Pick a <strong>query</strong> — terms in docs get highlighted',
+        '<strong style="color:var(--success)">Green</strong> = exact lexical match (sparse sees it). <strong style="color:var(--accent-pink)">Pink</strong> = a synonym only dense can match',
+        'Toggle <strong>Sparse vs Dense</strong> to re-rank the corpus by each engine',
+        'Click a document to compare its BM25 overlap vs embedding cosine, side by side'
+      ]
+    });
+
+    const quiz = new QuizEngine('quiz-container', [
+      {
+        question: 'A query for "automobile" returns 0.0 from the sparse engine on a doc that says "car". Why?',
+        options: [
+          'The doc is not relevant',
+          'Sparse matching needs the exact term to appear; "car" ≠ "automobile" lexically',
+          'BM25 ignores nouns',
+          'The cosine similarity was too low'
+        ],
+        correct: 1,
+        explanation: 'Sparse (lexical / BM25) retrieval scores on exact term overlap. "car" and "automobile" share no characters, so there is zero lexical match — the vocabulary mismatch problem.'
+      },
+      {
+        question: 'Which approach can match a query to a document with NO shared words?',
+        options: ['Sparse / BM25', 'Boolean retrieval', 'Dense / embedding retrieval', 'Exact phrase search'],
+        correct: 2,
+        explanation: 'Dense retrieval encodes meaning into vectors, so semantically similar terms (car ↔ automobile) end up close together and score high even with zero word overlap.'
+      },
+      {
+        question: 'In dense retrieval, how is the similarity between a query and a document typically measured?',
+        options: ['Number of shared terms', 'Cosine similarity between embedding vectors', 'Edit distance', 'Document length'],
+        correct: 1,
+        explanation: 'Dense retrieval represents query and document as vectors and compares them with cosine similarity: cos(q,d) = q·d / (‖q‖‖d‖).'
+      },
+      {
+        question: 'What is a key practical ADVANTAGE that sparse (BM25) retrieval keeps over dense retrieval?',
+        options: [
+          'It always handles synonyms better',
+          'It is exact, fast over an inverted index, and interpretable (you can see which terms matched)',
+          'It needs no vocabulary',
+          'It understands meaning, not words'
+        ],
+        correct: 1,
+        explanation: 'Sparse methods are transparent and efficient: exact term matches over an inverted index are fast and easy to explain. That is why production systems often use hybrid sparse + dense retrieval.'
+      }
+    ]);
+  </script>
+</body>
+</html>
