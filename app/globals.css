@@ -174,9 +174,9 @@
 }
 
 /* Difficulty badges */
-[data-theme="light"] .diff-beginner { background: rgba(0, 184, 148, 0.1); }
-[data-theme="light"] .diff-intermediate { background: rgba(253, 203, 110, 0.15); }
-[data-theme="light"] .diff-advanced { background: rgba(253, 121, 168, 0.1); }
+[data-theme="light"] .diff-beginner, [data-theme="light"] .diff-easy { background: rgba(0, 184, 148, 0.1); }
+[data-theme="light"] .diff-intermediate, [data-theme="light"] .diff-medium { background: rgba(253, 203, 110, 0.15); }
+[data-theme="light"] .diff-advanced, [data-theme="light"] .diff-hard { background: rgba(253, 121, 168, 0.1); }
 
 /* Announcement bar stays vibrant */
 [data-theme="light"] .announcement-bar {
@@ -510,9 +510,9 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
   margin-top: 0.5rem;
 }
-.diff-beginner { background: rgba(0,184,148,0.12); color: var(--success); }
-.diff-intermediate { background: rgba(253,203,110,0.12); color: var(--warning); }
-.diff-advanced { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
+.diff-beginner, .diff-easy { background: rgba(0,184,148,0.12); color: var(--success); }
+.diff-intermediate, .diff-medium { background: rgba(253,203,110,0.12); color: var(--warning); }
+.diff-advanced, .diff-hard { background: rgba(253,121,168,0.1); color: var(--accent-pink); }
 
 /* ── Progress Checkmarks ──────────────────────── */
 .hub-card .card-check {
